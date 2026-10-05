@@ -25,7 +25,7 @@ jobs:
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
           dotnet publish Heroes.csproj -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:PublishSingleFile=false `
             -p:DebugType=None -p:DebugSymbols=false -p:Version=$version `
             -o publish/game
 
@@ -50,6 +50,92 @@ jobs:
           Get-ChildItem publish/game -File -Recurse -Include *.dylib,*.so,*.pdb,*.xml | Remove-Item -Force
           Compress-Archive -Path publish/game/* -DestinationPath publish/Soulfract-win-x64.zip -CompressionLevel Optimal
 
+      - name: Create incremental game update
+        id: delta
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{
+            Accept = 'application/vnd.github+json'
+            Authorization = "Bearer $env:GH_TOKEN"
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          $releases = Invoke-RestMethod -Uri 'https://api.github.com/repos/Mateo-Llr/Soulfract/releases?per_page=100' -Headers $headers
+          $previousRelease = $releases |
+            Where-Object {
+              $releaseTag = $_.tag_name
+              $fullArchiveAsset = $_.assets | Where-Object name -eq 'Soulfract-win-x64.zip' | Select-Object -First 1
+              $releaseTag -ne $env:GITHUB_REF_NAME -and $null -ne $fullArchiveAsset
+            } |
+            Sort-Object published_at -Descending |
+            Select-Object -First 1
+
+          if ($null -eq $previousRelease) {
+            "file=" >> $env:GITHUB_OUTPUT
+            Write-Host 'No previous full game release is available; skipping the delta package.'
+            exit 0
+          }
+
+          $previousAsset = $previousRelease.assets | Where-Object name -eq 'Soulfract-win-x64.zip' | Select-Object -First 1
+          $previousArchive = Join-Path $env:RUNNER_TEMP 'Soulfract-previous.zip'
+          $previousDirectory = Join-Path $env:RUNNER_TEMP 'Soulfract-previous'
+          $deltaDirectory = Join-Path $env:RUNNER_TEMP 'Soulfract-delta'
+          $deltaAssetName = "Soulfract-win-x64-delta-from-$($previousRelease.tag_name).zip"
+          $deltaArchive = Join-Path (Get-Location) "publish/$deltaAssetName"
+
+          Invoke-WebRequest -Uri $previousAsset.browser_download_url -OutFile $previousArchive
+          Expand-Archive -LiteralPath $previousArchive -DestinationPath $previousDirectory
+          New-Item -ItemType Directory -Path $deltaDirectory -Force | Out-Null
+
+          $deletedFiles = [System.Collections.Generic.List[string]]::new()
+          $previousFiles = @(Get-ChildItem -LiteralPath $previousDirectory -File -Recurse)
+          $currentFiles = @(Get-ChildItem -LiteralPath 'publish/game' -File -Recurse)
+          $currentRelativePaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+          foreach ($currentFile in $currentFiles) {
+            $relativePath = [System.IO.Path]::GetRelativePath((Resolve-Path 'publish/game'), $currentFile.FullName)
+            [void]$currentRelativePaths.Add($relativePath)
+            $oldFile = Join-Path $previousDirectory $relativePath
+            $hasChanged = -not (Test-Path -LiteralPath $oldFile)
+            if (-not $hasChanged) {
+              $oldInfo = Get-Item -LiteralPath $oldFile
+              $hasChanged = $oldInfo.Length -ne $currentFile.Length
+              if (-not $hasChanged) {
+                $hasChanged = (Get-FileHash -LiteralPath $oldFile -Algorithm SHA256).Hash -ne
+                  (Get-FileHash -LiteralPath $currentFile.FullName -Algorithm SHA256).Hash
+              }
+            }
+
+            if ($hasChanged) {
+              $deltaFile = Join-Path $deltaDirectory $relativePath
+              $deltaParent = Split-Path -Parent $deltaFile
+              New-Item -ItemType Directory -Path $deltaParent -Force | Out-Null
+              Copy-Item -LiteralPath $currentFile.FullName -Destination $deltaFile
+            }
+          }
+
+          foreach ($previousFile in $previousFiles) {
+            $relativePath = [System.IO.Path]::GetRelativePath((Resolve-Path $previousDirectory), $previousFile.FullName)
+            if (-not $currentRelativePaths.Contains($relativePath)) {
+              $deletedFiles.Add($relativePath.Replace('\', '/'))
+            }
+          }
+
+          $manifest = @{
+            baseVersion = $previousRelease.tag_name
+            deletedFiles = @($deletedFiles)
+          } | ConvertTo-Json -Depth 4
+          [System.IO.File]::WriteAllText(
+            (Join-Path $deltaDirectory 'soulfract-delta-manifest.json'),
+            $manifest,
+            [System.Text.UTF8Encoding]::new($false))
+
+          Compress-Archive -Path (Join-Path $deltaDirectory '*') -DestinationPath $deltaArchive -CompressionLevel Optimal
+          "file=$deltaArchive" >> $env:GITHUB_OUTPUT
+          Write-Host "Created delta from $($previousRelease.tag_name): $([math]::Round((Get-Item $deltaArchive).Length / 1MB, 2)) MiB"
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -58,3 +144,10 @@ jobs:
             publish/Soulfract-win-x64.zip
             publish/launcher/SoulfractLauncher.exe
             publish/bootstrapper/SoulfractBootstrapper.exe
+
+      - name: Upload incremental game update
+        if: steps.delta.outputs.file != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: gh release upload $env:GITHUB_REF_NAME "${{ steps.delta.outputs.file }}" --clobber

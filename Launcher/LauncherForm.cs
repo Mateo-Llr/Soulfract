@@ -12,6 +12,8 @@ internal sealed class LauncherForm : Form
     private const string ReleaseApiUrl = "https://api.github.com/repos/Mateo-Llr/Soulfract/releases/latest";
     private const string ChangelogUrlTemplate = "https://raw.githubusercontent.com/Mateo-Llr/Soulfract/{0}/Data/changelog.md";
     private const string GameArchiveName = "Soulfract-win-x64.zip";
+    private const string DeltaArchivePrefix = "Soulfract-win-x64-delta-from-";
+    private const string DeltaManifestName = "soulfract-delta-manifest.json";
     private const string GameExecutableName = "Soulfract.exe";
     private const string GameVersionFileName = ".soulfract-version";
     private const int CardRadius = 18;
@@ -259,8 +261,8 @@ internal sealed class LauncherForm : Form
             JsonElement root = release.RootElement;
             _latestVersion = root.GetProperty("tag_name").GetString()
                 ?? throw new InvalidDataException("La release GitHub n'a pas de numéro de version.");
-            string? downloadUrl = FindGameArchiveUrl(root);
-            if (downloadUrl == null)
+            GameArchiveAsset? fullArchive = FindGameArchive(root, GameArchiveName);
+            if (fullArchive == null)
                 throw new InvalidDataException($"La release {_latestVersion} ne contient pas {GameArchiveName}.");
 
             _versionLabel.Text = _latestVersion;
@@ -287,9 +289,16 @@ internal sealed class LauncherForm : Form
                 return;
             }
 
-            UpdateStatus(hasInstalledGame
-                ? $"Téléchargement de la mise à jour {_latestVersion}..."
-                : $"Téléchargement de Soulfract {_latestVersion}...");
+            GameArchiveAsset? deltaArchive = hasInstalledGame && !string.IsNullOrWhiteSpace(installedVersion)
+                ? FindGameArchive(root, $"{DeltaArchivePrefix}{installedVersion}.zip")
+                : null;
+            bool useDelta = deltaArchive != null;
+            GameArchiveAsset selectedArchive = deltaArchive ?? fullArchive.Value;
+            UpdateStatus(useDelta
+                ? $"Téléchargement des fichiers modifiés pour {_latestVersion}..."
+                : hasInstalledGame
+                    ? $"Téléchargement complet de la mise à jour {_latestVersion}..."
+                    : $"Téléchargement de Soulfract {_latestVersion}...");
             var progress = new Progress<(long Downloaded, long? Total)>(value =>
             {
                 if (value.Total is > 0)
@@ -299,16 +308,37 @@ internal sealed class LauncherForm : Form
                     UpdateStatus($"Téléchargement... {value.Downloaded / 1_048_576} / {value.Total.Value / 1_048_576} Mo");
                 }
             });
-            await DownloadArchiveAsync(downloadUrl, archivePath, progress);
+            await DownloadArchiveAsync(selectedArchive, archivePath, progress);
 
             UpdateStatus("Vérification de l'archive...");
             Directory.CreateDirectory(extractionDirectory);
             ExtractArchiveSafely(archivePath, extractionDirectory);
-            if (!File.Exists(Path.Combine(extractionDirectory, GameExecutableName)))
-                throw new InvalidDataException($"L'archive téléchargée ne contient pas {GameExecutableName}.");
 
-            UpdateStatus("Installation de la mise à jour...");
-            CopyGameFiles(extractionDirectory, _installDirectory, preservePlayerData: hasInstalledGame);
+            if (useDelta)
+            {
+                string manifestPath = Path.Combine(extractionDirectory, DeltaManifestName);
+                if (!File.Exists(manifestPath))
+                    throw new InvalidDataException("L'archive différentielle ne contient pas son manifeste.");
+
+                DeltaManifest manifest = JsonSerializer.Deserialize<DeltaManifest>(await File.ReadAllTextAsync(manifestPath))
+                    ?? throw new InvalidDataException("Le manifeste de mise à jour est invalide.");
+                if (!string.Equals(manifest.BaseVersion, installedVersion, StringComparison.Ordinal)
+                    || manifest.DeletedFiles == null)
+                    throw new InvalidDataException("La mise à jour différentielle ne correspond pas à la version installée.");
+
+                UpdateStatus("Installation des fichiers modifiés...");
+                CopyGameFiles(extractionDirectory, _installDirectory, preservePlayerData: true, skipDeltaManifest: true);
+                DeleteObsoleteGameFiles(manifest.DeletedFiles);
+            }
+            else
+            {
+                if (!File.Exists(Path.Combine(extractionDirectory, GameExecutableName)))
+                    throw new InvalidDataException($"L'archive téléchargée ne contient pas {GameExecutableName}.");
+
+                UpdateStatus("Installation complète du jeu...");
+                CopyGameFiles(extractionDirectory, _installDirectory, preservePlayerData: hasInstalledGame);
+            }
+
             string temporaryVersionPath = versionPath + ".tmp";
             await File.WriteAllTextAsync(temporaryVersionPath, _latestVersion);
             File.Move(temporaryVersionPath, versionPath, overwrite: true);
@@ -483,44 +513,121 @@ internal sealed class LauncherForm : Form
         return await JsonDocument.ParseAsync(stream);
     }
 
-    private static string? FindGameArchiveUrl(JsonElement release)
+    private static GameArchiveAsset? FindGameArchive(JsonElement release, string assetName)
     {
         if (!release.TryGetProperty("assets", out JsonElement assets))
             return null;
 
         foreach (JsonElement asset in assets.EnumerateArray())
         {
-            if (asset.GetProperty("name").GetString() == GameArchiveName)
-            {
-                string? url = asset.GetProperty("browser_download_url").GetString();
-                if (Uri.TryCreate(url, UriKind.Absolute, out Uri? parsedUrl)
-                    && parsedUrl.Scheme == Uri.UriSchemeHttps)
-                    return parsedUrl.AbsoluteUri;
-            }
+            if (!string.Equals(asset.GetProperty("name").GetString(), assetName, StringComparison.Ordinal))
+                continue;
+
+            string? url = asset.GetProperty("browser_download_url").GetString();
+            string? digest = asset.TryGetProperty("digest", out JsonElement digestElement)
+                ? digestElement.GetString()
+                : null;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? parsedUrl)
+                || parsedUrl.Scheme != Uri.UriSchemeHttps)
+                return null;
+
+            string? sha256 = digest is { Length: 71 }
+                && digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                && digest[7..].All(Uri.IsHexDigit)
+                    ? digest[7..]
+                    : null;
+            return new GameArchiveAsset(parsedUrl.AbsoluteUri, sha256);
         }
 
         return null;
     }
 
+    private readonly record struct GameArchiveAsset(string DownloadUrl, string? Sha256);
+
+    private sealed class DeltaManifest
+    {
+        public string BaseVersion { get; set; } = "";
+        public List<string> DeletedFiles { get; set; } = new();
+    }
+
     private static async Task DownloadArchiveAsync(
-        string url,
+        GameArchiveAsset archive,
         string destination,
         IProgress<(long Downloaded, long? Total)> progress)
     {
-        using HttpResponseMessage response = await HttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        using HttpResponseMessage response = await HttpClient.GetAsync(archive.DownloadUrl, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
         await using Stream input = await response.Content.ReadAsStreamAsync();
-        await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        byte[] buffer = new byte[81920];
-        long downloaded = 0;
-        int bytesRead;
-        while ((bytesRead = await input.ReadAsync(buffer)) > 0)
+        await using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         {
-            await output.WriteAsync(buffer.AsMemory(0, bytesRead));
-            downloaded += bytesRead;
-            progress.Report((downloaded, response.Content.Headers.ContentLength));
+            byte[] buffer = new byte[81920];
+            long downloaded = 0;
+            int bytesRead;
+            while ((bytesRead = await input.ReadAsync(buffer)) > 0)
+            {
+                await output.WriteAsync(buffer.AsMemory(0, bytesRead));
+                downloaded += bytesRead;
+                progress.Report((downloaded, response.Content.Headers.ContentLength));
+            }
         }
+
+        if (archive.Sha256 != null)
+        {
+            await using FileStream downloadedArchive = File.OpenRead(destination);
+            byte[] actualHash = await System.Security.Cryptography.SHA256.HashDataAsync(downloadedArchive);
+            string actualSha256 = Convert.ToHexString(actualHash);
+            if (!string.Equals(actualSha256, archive.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("La vérification d'intégrité de l'archive téléchargée a échoué.");
+        }
+    }
+
+    private static void CopyGameFiles(
+        string sourceDirectory,
+        string destinationDirectory,
+        bool preservePlayerData,
+        bool skipDeltaManifest = false)
+    {
+        foreach (string sourcePath in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            string relativePath = Path.GetRelativePath(sourceDirectory, sourcePath);
+            if ((skipDeltaManifest && string.Equals(relativePath, DeltaManifestName, StringComparison.OrdinalIgnoreCase))
+                || (preservePlayerData && IsPlayerData(relativePath)))
+                continue;
+
+            string destinationPath = GetSafeGamePath(destinationDirectory, relativePath);
+            string? parentDirectory = Path.GetDirectoryName(destinationPath);
+            if (parentDirectory != null)
+                Directory.CreateDirectory(parentDirectory);
+            File.Copy(sourcePath, destinationPath, overwrite: true);
+        }
+    }
+
+    private void DeleteObsoleteGameFiles(IEnumerable<string> relativePaths)
+    {
+        foreach (string relativePath in relativePaths)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath) || IsPlayerData(relativePath))
+                continue;
+
+            string targetPath = GetSafeGamePath(_installDirectory, relativePath);
+            if (File.Exists(targetPath))
+                File.Delete(targetPath);
+        }
+    }
+
+    private static string GetSafeGamePath(string rootDirectory, string relativePath)
+    {
+        if (Path.IsPathRooted(relativePath))
+            throw new InvalidDataException("Le manifeste contient un chemin de fichier invalide.");
+
+        string normalizedPath = relativePath.Replace('/', Path.DirectorySeparatorChar);
+        string root = Path.GetFullPath(rootDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string fullPath = Path.GetFullPath(Path.Combine(root, normalizedPath));
+        if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Le manifeste contient un chemin de fichier en dehors du dossier du jeu.");
+
+        return fullPath;
     }
 
     private static void ExtractArchiveSafely(string archivePath, string destinationDirectory)
@@ -547,22 +654,6 @@ internal sealed class LauncherForm : Form
             using Stream input = entry.Open();
             using var output = new FileStream(destinationPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
             input.CopyTo(output);
-        }
-    }
-
-    private static void CopyGameFiles(string sourceDirectory, string destinationDirectory, bool preservePlayerData)
-    {
-        foreach (string sourcePath in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
-        {
-            string relativePath = Path.GetRelativePath(sourceDirectory, sourcePath);
-            if (preservePlayerData && IsPlayerData(relativePath))
-                continue;
-
-            string destinationPath = Path.Combine(destinationDirectory, relativePath);
-            string? parentDirectory = Path.GetDirectoryName(destinationPath);
-            if (parentDirectory != null)
-                Directory.CreateDirectory(parentDirectory);
-            File.Copy(sourcePath, destinationPath, overwrite: true);
         }
     }
 
