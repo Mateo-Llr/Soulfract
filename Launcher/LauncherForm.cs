@@ -1,26 +1,39 @@
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
 using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace SoulfractLauncher;
 
 internal sealed class LauncherForm : Form
 {
     private const string ReleaseApiUrl = "https://api.github.com/repos/Mateo-Llr/Soulfract/releases/latest";
+    private const string ChangelogUrlTemplate = "https://raw.githubusercontent.com/Mateo-Llr/Soulfract/{0}/Data/changelog.md";
     private const string GameArchiveName = "Soulfract-win-x64.zip";
     private const string GameExecutableName = "Soulfract.exe";
-    private const string VersionFileName = ".soulfract-version";
+    private const string GameVersionFileName = ".soulfract-version";
+    private const int CardRadius = 18;
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
+    private static readonly Color BackgroundColor = Color.FromArgb(11, 15, 22);
+    private static readonly Color SurfaceColor = Color.FromArgb(20, 27, 37);
+    private static readonly Color ElevatedColor = Color.FromArgb(27, 36, 49);
+    private static readonly Color AccentColor = Color.FromArgb(225, 179, 94);
+    private static readonly Color PrimaryTextColor = Color.FromArgb(239, 240, 242);
+    private static readonly Color MutedTextColor = Color.FromArgb(151, 162, 177);
 
     private readonly string _installDirectory;
-    private readonly Label _statusLabel;
-    private readonly ProgressBar _progressBar;
-    private readonly Button _launchButton;
-    private readonly Button _retryButton;
-    private readonly Button _closeButton;
+    private readonly Label _versionLabel;
+    private Label _statusLabel = new();
+    private RichTextBox _changelogBox = new();
+    private ProgressBar _progressBar = new();
+    private Button _playButton = new();
+    private Button _checkUpdatesButton = new();
+    private Button _folderButton = new();
     private bool _isWorking;
+    private string? _latestVersion;
 
     public LauncherForm()
     {
@@ -31,55 +44,203 @@ internal sealed class LauncherForm : Form
 
         Text = "Soulfract";
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        ClientSize = new Size(440, 150);
-        Font = new Font("Segoe UI", 9F);
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
+        MinimizeBox = true;
+        MinimumSize = new Size(800, 600);
+        ClientSize = new Size(1120, 720);
+        BackColor = BackgroundColor;
+        ForeColor = PrimaryTextColor;
+        Font = new Font("Segoe UI", 10F);
 
-        _statusLabel = new Label
+        var root = new TableLayoutPanel
         {
-            AutoSize = false,
-            Location = new Point(20, 20),
-            Size = new Size(400, 40),
-            Text = "Préparation du lanceur..."
+            Dock = DockStyle.Fill,
+            BackColor = BackgroundColor,
+            ColumnCount = 1,
+            RowCount = 3,
+            Padding = new Padding(30, 16, 30, 16)
         };
-        _progressBar = new ProgressBar
-        {
-            Location = new Point(20, 65),
-            Size = new Size(400, 18),
-            Style = ProgressBarStyle.Marquee,
-            MarqueeAnimationSpeed = 25
-        };
-        _launchButton = new Button
-        {
-            Location = new Point(20, 105),
-            Size = new Size(130, 30),
-            Text = "Lancer le jeu",
-            Enabled = false
-        };
-        _retryButton = new Button
-        {
-            Location = new Point(290, 105),
-            Size = new Size(70, 30),
-            Text = "Réessayer",
-            Enabled = false
-        };
-        _closeButton = new Button
-        {
-            Location = new Point(370, 105),
-            Size = new Size(50, 30),
-            Text = "Quitter"
-        };
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        Controls.Add(root);
 
-        _launchButton.Click += (_, _) => LaunchInstalledGame();
-        _retryButton.Click += async (_, _) => await CheckAndLaunchAsync();
-        _closeButton.Click += (_, _) => Close();
-        Controls.AddRange([_statusLabel, _progressBar, _launchButton, _retryButton, _closeButton]);
-        Shown += async (_, _) => await CheckAndLaunchAsync();
+        var header = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
+        var brand = CreateLabel("SOULFRACT", 23, FontStyle.Bold, AccentColor);
+        brand.Location = new Point(2, 15);
+        brand.AutoSize = true;
+        var subtitle = CreateLabel("MONDE • AVENTURE • MULTIJOUEUR", 8.5F, FontStyle.Regular, MutedTextColor);
+        subtitle.Location = new Point(4, 48);
+        subtitle.AutoSize = true;
+        var versionCaption = CreateLabel("VERSION", 8.5F, FontStyle.Bold, MutedTextColor);
+        versionCaption.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        versionCaption.TextAlign = ContentAlignment.MiddleRight;
+        versionCaption.SetBounds(770, 12, 275, 18);
+        _versionLabel = CreateLabel("Vérification...", 11, FontStyle.Bold, PrimaryTextColor);
+        _versionLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        _versionLabel.TextAlign = ContentAlignment.MiddleRight;
+        _versionLabel.SetBounds(770, 31, 275, 24);
+        header.Controls.AddRange([brand, subtitle, versionCaption, _versionLabel]);
+        root.Controls.Add(header, 0, 0);
+
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = BackgroundColor,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(0, 12, 0, 12)
+        };
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 43));
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57));
+        root.Controls.Add(content, 0, 1);
+
+        var gameCard = CreateCard();
+        gameCard.Dock = DockStyle.Fill;
+        gameCard.Margin = new Padding(0, 0, 12, 0);
+        BuildGameCard(gameCard);
+        content.Controls.Add(gameCard, 0, 0);
+
+        var changelogCard = CreateCard();
+        changelogCard.Dock = DockStyle.Fill;
+        changelogCard.Margin = new Padding(12, 0, 0, 0);
+        BuildChangelogCard(changelogCard);
+        content.Controls.Add(changelogCard, 1, 0);
+
+        var footer = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
+        var footerLabel = CreateLabel("Soulfract  •  Le monde vous attend.", 9, FontStyle.Regular, MutedTextColor);
+        footerLabel.Dock = DockStyle.Left;
+        footerLabel.TextAlign = ContentAlignment.MiddleLeft;
+        var footerLink = CreateLinkLabel("GitHub", 9, "https://github.com/Mateo-Llr/Soulfract");
+        footerLink.Dock = DockStyle.Right;
+        footerLink.TextAlign = ContentAlignment.MiddleRight;
+        footer.Controls.AddRange([footerLabel, footerLink]);
+        root.Controls.Add(footer, 0, 2);
+
+        Shown += async (_, _) => await CheckForUpdatesAsync();
     }
 
-    private async Task CheckAndLaunchAsync()
+    private void BuildGameCard(Panel card)
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = SurfaceColor,
+            ColumnCount = 1,
+            RowCount = 7,
+            Padding = new Padding(30, 28, 30, 28)
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 102));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
+        card.Controls.Add(layout);
+
+        var eyebrow = CreateLabel("VOTRE PROCHAINE AVENTURE", 9, FontStyle.Bold, AccentColor);
+        eyebrow.Dock = DockStyle.Fill;
+        eyebrow.TextAlign = ContentAlignment.MiddleLeft;
+        layout.Controls.Add(eyebrow, 0, 0);
+
+        var title = CreateLabel("Explorez.\nConstruisez. Survivez.", 28, FontStyle.Bold, PrimaryTextColor);
+        title.Dock = DockStyle.Fill;
+        title.TextAlign = ContentAlignment.MiddleLeft;
+        layout.Controls.Add(title, 0, 1);
+
+        var description = CreateLabel("Un monde vivant à découvrir seul ou avec vos amis.", 11, FontStyle.Regular, MutedTextColor);
+        description.Dock = DockStyle.Fill;
+        description.TextAlign = ContentAlignment.MiddleLeft;
+        layout.Controls.Add(description, 0, 2);
+
+        _statusLabel = CreateLabel("Connexion à GitHub...", 10, FontStyle.Regular, MutedTextColor);
+        _statusLabel.Dock = DockStyle.Fill;
+        _statusLabel.TextAlign = ContentAlignment.BottomLeft;
+        _statusLabel.AutoEllipsis = true;
+        layout.Controls.Add(_statusLabel, 0, 3);
+
+        _progressBar = new ProgressBar
+        {
+            Dock = DockStyle.Fill,
+            Height = 8,
+            Style = ProgressBarStyle.Marquee,
+            MarqueeAnimationSpeed = 24,
+            Visible = true
+        };
+        layout.Controls.Add(_progressBar, 0, 4);
+
+        var buttonPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            BackColor = SurfaceColor,
+            Padding = new Padding(0, 10, 0, 0)
+        };
+        _playButton = CreateButton("JOUER", AccentColor, BackgroundColor, 190, 54);
+        _playButton.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+        _playButton.Enabled = false;
+        _playButton.Click += (_, _) => LaunchInstalledGame();
+        buttonPanel.Controls.Add(_playButton);
+
+        _checkUpdatesButton = CreateButton("Rechercher les mises à jour", ElevatedColor, PrimaryTextColor, 230, 38);
+        _checkUpdatesButton.Font = new Font("Segoe UI", 9.5F, FontStyle.Regular);
+        _checkUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync();
+        buttonPanel.Controls.Add(_checkUpdatesButton);
+        layout.Controls.Add(buttonPanel, 0, 5);
+
+        _folderButton = CreateButton("Ouvrir le dossier du jeu", SurfaceColor, MutedTextColor, 215, 32);
+        _folderButton.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+        _folderButton.Enabled = false;
+        _folderButton.Click += (_, _) => OpenGameFolder();
+        layout.Controls.Add(_folderButton, 0, 6);
+    }
+
+    private void BuildChangelogCard(Panel card)
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = SurfaceColor,
+            ColumnCount = 1,
+            RowCount = 3,
+            Padding = new Padding(26, 24, 26, 24)
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        card.Controls.Add(layout);
+
+        var title = CreateLabel("Quoi de neuf ?", 19, FontStyle.Bold, PrimaryTextColor);
+        title.Dock = DockStyle.Fill;
+        title.TextAlign = ContentAlignment.MiddleLeft;
+        layout.Controls.Add(title, 0, 0);
+
+        var hint = CreateLabel("Les dernières nouveautés de Soulfract", 9.5F, FontStyle.Regular, MutedTextColor);
+        hint.Dock = DockStyle.Fill;
+        hint.TextAlign = ContentAlignment.MiddleLeft;
+        layout.Controls.Add(hint, 0, 1);
+
+        _changelogBox = new RichTextBox
+        {
+            Dock = DockStyle.Fill,
+            ReadOnly = true,
+            BorderStyle = BorderStyle.None,
+            BackColor = SurfaceColor,
+            ForeColor = PrimaryTextColor,
+            Font = new Font("Segoe UI", 10F),
+            DetectUrls = false,
+            HideSelection = false,
+            ScrollBars = RichTextBoxScrollBars.Vertical,
+            WordWrap = true,
+            Text = "Chargement du journal des modifications..."
+        };
+        layout.Controls.Add(_changelogBox, 0, 2);
+    }
+
+    private async Task CheckForUpdatesAsync()
     {
         if (_isWorking)
             return;
@@ -96,44 +257,51 @@ internal sealed class LauncherForm : Form
 
             using JsonDocument release = await GetLatestReleaseAsync();
             JsonElement root = release.RootElement;
-            string tag = root.GetProperty("tag_name").GetString()
+            _latestVersion = root.GetProperty("tag_name").GetString()
                 ?? throw new InvalidDataException("La release GitHub n'a pas de numéro de version.");
             string? downloadUrl = FindGameArchiveUrl(root);
             if (downloadUrl == null)
-                throw new InvalidDataException($"La release {tag} ne contient pas {GameArchiveName}.");
+                throw new InvalidDataException($"La release {_latestVersion} ne contient pas {GameArchiveName}.");
 
-            string versionPath = Path.Combine(_installDirectory, VersionFileName);
+            _versionLabel.Text = _latestVersion;
+            await LoadChangelogAsync(_latestVersion, root);
+
+            string versionPath = Path.Combine(_installDirectory, GameVersionFileName);
             string? installedVersion = File.Exists(versionPath) ? File.ReadAllText(versionPath).Trim() : null;
             string gamePath = Path.Combine(_installDirectory, GameExecutableName);
             bool hasInstalledGame = File.Exists(gamePath);
 
-            if (hasInstalledGame && string.Equals(installedVersion, tag, StringComparison.Ordinal))
+            if (hasInstalledGame && string.Equals(installedVersion, _latestVersion, StringComparison.Ordinal))
             {
-                UpdateStatus($"Soulfract est déjà à jour ({tag}). Démarrage...");
-                LaunchInstalledGame();
+                UpdateStatus($"Version {_latestVersion} installée et à jour.");
+                _folderButton.Enabled = true;
+                SetIdleState(canPlay: true);
                 return;
             }
 
             if (hasInstalledGame && IsGameRunning())
             {
-                UpdateStatus("Fermez Soulfract avant d'installer la mise à jour.");
-                SetIdleState(canLaunch: true);
+                UpdateStatus("Fermez Soulfract pour installer la mise à jour.");
+                _folderButton.Enabled = true;
+                SetIdleState(canPlay: true);
                 return;
             }
 
-            UpdateStatus($"Téléchargement de Soulfract {tag}...");
+            UpdateStatus(hasInstalledGame
+                ? $"Téléchargement de la mise à jour {_latestVersion}..."
+                : $"Téléchargement de Soulfract {_latestVersion}...");
             var progress = new Progress<(long Downloaded, long? Total)>(value =>
             {
                 if (value.Total is > 0)
                 {
                     _progressBar.Style = ProgressBarStyle.Continuous;
                     _progressBar.Value = (int)Math.Clamp(value.Downloaded * 100 / value.Total.Value, 0, 100);
-                    UpdateStatus($"Téléchargement de Soulfract {tag}... {value.Downloaded / 1_048_576} / {value.Total.Value / 1_048_576} Mo");
+                    UpdateStatus($"Téléchargement... {value.Downloaded / 1_048_576} / {value.Total.Value / 1_048_576} Mo");
                 }
             });
             await DownloadArchiveAsync(downloadUrl, archivePath, progress);
 
-            UpdateStatus("Vérification des fichiers...");
+            UpdateStatus("Vérification de l'archive...");
             Directory.CreateDirectory(extractionDirectory);
             ExtractArchiveSafely(archivePath, extractionDirectory);
             if (!File.Exists(Path.Combine(extractionDirectory, GameExecutableName)))
@@ -142,16 +310,22 @@ internal sealed class LauncherForm : Form
             UpdateStatus("Installation de la mise à jour...");
             CopyGameFiles(extractionDirectory, _installDirectory, preservePlayerData: hasInstalledGame);
             string temporaryVersionPath = versionPath + ".tmp";
-            await File.WriteAllTextAsync(temporaryVersionPath, tag);
+            await File.WriteAllTextAsync(temporaryVersionPath, _latestVersion);
             File.Move(temporaryVersionPath, versionPath, overwrite: true);
 
-            UpdateStatus($"Soulfract {tag} est prêt. Démarrage...");
-            LaunchInstalledGame();
+            UpdateStatus($"Soulfract {_latestVersion} est prêt. Cliquez sur Jouer.");
+            _folderButton.Enabled = true;
+            SetIdleState(canPlay: true);
         }
         catch (Exception exception) when (IsRecoverableLauncherFailure(exception))
         {
-            UpdateStatus($"La mise à jour a échoué : {exception.Message}");
-            SetIdleState(File.Exists(Path.Combine(_installDirectory, GameExecutableName)));
+            UpdateStatus($"Mise à jour impossible : {exception.Message}");
+            if (_latestVersion == null)
+                _versionLabel.Text = "Version indisponible";
+            _folderButton.Enabled = File.Exists(Path.Combine(_installDirectory, GameExecutableName));
+            SetIdleState(canPlay: _folderButton.Enabled);
+            if (_changelogBox.Text.StartsWith("Chargement", StringComparison.Ordinal))
+                SetChangelogText("Impossible de charger le journal des modifications.\n\nRéessayez lorsque la connexion sera disponible.");
         }
         finally
         {
@@ -159,6 +333,138 @@ internal sealed class LauncherForm : Form
             TryDeleteFile(archivePath);
             TryDeleteDirectory(extractionDirectory);
         }
+    }
+
+    private async Task LoadChangelogAsync(string version, JsonElement release)
+    {
+        string? markdown = null;
+        string changelogUrl = string.Format(
+            System.Globalization.CultureInfo.InvariantCulture,
+            ChangelogUrlTemplate,
+            Uri.EscapeDataString(version));
+
+        try
+        {
+            using HttpResponseMessage response = await HttpClient.GetAsync(changelogUrl);
+            if (response.IsSuccessStatusCode)
+                markdown = await response.Content.ReadAsStringAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            UpdateStatus($"Lecture du changelog GitHub indisponible : {exception.Message}");
+        }
+        catch (TaskCanceledException exception)
+        {
+            UpdateStatus($"Lecture du changelog GitHub interrompue : {exception.Message}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(markdown))
+        {
+            SetChangelogText(FormatRecentChangelog(markdown));
+            return;
+        }
+
+        if (release.TryGetProperty("body", out JsonElement body) && !string.IsNullOrWhiteSpace(body.GetString()))
+        {
+            SetChangelogText(body.GetString()!);
+            return;
+        }
+
+        SetChangelogText("Aucune note de version n'est disponible pour le moment.");
+    }
+
+    private static string FormatRecentChangelog(string markdown)
+    {
+        bool inChangelog = false;
+        var sections = new List<(string Title, List<string> Entries)>();
+        (string Title, List<string> Entries)? currentSection = null;
+
+        foreach (string rawLine in markdown.Replace("\r", "").Split('\n'))
+        {
+            string line = rawLine.Trim();
+            if (!inChangelog)
+            {
+                if (line.Equals("# Changelog", StringComparison.OrdinalIgnoreCase))
+                    inChangelog = true;
+                continue;
+            }
+
+            if (line.StartsWith("# Potentiels ajouts futurs", StringComparison.OrdinalIgnoreCase))
+                break;
+            if (line.StartsWith("### ", StringComparison.Ordinal))
+            {
+                if (currentSection.HasValue)
+                    sections.Add(currentSection.Value);
+                currentSection = (line[4..].Trim(), new List<string>());
+                continue;
+            }
+
+            if (currentSection.HasValue && line.StartsWith("- ", StringComparison.Ordinal))
+                currentSection.Value.Entries.Add(StripInlineMarkdown(line[2..]));
+        }
+
+        if (currentSection.HasValue)
+            sections.Add(currentSection.Value);
+
+        var selectedSections = sections
+            .Where(section => section.Entries.Count > 0)
+            .TakeLast(8)
+            .Reverse()
+            .ToList();
+        if (selectedSections.Count == 0)
+            return "Aucune entrée récente n'est disponible dans le changelog.";
+
+        var formatted = new System.Text.StringBuilder();
+        foreach ((string title, List<string> entries) in selectedSections)
+        {
+            formatted.AppendLine($"## {title}");
+            foreach (string entry in entries)
+                formatted.AppendLine($"•  {entry}");
+            formatted.AppendLine();
+        }
+
+        return formatted.ToString().TrimEnd();
+    }
+
+    private static string StripInlineMarkdown(string value)
+    {
+        string stripped = Regex.Replace(value, @"\*\*(.*?)\*\*|__(.*?)__|`([^`]+)`", match =>
+        {
+            for (int group = 1; group < match.Groups.Count; group++)
+            {
+                if (match.Groups[group].Success)
+                    return match.Groups[group].Value;
+            }
+
+            return match.Value;
+        });
+        return stripped.Replace("~~", "");
+    }
+
+    private void SetChangelogText(string text)
+    {
+        _changelogBox.Clear();
+        foreach (string line in text.Replace("\r", "").Split('\n'))
+        {
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                _changelogBox.SelectionColor = AccentColor;
+                _changelogBox.SelectionFont = new Font(_changelogBox.Font, FontStyle.Bold);
+                _changelogBox.AppendText(line[3..] + Environment.NewLine);
+                _changelogBox.SelectionColor = PrimaryTextColor;
+                _changelogBox.SelectionFont = _changelogBox.Font;
+            }
+            else
+            {
+                _changelogBox.SelectionColor = line.StartsWith("•", StringComparison.Ordinal)
+                    ? PrimaryTextColor
+                    : MutedTextColor;
+                _changelogBox.SelectionFont = _changelogBox.Font;
+                _changelogBox.AppendText(line + Environment.NewLine);
+            }
+        }
+
+        _changelogBox.Select(0, 0);
     }
 
     private static HttpClient CreateHttpClient()
@@ -312,8 +618,7 @@ internal sealed class LauncherForm : Form
         string gamePath = Path.Combine(_installDirectory, GameExecutableName);
         if (!File.Exists(gamePath))
         {
-            UpdateStatus("Aucune version du jeu n'est installée pour le moment.");
-            SetIdleState(canLaunch: false);
+            UpdateStatus("Le jeu n'est pas encore installé. Vérifiez les mises à jour.");
             return;
         }
 
@@ -335,30 +640,128 @@ internal sealed class LauncherForm : Form
                 or ArgumentException)
         {
             UpdateStatus($"Impossible de démarrer le jeu : {exception.Message}");
-            SetIdleState(canLaunch: true);
+        }
+    }
+
+    private void OpenGameFolder()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = _installDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception exception) when (
+            exception is System.ComponentModel.Win32Exception
+                or InvalidOperationException
+                or IOException
+                or UnauthorizedAccessException
+                or ArgumentException)
+        {
+            UpdateStatus($"Impossible d'ouvrir le dossier : {exception.Message}");
         }
     }
 
     private void SetWorkingState()
     {
-        _launchButton.Enabled = false;
-        _retryButton.Enabled = false;
-        _closeButton.Enabled = false;
+        _playButton.Enabled = false;
+        _checkUpdatesButton.Enabled = false;
+        _folderButton.Enabled = false;
+        _progressBar.Visible = true;
         _progressBar.Style = ProgressBarStyle.Marquee;
     }
 
-    private void SetIdleState(bool canLaunch)
+    private void SetIdleState(bool canPlay)
     {
+        _progressBar.Visible = false;
         _progressBar.Style = ProgressBarStyle.Blocks;
         _progressBar.Value = 0;
-        _launchButton.Enabled = canLaunch;
-        _retryButton.Enabled = true;
-        _closeButton.Enabled = true;
+        _playButton.Enabled = canPlay;
+        _checkUpdatesButton.Enabled = true;
     }
 
     private void UpdateStatus(string text)
     {
         _statusLabel.Text = text;
+    }
+
+    private static Label CreateLabel(string text, float size, FontStyle style, Color color)
+    {
+        return new Label
+        {
+            Text = text,
+            Font = new Font("Segoe UI", size, style),
+            ForeColor = color,
+            BackColor = Color.Transparent,
+            AutoEllipsis = true
+        };
+    }
+
+    private static Button CreateButton(string text, Color background, Color foreground, int width, int height)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Size = new Size(width, height),
+            BackColor = background,
+            ForeColor = foreground,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            UseVisualStyleBackColor = false,
+            Margin = new Padding(0, 0, 0, 10),
+            TabStop = true
+        };
+        button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.MouseOverBackColor = ControlPaint.Light(background, 0.12F);
+        button.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(background, 0.12F);
+        return button;
+    }
+
+    private static LinkLabel CreateLinkLabel(string text, float size, string url)
+    {
+        var link = new LinkLabel
+        {
+            Text = text,
+            Font = new Font("Segoe UI", size, FontStyle.Regular),
+            LinkColor = MutedTextColor,
+            ActiveLinkColor = AccentColor,
+            VisitedLinkColor = MutedTextColor,
+            BackColor = BackgroundColor,
+            AutoSize = false
+        };
+        link.LinkClicked += (_, _) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            }
+            catch (Exception exception) when (
+                exception is System.ComponentModel.Win32Exception
+                    or InvalidOperationException
+                    or IOException
+                    or UnauthorizedAccessException
+                    or ArgumentException)
+            {
+                MessageBox.Show(
+                    $"Impossible d'ouvrir le lien GitHub : {exception.Message}",
+                    "Soulfract",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        };
+        return link;
+    }
+
+    private static Panel CreateCard()
+    {
+        var panel = new RoundedCardPanel(CardRadius)
+        {
+            BackColor = SurfaceColor,
+            Padding = new Padding(0)
+        };
+        return panel;
     }
 
     private static void TryDeleteFile(string path)
@@ -392,6 +795,48 @@ internal sealed class LauncherForm : Form
         catch (UnauthorizedAccessException exception)
         {
             Console.Error.WriteLine($"Impossible de supprimer le dossier temporaire {path}: {exception.Message}");
+        }
+    }
+
+    private sealed class RoundedCardPanel : Panel
+    {
+        private readonly int _radius;
+
+        public RoundedCardPanel(int radius)
+        {
+            _radius = radius;
+            DoubleBuffered = true;
+            ResizeRedraw = true;
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using GraphicsPath path = CreateRoundedPath(ClientRectangle, _radius);
+            using var brush = new SolidBrush(BackColor);
+            e.Graphics.FillPath(brush, path);
+        }
+
+        protected override void OnResize(EventArgs eventargs)
+        {
+            base.OnResize(eventargs);
+            using GraphicsPath path = CreateRoundedPath(ClientRectangle, _radius);
+            Region = new Region(path);
+        }
+
+        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+        {
+            var path = new GraphicsPath();
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return path;
+
+            int diameter = Math.Max(1, Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height)));
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 }

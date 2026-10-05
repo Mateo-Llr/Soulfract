@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 
@@ -215,7 +216,7 @@ namespace Soulfract
 
             if (!File.Exists(SettingsPath))
             {
-                CurrentLanguage = _supportedLanguages.Count > 0 ? _supportedLanguages[0].Code : "fr";
+                CurrentLanguage = GetDefaultLanguageCode();
                 SaveSettings();
                 return;
             }
@@ -230,15 +231,24 @@ namespace Soulfract
                 }
                 else
                 {
-                    CurrentLanguage = _supportedLanguages.Count > 0 ? _supportedLanguages[0].Code : "fr";
+                    CurrentLanguage = GetDefaultLanguageCode();
                     SaveSettings();
                 }
             }
             catch
             {
-                CurrentLanguage = _supportedLanguages.Count > 0 ? _supportedLanguages[0].Code : "fr";
+                CurrentLanguage = GetDefaultLanguageCode();
                 SaveSettings();
             }
+        }
+
+        private static string GetDefaultLanguageCode()
+        {
+            if (_supportedLanguages.Any(language => string.Equals(language.Code, "fr", StringComparison.OrdinalIgnoreCase)))
+                return "fr";
+            if (_supportedLanguages.Any(language => string.Equals(language.Code, "en", StringComparison.OrdinalIgnoreCase)))
+                return "en";
+            return _supportedLanguages.Count > 0 ? _supportedLanguages[0].Code : "fr";
         }
 
         public static void SaveSettings()

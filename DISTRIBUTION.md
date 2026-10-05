@@ -12,6 +12,12 @@ bootstrapper se trouve à côté d'un `Soulfract.exe` existant, il installe le l
 principal dans ce même dossier ; les joueurs existants peuvent ainsi mettre à jour leur
 installation sans déplacer les sauvegardes.
 
+Le lanceur s'ouvre sur une interface graphique : il affiche la version disponible, les
+dernières entrées de `Data/changelog.md`, l'état de la mise à jour et un bouton **Jouer**.
+Il installe ou met à jour le jeu au démarrage, mais ne le lance qu'après un clic sur ce
+bouton. Si aucune préférence de langue n'est encore enregistrée, le jeu démarre en
+français.
+
 ## Publier une version
 
 Après avoir poussé les modifications sur GitHub, créer et pousser un tag de version :
