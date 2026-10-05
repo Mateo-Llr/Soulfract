@@ -9,6 +9,7 @@
   - [Juillet 2026](#juillet-2026)
   - [Août 2026](#aout-2026)
   - [Septembre 2026](#septembre-2026)
+  - [Octobre 2026](#octobre-2026)
 - [Potentiels ajouts futurs](#potentiels-ajouts-futurs)
   - [Items](#items)
   - [Features](#features)
@@ -1227,6 +1228,17 @@
 - [CHANGED] Les PNJ ciblent les joueurs distants et réagissent au joueur qui les attaque
 - [FIXED] Récompenses de quête et progression d'amitié des marchands synchronisées pour les clients
 - [ADDED] Customisation du menu d'équipement possible via les paramètres
+
+## Octobre 2026
+
+### 6 octobre
+
+- [CHANGED] Refonte du lanceur : interface simplifiée, titre pixelisé du jeu et boutons d'action centrés en bas
+- [CHANGED] Présentation du changelog améliorée avec des couleurs par type de changement et davantage d'entrées récentes
+- [FIXED] Captures d'écran du jeu rangées dans un dossier Screenshots dédié, conservé lors des mises à jour
+- [CHANGED] Langue par défaut du jeu réglée sur l'anglais pour les nouvelles installations
+- [ADDED] Mise à jour du lanceur principal par le bootstrapper lorsqu'une nouvelle version est publiée
+- [ADDED] Mises à jour différentielles du jeu avec vérification d'intégrité et suppression des fichiers obsolètes
 
 ---
 

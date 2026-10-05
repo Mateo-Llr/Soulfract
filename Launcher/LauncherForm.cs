@@ -424,7 +424,7 @@ internal sealed class LauncherForm : Form
 
         var selectedSections = sections
             .Where(section => section.Entries.Count > 0)
-            .TakeLast(3)
+            .TakeLast(8)
             .Reverse()
             .ToList();
         if (selectedSections.Count == 0)
@@ -434,7 +434,7 @@ internal sealed class LauncherForm : Form
         foreach ((string title, List<string> entries) in selectedSections)
         {
             formatted.AppendLine($"## {title}");
-            foreach (string entry in entries.TakeLast(6))
+            foreach (string entry in entries)
                 formatted.AppendLine(entry);
             formatted.AppendLine();
         }

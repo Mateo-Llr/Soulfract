@@ -25,8 +25,8 @@ l'installation et ne sont pas incluses dans les mises à jour.
 Après avoir poussé les modifications sur GitHub, créer et pousser un tag de version :
 
 ```powershell
-git tag v1.0.5
-git push origin v1.0.5
+git tag v1.0.6
+git push origin v1.0.6
 ```
 
 Le workflow GitHub Actions compile le jeu, le lanceur principal et le bootstrapper, puis
