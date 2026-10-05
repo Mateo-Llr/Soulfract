@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.IO.Compression;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -16,6 +17,9 @@ internal sealed class LauncherForm : Form
     private const string DeltaManifestName = "soulfract-delta-manifest.json";
     private const string GameExecutableName = "Soulfract.exe";
     private const string GameVersionFileName = ".soulfract-version";
+    private const string LauncherExecutableName = "SoulfractLauncher.exe";
+    private const string BootstrapperAssetName = "SoulfractBootstrapper.exe";
+    private const string LauncherVersionFileName = ".soulfract-launcher-version";
     private const int CardRadius = 18;
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
@@ -247,6 +251,9 @@ internal sealed class LauncherForm : Form
             JsonElement root = release.RootElement;
             _latestVersion = root.GetProperty("tag_name").GetString()
                 ?? throw new InvalidDataException("La release GitHub n'a pas de numéro de version.");
+            if (await UpdateLauncherIfNeededAsync(root))
+                return;
+
             GameArchiveAsset? fullArchive = FindGameArchive(root, GameArchiveName);
             if (fullArchive == null)
                 throw new InvalidDataException($"La release {_latestVersion} ne contient pas {GameArchiveName}.");
@@ -388,6 +395,130 @@ internal sealed class LauncherForm : Form
 
         SetChangelogText("Aucune note de version n'est disponible pour le moment.");
     }
+
+    private async Task<bool> UpdateLauncherIfNeededAsync(JsonElement release)
+    {
+        LauncherUpdateAsset launcherAsset = FindLauncherUpdateAsset(release, LauncherExecutableName)
+            ?? throw new InvalidDataException($"La release {_latestVersion} ne contient pas de lanceur vérifiable.");
+        LauncherUpdateAsset updaterAsset = FindLauncherUpdateAsset(release, BootstrapperAssetName)
+            ?? throw new InvalidDataException($"La release {_latestVersion} ne contient pas le composant de mise à jour du lanceur.");
+
+        string currentLauncherPath = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Le chemin du lanceur en cours d'exécution est introuvable.");
+        if (!string.Equals(
+                Path.GetFileName(currentLauncherPath),
+                LauncherExecutableName,
+                StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        string currentHash;
+        await using (FileStream currentLauncher = File.OpenRead(currentLauncherPath))
+            currentHash = Convert.ToHexString(await SHA256.HashDataAsync(currentLauncher));
+
+        if (string.Equals(currentHash, launcherAsset.Sha256, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        UpdateStatus($"Mise à jour du lanceur vers {_latestVersion}...");
+        SetWorkingState();
+
+        string launcherDirectory = Path.GetDirectoryName(currentLauncherPath)
+            ?? throw new InvalidOperationException("Le dossier du lanceur est introuvable.");
+        string stagedLauncherPath = Path.Combine(
+            launcherDirectory,
+            $".{LauncherExecutableName}.{Guid.NewGuid():N}.tmp");
+        string updaterPath = Path.Combine(
+            Path.GetTempPath(),
+            $"SoulfractLauncherUpdater-{Guid.NewGuid():N}.exe");
+        bool handedOff = false;
+
+        try
+        {
+            await DownloadVerifiedReleaseAssetAsync(launcherAsset, stagedLauncherPath);
+            await DownloadVerifiedReleaseAssetAsync(updaterAsset, updaterPath);
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = updaterPath,
+                WorkingDirectory = launcherDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("--replace-launcher");
+            startInfo.ArgumentList.Add(currentLauncherPath);
+            startInfo.ArgumentList.Add(stagedLauncherPath);
+            startInfo.ArgumentList.Add(Path.Combine(launcherDirectory, LauncherVersionFileName));
+            startInfo.ArgumentList.Add(launcherAsset.Sha256);
+            startInfo.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            startInfo.ArgumentList.Add(launcherDirectory);
+
+            if (Process.Start(startInfo) == null)
+                throw new InvalidOperationException("Le composant de mise à jour du lanceur n'a pas pu démarrer.");
+
+            handedOff = true;
+            Close();
+            return true;
+        }
+        finally
+        {
+            if (!handedOff)
+            {
+                TryDeleteFile(stagedLauncherPath);
+                TryDeleteFile(updaterPath);
+            }
+        }
+    }
+
+    private static LauncherUpdateAsset? FindLauncherUpdateAsset(JsonElement release, string assetName)
+    {
+        if (!release.TryGetProperty("assets", out JsonElement assets))
+            return null;
+
+        foreach (JsonElement asset in assets.EnumerateArray())
+        {
+            if (!string.Equals(asset.GetProperty("name").GetString(), assetName, StringComparison.Ordinal))
+                continue;
+
+            string? url = asset.GetProperty("browser_download_url").GetString();
+            string? digest = asset.TryGetProperty("digest", out JsonElement digestElement)
+                ? digestElement.GetString()
+                : null;
+            if (Uri.TryCreate(url, UriKind.Absolute, out Uri? parsedUrl)
+                && parsedUrl.Scheme == Uri.UriSchemeHttps
+                && digest is { Length: 71 }
+                && digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                && digest[7..].All(Uri.IsHexDigit))
+                return new LauncherUpdateAsset(parsedUrl.AbsoluteUri, digest[7..]);
+        }
+
+        return null;
+    }
+
+    private static async Task DownloadVerifiedReleaseAssetAsync(LauncherUpdateAsset asset, string destination)
+    {
+        using HttpResponseMessage response = await HttpClient.GetAsync(
+            asset.DownloadUrl,
+            HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        await using Stream input = await response.Content.ReadAsStreamAsync();
+        await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+        await input.CopyToAsync(output);
+        await output.FlushAsync();
+
+        if (output.Length < 1024 * 1024)
+            throw new InvalidDataException("Le fichier de mise à jour téléchargé est trop petit pour être un exécutable valide.");
+
+        output.Position = 0;
+        if (output.ReadByte() != 'M' || output.ReadByte() != 'Z')
+            throw new InvalidDataException("Le fichier de mise à jour téléchargé n'est pas un exécutable Windows.");
+
+        output.Position = 0;
+        string actualHash = Convert.ToHexString(await SHA256.HashDataAsync(output));
+        if (!string.Equals(actualHash, asset.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("La vérification d'intégrité du composant de mise à jour a échoué.");
+    }
+
+    private readonly record struct LauncherUpdateAsset(string DownloadUrl, string Sha256);
 
     private static string FormatRecentChangelog(string markdown)
     {
@@ -723,6 +854,7 @@ internal sealed class LauncherForm : Form
         return exception is HttpRequestException
             or TaskCanceledException
             or JsonException
+            or CryptographicException
             or IOException
             or InvalidDataException
             or UnauthorizedAccessException

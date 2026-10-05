@@ -19,14 +19,17 @@ installe ou met à jour le jeu au démarrage, mais ne le lance qu'après un clic
 bouton. Si aucune préférence de langue n'est encore enregistrée, le jeu démarre en anglais.
 Les captures d'écran réalisées en jeu sont rangées dans `Screenshots/` à côté de
 l'installation et ne sont pas incluses dans les mises à jour.
+Le bouton **Vérifier** met également à jour le lanceur lui-même : après la toute première
+installation de cette fonction, les futures versions du lanceur s'installent sans lancer
+à nouveau le bootstrapper.
 
 ## Publier une version
 
 Après avoir poussé les modifications sur GitHub, créer et pousser un tag de version :
 
 ```powershell
-git tag v1.0.6
-git push origin v1.0.6
+git tag v1.0.7
+git push origin v1.0.7
 ```
 
 Le workflow GitHub Actions compile le jeu, le lanceur principal et le bootstrapper, puis
@@ -51,8 +54,10 @@ Toute modification de l'interface du lanceur principal est incluse dans
 `SoulfractLauncher.exe`. À chaque lancement du bootstrapper, celui-ci compare
 l'empreinte SHA-256 du lanceur installé avec celle de la dernière release et remplace
 l'exécutable entier si son contenu a changé. Les joueurs doivent donc démarrer le jeu
-avec le bootstrapper distribué ; lancer directement une ancienne copie de
-`SoulfractLauncher.exe` ne déclenche pas sa propre mise à jour.
+avec le bootstrapper distribué pour la première mise à jour qui apporte l'auto-mise à jour
+du lanceur. Les versions suivantes peuvent aussi se mettre à jour depuis le bouton
+**Vérifier** du lanceur. Une ancienne version du lanceur qui ne contient pas encore cette
+fonction doit être mise à jour par le bootstrapper une dernière fois.
 
 La première version doit également être créée avec un tag `v*` afin que l'API GitHub
 renvoie une release « latest ». Si GitHub est temporairement inaccessible, le bootstrapper

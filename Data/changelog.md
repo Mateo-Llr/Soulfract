@@ -1238,6 +1238,7 @@
 - [FIXED] Captures d'écran du jeu rangées dans un dossier Screenshots dédié, conservé lors des mises à jour
 - [CHANGED] Langue par défaut du jeu réglée sur l'anglais pour les nouvelles installations
 - [ADDED] Mise à jour du lanceur principal par le bootstrapper lorsqu'une nouvelle version est publiée
+- [ADDED] Mise à jour du lanceur directement depuis son bouton de vérification, sans bootstrapper pour les versions suivantes
 - [ADDED] Mises à jour différentielles du jeu avec vérification d'intégrité et suppression des fichiers obsolètes
 
 ---

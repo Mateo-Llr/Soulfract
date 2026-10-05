@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -15,7 +16,15 @@ internal static class Program
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
-    private static async Task<int> Main()
+    private static async Task<int> Main(string[] args)
+    {
+        if (args.Length > 0 && string.Equals(args[0], "--replace-launcher", StringComparison.Ordinal))
+            return await ReplaceLauncherAsync(args);
+
+        return await RunBootstrapperAsync();
+    }
+
+    private static async Task<int> RunBootstrapperAsync()
     {
         string? launcherDirectory = null;
         string? launcherPath = null;
@@ -88,6 +97,102 @@ internal static class Program
 
             return 1;
         }
+    }
+
+    private static async Task<int> ReplaceLauncherAsync(string[] args)
+    {
+        string? launcherPath = null;
+        string? stagedLauncherPath = null;
+
+        try
+        {
+            if (args.Length != 7
+                || !int.TryParse(args[5], out int launcherProcessId)
+                || launcherProcessId <= 0
+                || string.IsNullOrWhiteSpace(args[4])
+                || args[4].Length != 64
+                || !args[4].All(Uri.IsHexDigit))
+                throw new InvalidDataException("Les paramètres de mise à jour du lanceur sont invalides.");
+
+            launcherPath = Path.GetFullPath(args[1]);
+            stagedLauncherPath = Path.GetFullPath(args[2]);
+            string versionPath = Path.GetFullPath(args[3]);
+            string workingDirectory = Path.GetFullPath(args[6]);
+            string launcherDirectory = Path.GetDirectoryName(launcherPath)
+                ?? throw new InvalidDataException("Le dossier du lanceur est introuvable.");
+
+            if (!string.Equals(Path.GetFileName(launcherPath), LauncherExecutableName, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(Path.GetFileName(versionPath), VersionFileName, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(Path.GetDirectoryName(stagedLauncherPath), launcherDirectory, StringComparison.OrdinalIgnoreCase)
+                || !Path.GetFileName(stagedLauncherPath).StartsWith($".{LauncherExecutableName}.", StringComparison.OrdinalIgnoreCase)
+                || !Path.GetFileName(stagedLauncherPath).EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(launcherDirectory, workingDirectory, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Les chemins de mise à jour du lanceur sont invalides.");
+
+            await WaitForLauncherExitAsync(launcherProcessId);
+            await VerifyLauncherAsync(stagedLauncherPath, args[4]);
+            File.Move(stagedLauncherPath, launcherPath, overwrite: true);
+
+            string temporaryVersionPath = versionPath + $".{Guid.NewGuid():N}.tmp";
+            try
+            {
+                await File.WriteAllTextAsync(temporaryVersionPath, args[4]);
+                File.Move(temporaryVersionPath, versionPath, overwrite: true);
+            }
+            finally
+            {
+                TryDeleteTemporaryFile(temporaryVersionPath);
+            }
+
+            StartLauncher(launcherPath, launcherDirectory);
+            return 0;
+        }
+        catch (Exception exception) when (IsRecoverableFailure(exception))
+        {
+            ShowUpdateError($"La mise à jour du lanceur a échoué : {exception.Message}");
+            if (launcherPath != null && File.Exists(launcherPath))
+            {
+                try
+                {
+                    StartLauncher(launcherPath, Path.GetDirectoryName(launcherPath)!);
+                    return 0;
+                }
+                catch (Exception startException) when (IsRecoverableFailure(startException))
+                {
+                    ShowUpdateError($"Impossible de redémarrer le lanceur : {startException.Message}");
+                }
+            }
+
+            return 1;
+        }
+        finally
+        {
+            if (stagedLauncherPath != null)
+                TryDeleteTemporaryFile(stagedLauncherPath);
+        }
+    }
+
+    private static async Task WaitForLauncherExitAsync(int processId)
+    {
+        if (processId == Environment.ProcessId)
+            throw new InvalidDataException("Le lanceur ne peut pas attendre son propre processus.");
+
+        try
+        {
+            using Process launcher = Process.GetProcessById(processId);
+            await launcher.WaitForExitAsync().WaitAsync(TimeSpan.FromMinutes(2));
+        }
+        catch (ArgumentException)
+        {
+        }
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "MessageBoxW")]
+    private static extern int ShowMessageBox(IntPtr window, string text, string caption, uint type);
+
+    private static void ShowUpdateError(string message)
+    {
+        ShowMessageBox(IntPtr.Zero, message, "Soulfract", 0x10);
     }
 
     private static string GetLauncherDirectory()
@@ -220,8 +325,10 @@ internal static class Program
             or JsonException
             or IOException
             or InvalidDataException
+            or CryptographicException
             or UnauthorizedAccessException
             or InvalidOperationException
+            or TimeoutException
             or ArgumentException
             or NotSupportedException
             or System.ComponentModel.Win32Exception
