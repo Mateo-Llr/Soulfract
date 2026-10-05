@@ -1,0 +1,3149 @@
+﻿{
+  "items": [
+    {
+      "id": "log",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "leaf",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 0,
+      "rarity": "common"
+    },
+    {
+      "id": "apple",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 5,
+      "rarity": "common",
+      "hungerRestore": 10.0,
+      "thirstRestore": 2.5
+    },
+    {
+      "id": "plank",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "rope",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "stick",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "torch",
+      "type": "placeable",
+      "stackSize": 64,
+      "value": 5,
+      "placeableId": 33,
+      "lightRadius": 420,
+      "lightColor": [255, 180, 100],
+      "isLightSource": true,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "workbench",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 20,
+      "placeableId": 9,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "acorn",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "isSeed": true,
+      "cropId": 4005,
+      "plantType": "classic",
+      "growthTime": 600,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "wooden_axe",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 15,
+      "toolType": "axe",
+      "miningPower": 2.5,
+      "attackBonus": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "wooden_pickaxe",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 15,
+      "toolType": "pickaxe",
+      "miningPower": 2.0,
+      "attackBonus": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "wooden_shovel",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 12,
+      "toolType": "shovel",
+      "miningPower": 2.0,
+      "attackBonus": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "wooden_hoe",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 10,
+      "toolType": "hoe",
+      "miningPower": 1.0,
+      "attackBonus": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "scythe",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 12,
+      "toolType": "scythe",
+      "miningPower": 1.5,
+      "attackBonus": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "hammer",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 12,
+      "toolType": "hammer",
+      "miningPower": 1.5,
+      "attackBonus": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "wooden_sword",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 10,
+      "attackBonus": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "stone_sword",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 20,
+      "attackBonus": 9,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "iron_sword",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 35,
+      "attackBonus": 16,
+      "rarity": "rare"
+    },
+    {
+      "id": "clay_oven",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 30,
+      "placeableId": 25,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "campfire",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 15,
+      "placeableId": 32,
+      "rarity": "common"
+    },
+    {
+      "id": "rock",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "clay",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "sand",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "glass",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "flute",
+      "type": "instrument",
+      "stackSize": 1,
+      "value": 80,
+      "rarity": "rare"
+    },
+    {
+      "id": "iron_ore",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 8,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "iron_ingot",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 15,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "coal",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "common"
+    },
+    {
+      "id": "leather",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 8,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "chicken_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "runeSlots": 1,
+      "rarity": "rare",
+      "armorCategory": "helmet",
+      "coveredZones": ["TopOfHead", "Ears", "Face"]
+    },
+    {
+      "id": "pigeon_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "runeSlots": 1,
+      "rarity": "rare",
+      "armorCategory": "helmet",
+      "coveredZones": ["TopOfHead", "Ears", "Face"]
+    },
+    {
+      "id": "horse_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "runeSlots": 1,
+      "rarity": "rare",
+      "armorCategory": "helmet",
+      "coveredZones": ["TopOfHead", "Ears", "Face"]
+    },
+    {
+      "id": "coat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "common",
+      "warmth": 4,
+      "coveredZones": ["Torso"]
+    },
+    {
+      "id": "baseball_bat",
+      "type": "weapon",
+      "attackBonus": 12,
+      "stackSize": 15,
+      "value": 25,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "raw_beef",
+      "type": "food",
+      "cookable": true,
+      "cookedItem": "cooked_beef",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 2,
+      "rarity": "common",
+      "hungerRestore": 4.0,
+      "thirstRestore": 1.0
+    },
+    {
+      "id": "cooked_beef",
+      "type": "food",
+      "stackSize": 50,
+      "value": 10,
+      "healAmount": 8,
+      "rarity": "common",
+      "hungerRestore": 16.0,
+      "thirstRestore": 4.0
+    },
+    {
+      "id": "wool",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "common"
+    },
+    {
+      "id": "egg",
+      "type": "food",
+      "isThrowable": true,
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "milk",
+      "type": "food",
+      "stackSize": 50,
+      "value": 4,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 1.0,
+      "thirstRestore": 15.0
+    },
+    {
+      "id": "feather",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "rose",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "white_flower",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "mushroom",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "bolete",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "chanterelle",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "fly_agaric",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "turkeytail_fungus",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "morel",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "violet_webcap",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "hochstetters_blue-gilled_mushroom",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "porcini_mushroom",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "grass",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "grassy_dirt",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "worm",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "snow",
+      "type": "resource",
+      "isThrowable": true,
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "potato",
+      "type": "resource",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "isSeed": true,
+      "cropId": 28,
+      "growthTime": 120,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "wheat",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "flour",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "bread",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 10,
+      "rarity": "common",
+      "hungerRestore": 20.0,
+      "thirstRestore": 5.0
+    },
+    {
+      "id": "reed",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "nenuphar",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "glowing_shroom",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "bone",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "goat_horn",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 10,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "goat_skull",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 20,
+      "rarity": "rare"
+    },
+    {
+      "id": "bear_claws",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 8,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "bear_leather",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 12,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "bee_wax",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 8,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "candle",
+      "type": "placeable",
+      "stackSize": 64,
+      "value": 10,
+      "placeableId": 70,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "cactus_flower",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "rare"
+    },
+    {
+      "id": "dye",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "glassbottle_small",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "common",
+      "waterCapacity": 1
+    },
+    {
+      "id": "glassbottle_big",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 8,
+      "rarity": "common",
+      "waterCapacity": 3
+    },
+    {
+      "id": "bucket",
+      "type": "resource",
+      "stackSize": 1,
+      "value": 25,
+      "rarity": "uncommon",
+      "waterCapacity": 10
+    },
+    {
+      "id": "dynamite",
+      "type": "throwable",
+      "isThrowable": true,
+      "stackSize": 64,
+      "value": 30,
+      "rarity": "rare"
+    },
+    {
+      "id": "pistol",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 200,
+      "attackBonus": 6,
+      "rarity": "epic",
+      "weaponCategory": "ranged",
+      "maxAmmoPerCharge": 32,
+      "ammoIds": ["pistol_ammo"],
+      "fireRate": 5.5
+    },
+    {
+      "id": "wooden_bow",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 50,
+      "attackBonus": 6,
+      "rarity": "uncommon",
+      "weaponCategory": "ranged",
+      "maxAmmoPerCharge": 1,
+      "ammoIds": ["arrow"]
+    },
+    {
+      "id": "fishing_rod",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 30,
+      "toolType": "fishing",
+      "miningPower": 0,
+      "attackBonus": 0,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "guitar",
+      "type": "instrument",
+      "stackSize": 1,
+      "value": 100,
+      "rarity": "rare"
+    },
+    {
+      "id": "piano",
+      "type": "instrument",
+      "stackSize": 1,
+      "value": 500,
+      "rarity": "epic"
+    },
+    {
+      "id": "saxophone",
+      "type": "instrument",
+      "stackSize": 1,
+      "value": 300,
+      "rarity": "rare"
+    },
+    {
+      "id": "gong_hammer",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 40,
+      "attackBonus": 5,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "wooden_chest",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 25,
+      "placeableId": 42,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "chair",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 15,
+      "placeableId": 95,
+      "rarity": "common"
+    },
+    {
+      "id": "bed",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 50,
+      "placeableId": 87,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "stone_statue",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 100,
+      "placeableId": 112,
+      "rarity": "rare"
+    },
+    {
+      "id": "magic_altar",
+      "type": "placeable",
+      "stackSize": 1,
+      "value": 500,
+      "placeableId": 52,
+      "rarity": "epic"
+    },
+    {
+      "id": "alchemy_table",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 89,
+      "rarity": "rare"
+    },
+    {
+      "id": "anvil",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 60,
+      "placeableId": 40,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "wooden_door",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 20,
+      "placeableId": 84,
+      "rarity": "common"
+    },
+    {
+      "id": "well",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 40,
+      "placeableId": 136,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "copper_ore",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "copper_ingot",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 12,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "zinc",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 6,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "zinc_ingot",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 14,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "brass_ingot",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 20,
+      "rarity": "rare"
+    },
+    {
+      "id": "sulfur",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 8,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "gem_purple",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 50,
+      "rarity": "rare"
+    },
+    {
+      "id": "sapphire",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 60,
+      "rarity": "epic"
+    },
+    {
+      "id": "gem_orange",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 45,
+      "rarity": "rare"
+    },
+    {
+      "id": "gem_yellow",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 55,
+      "rarity": "rare"
+    },
+    {
+      "id": "raw_duck_meat",
+      "type": "food",
+      "cookable": true,
+      "cookedItem": "cooked_duck_meat",
+      "stackSize": 50,
+      "value": 6,
+      "healAmount": 2,
+      "rarity": "common",
+      "hungerRestore": 4.0,
+      "thirstRestore": 1.0
+    },
+    {
+      "id": "cooked_duck_meat",
+      "type": "food",
+      "stackSize": 50,
+      "value": 12,
+      "healAmount": 9,
+      "rarity": "common",
+      "hungerRestore": 18.0,
+      "thirstRestore": 4.5
+    },
+    {
+      "id": "duck_feather",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "raw_chicken",
+      "type": "food",
+      "cookable": true,
+      "cookedItem": "cooked_chicken",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 2,
+      "rarity": "common",
+      "hungerRestore": 4.0,
+      "thirstRestore": 1.0
+    },
+    {
+      "id": "cooked_chicken",
+      "type": "food",
+      "stackSize": 50,
+      "value": 10,
+      "healAmount": 8,
+      "rarity": "common",
+      "hungerRestore": 16.0,
+      "thirstRestore": 4.0
+    },
+    {
+      "id": "chicken_feather",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "raw_porkchop",
+      "type": "food",
+      "cookable": true,
+      "cookedItem": "cooked_porkchop",
+      "stackSize": 50,
+      "value": 6,
+      "healAmount": 2,
+      "rarity": "common",
+      "hungerRestore": 4.0,
+      "thirstRestore": 1.0
+    },
+    {
+      "id": "cooked_porkchop",
+      "type": "food",
+      "stackSize": 50,
+      "value": 12,
+      "healAmount": 9,
+      "rarity": "common",
+      "hungerRestore": 18.0,
+      "thirstRestore": 4.5
+    },
+    {
+      "id": "fish",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "fish_yellow",
+      "type": "food",
+      "stackSize": 50,
+      "value": 4,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "fish_apogon",
+      "type": "food",
+      "stackSize": 50,
+      "value": 6,
+      "healAmount": 5,
+      "rarity": "common",
+      "hungerRestore": 10.0,
+      "thirstRestore": 2.5
+    },
+    {
+      "id": "fish_cyan",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "fish_bluesurgeon",
+      "type": "food",
+      "stackSize": 50,
+      "value": 10,
+      "healAmount": 7,
+      "rarity": "uncommon",
+      "hungerRestore": 14.0,
+      "thirstRestore": 3.5
+    },
+    {
+      "id": "fish_surgeon",
+      "type": "food",
+      "stackSize": 50,
+      "value": 10,
+      "healAmount": 7,
+      "rarity": "uncommon",
+      "hungerRestore": 14.0,
+      "thirstRestore": 3.5
+    },
+    {
+      "id": "fish_butterfly",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 6,
+      "rarity": "uncommon",
+      "hungerRestore": 12.0,
+      "thirstRestore": 3.0
+    },
+    {
+      "id": "fish_clownfish",
+      "type": "food",
+      "stackSize": 50,
+      "value": 7,
+      "healAmount": 5,
+      "rarity": "uncommon",
+      "hungerRestore": 10.0,
+      "thirstRestore": 2.5
+    },
+    {
+      "id": "fish_crystal",
+      "type": "food",
+      "stackSize": 50,
+      "value": 15,
+      "healAmount": 10,
+      "rarity": "rare",
+      "hungerRestore": 20.0,
+      "thirstRestore": 5.0
+    },
+    {
+      "id": "fish_eel",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 6,
+      "rarity": "uncommon",
+      "hungerRestore": 12.0,
+      "thirstRestore": 3.0
+    },
+    {
+      "id": "fish_gold",
+      "type": "food",
+      "stackSize": 50,
+      "value": 25,
+      "healAmount": 15,
+      "rarity": "epic",
+      "hungerRestore": 30.0,
+      "thirstRestore": 7.5
+    },
+    {
+      "id": "fish_lobster",
+      "type": "food",
+      "stackSize": 50,
+      "value": 12,
+      "healAmount": 8,
+      "rarity": "uncommon",
+      "hungerRestore": 16.0,
+      "thirstRestore": 4.0
+    },
+    {
+      "id": "fish_manta",
+      "type": "food",
+      "stackSize": 50,
+      "value": 15,
+      "healAmount": 10,
+      "rarity": "rare",
+      "hungerRestore": 20.0,
+      "thirstRestore": 5.0
+    },
+    {
+      "id": "fish_octopus",
+      "type": "food",
+      "stackSize": 50,
+      "value": 12,
+      "healAmount": 8,
+      "rarity": "uncommon",
+      "hungerRestore": 16.0,
+      "thirstRestore": 4.0
+    },
+    {
+      "id": "fish_pirhana",
+      "type": "food",
+      "stackSize": 50,
+      "value": 10,
+      "healAmount": 7,
+      "rarity": "uncommon",
+      "hungerRestore": 14.0,
+      "thirstRestore": 3.5
+    },
+    {
+      "id": "fish_pufferfish",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 4,
+      "rarity": "rare",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "fish_shark",
+      "type": "food",
+      "stackSize": 50,
+      "value": 30,
+      "healAmount": 18,
+      "rarity": "epic",
+      "hungerRestore": 36.0,
+      "thirstRestore": 9.0
+    },
+    {
+      "id": "fish_squid",
+      "type": "food",
+      "stackSize": 50,
+      "value": 10,
+      "healAmount": 7,
+      "rarity": "uncommon",
+      "hungerRestore": 14.0,
+      "thirstRestore": 3.5
+    },
+    {
+      "id": "fish_can",
+      "type": "food",
+      "stackSize": 50,
+      "value": 15,
+      "healAmount": 10,
+      "rarity": "uncommon",
+      "hungerRestore": 20.0,
+      "thirstRestore": 5.0
+    },
+    {
+      "id": "fried_egg",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 6,
+      "rarity": "common",
+      "hungerRestore": 12.0,
+      "thirstRestore": 3.0
+    },
+    {
+      "id": "omelette",
+      "type": "food",
+      "stackSize": 50,
+      "value": 15,
+      "healAmount": 12,
+      "rarity": "uncommon",
+      "hungerRestore": 24.0,
+      "thirstRestore": 6.0
+    },
+    {
+      "id": "leaf_shirt",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 15,
+      "rarity": "common",
+      "coveredZones": ["Torso"]
+    },
+    {
+      "id": "kippah",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 67,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "shroom_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "straw_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 25,
+      "rarity": "uncommon",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "fez",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "frying_pan",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 55,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "plague_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 70,
+      "runeSlots": 1,
+      "rarity": "rare",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "skullmask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 60,
+      "runeSlots": 1,
+      "rarity": "rare",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "log_helmet",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 15,
+      "rarity": "common",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "log_chestplate",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 25,
+      "rarity": "common",
+      "coveredZones": ["Torso"]
+    },
+    {
+      "id": "log_leggings",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "rarity": "common",
+      "coveredZones": ["Legs"]
+    },
+    {
+      "id": "babouches",
+      "type": "armor",
+      "stackSize": 1,
+      "cooling": 3,
+      "value": 15,
+      "rarity": "common",
+      "coveredZones": ["Feet"]
+    },
+    {
+      "id": "log_shoes",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 15,
+      "rarity": "common",
+      "coveredZones": ["Feet"]
+    },
+    {
+      "id": "gloves",
+      "type": "armor",
+      "stackSize": 1,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "value": 25,
+      "armorValue": 1,
+      "rarity": "common",
+      "coveredZones": ["Hands"]
+    },
+    {
+      "id": "iron_chestplate",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 80,
+      "rarity": "rare",
+      "coveredZones": ["Torso"],
+      "runeSlots": 2
+    },
+    {
+      "id": "iron_leggings",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 60,
+      "rarity": "rare",
+      "runeSlots": 1,
+      "coveredZones": ["Legs"]
+    },
+    {
+      "id": "bear_leather_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "uncommon",
+      "warmth": 2,
+      "runeSlots": 1,
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "bear_leather_chestplate",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 50,
+      "rarity": "uncommon",
+      "warmth": 14,
+      "coveredZones": ["Torso"],
+      "runeSlots": 2
+    },
+    {
+      "id": "jean",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "rarity": "common",
+      "coveredZones": ["Legs"]
+    },
+    {
+      "id": "crusader_helmet",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 100,
+      "rarity": "epic",
+      "armorCategory": "helmet",
+      "coveredZones": ["TopOfHead", "Ears", "Face"],
+      "runeSlots": 2
+    },
+    {
+      "id": "crusader_chestplate",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 150,
+      "rarity": "epic",
+      "coveredZones": ["Torso"],
+      "runeSlots": 3
+    },
+    {
+      "id": "crusader_leggings",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 80,
+      "rarity": "epic",
+      "runeSlots": 1,
+      "coveredZones": ["Legs"]
+    },
+    {
+      "id": "crusader_sword",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 120,
+      "attackBonus": 22,
+      "rarity": "epic"
+    },
+    {
+      "id": "moai_statue",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 12,
+      "rarity": "rare"
+    },
+    {
+      "id": "glasses",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 25,
+      "rarity": "rare",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "eyepatch",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 25,
+      "rarity": "rare",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "cinder_goggles",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 75,
+      "rarity": "rare",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "funky_glasses",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 150,
+      "rarity": "epic",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "golden_robot_helmet",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 300,
+      "armorCategory": "helmet",
+      "rarity": "legendary",
+      "coveredZones": ["TopOfHead", "Ears", "Face"],
+      "runeSlots": 2
+    },
+    {
+      "id": "tribal_citizen_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "rarity": "uncommon",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "tribal_hunter_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 50,
+      "rarity": "uncommon",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "tribal_cook_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "uncommon",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "tribal_guard_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 45,
+      "rarity": "uncommon",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "barbet_helmet",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 55,
+      "rarity": "uncommon",
+      "armorCategory": "helmet",
+      "coveredZones": ["TopOfHead", "Ears", "Face"],
+      "runeSlots": 1
+    },
+    {
+      "id": "blue_cap",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "rarity": "common",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "top_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "dyeable": true,
+      "dyeLayers": 2,
+      "value": 35,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "wrestler_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "uncommon",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "oar",
+      "type": "tool",
+      "stackSize": 10,
+      "value": 30,
+      "toolType": "oar",
+      "miningPower": 0,
+      "attackBonus": 0,
+      "rarity": "common"
+    },
+    {
+      "id": "ghutra",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "cooling": 3,
+      "rarity": "common",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "turban",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "cooling": 3,
+      "rarity": "common",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "heavy_axe",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 40,
+      "toolType": "axe",
+      "miningPower": 4.0,
+      "attackBonus": 12,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "roof_tile",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 5,
+      "placeableId": 82,
+      "rarity": "common"
+    },
+    {
+      "id": "paving_stone",
+      "type": "placeable",
+      "stackSize": 99,
+      "isGroundTile": true,
+      "value": 5,
+      "placeableId": 83,
+      "rarity": "common"
+    },
+    {
+      "id": "brick_wall",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 10,
+      "placeableId": 8,
+      "rarity": "common"
+    },
+    {
+      "id": "woodenwall",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 5,
+      "placeableId": 100,
+      "rarity": "common"
+    },
+    {
+      "id": "woodenfence",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 5,
+      "placeableId": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "pot",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 10,
+      "placeableId": 86,
+      "rarity": "common"
+    },
+    {
+      "id": "cave_entry",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 50,
+      "placeableId": 50,
+      "rarity": "rare"
+    },
+    {
+      "id": "clay_mortar",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 30,
+      "placeableId": 104,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "dye_tray",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 40,
+      "placeableId": 92,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "gong",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 99,
+      "rarity": "rare"
+    },
+    {
+      "id": "tikitotem",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 150,
+      "placeableId": 88,
+      "rarity": "epic"
+    },
+    {
+      "id": "random_rock",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "common"
+    },
+    {
+      "id": "moldy_scrap",
+      "type": "resource",
+      "fertilizerBoost": 0.75,
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "guild_charter",
+      "type": "special",
+      "stackSize": 1,
+      "value": 500,
+      "rarity": "legendary"
+    },
+    {
+      "id": "cooking_furnace",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 40,
+      "placeableId": 32,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "gas_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "rarity": "uncommon",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "scissors",
+      "type": "tool",
+      "stackSize": 10,
+      "value": 40,
+      "toolType": "scissors",
+      "rarity": "common"
+    },
+    {
+      "id": "candle_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "lightRadius": 420,
+      "lightColor": [255, 180, 100],
+      "isLightSource": true,
+      "rarity": "uncommon",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "wooden_floor",
+      "type": "placeable",
+      "stackSize": 99,
+      "isGroundTile": true,
+      "value": 5,
+      "placeableId": 54,
+      "rarity": "common"
+    },
+    {
+      "id": "toilet",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 10,
+      "placeableId": 85,
+      "rarity": "common"
+    },
+    {
+      "id": "bathroom_tile",
+      "type": "placeable",
+      "stackSize": 99,
+      "isGroundTile": true,
+      "value": 5,
+      "placeableId": 59,
+      "rarity": "common"
+    },
+    {
+      "id": "wooden_shelf",
+      "type": "placeable",
+      "stackSize": 25,
+      "value": 50,
+      "placeableId": 81,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "wooden_shelf",
+      "type": "placeable",
+      "stackSize": 25,
+      "isGroundTile": true,
+      "value": 50,
+      "placeableId": 60,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "wooden_sign",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 10,
+      "placeableId": 90,
+      "rarity": "common"
+    },
+    {
+      "id": "traffic_cone",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 10,
+      "placeableId": 91,
+      "rarity": "common",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "floor_lamp",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 50,
+      "placeableId": 93,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "bathroom_sink",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 50,
+      "placeableId": 94,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "wooden_coffee_table",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 96,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "ladder",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 97,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "arrow",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "common"
+    },
+    {
+      "id": "cauldron",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 98,
+      "rarity": "rare"
+    },
+    {
+      "id": "coin",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "pylon",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 105,
+      "rarity": "epic"
+    },
+    {
+      "id": "pine_cone",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 1,
+      "placeableId": 45,
+      "rarity": "common"
+    },
+    {
+      "id": "jester_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "dyeable": true,
+      "dyeLayers": 2,
+      "rarity": "common",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "watering_can",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 20,
+      "toolType": "wateringcan",
+      "waterCapacity": 6,
+      "miningPower": 0,
+      "attackBonus": 0,
+      "rarity": "common"
+    },
+    {
+      "id": "heart_earring",
+      "type": "armor",
+      "rarity": "uncommon",
+      "value": 15,
+      "stackSize": 1,
+      "coveredZones": ["Ears"]
+    },
+    {
+      "id": "scarf",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "dyeable": true,
+      "dyeLayers": 2,
+      "rarity": "common",
+      "warmth": 2,
+      "coveredZones": ["Neck"]
+    },
+    {
+      "id": "cape",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 55,
+      "rarity": "rare",
+      "warmth": 1,
+      "coveredZones": ["Neck"]
+    },
+    {
+      "id": "gold_necklace",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "rarity": "uncommon",
+      "coveredZones": ["Neck"]
+    },
+    {
+      "id": "khamsin_heart",
+      "type": "resource",
+      "stackSize": 1,
+      "value": 120,
+      "rarity": "legendary"
+    },
+    {
+      "id": "hazmat_suit",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 500,
+      "rarity": "epic",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead", "Torso", "Legs", "Hands", "Ears", "Feet"]
+    },
+    {
+      "id": "pork_pie_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "uncommon",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "witch_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "chapka",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "fedora",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "dyeable": true,
+      "dyeLayers": 2,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "runbold_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "uncommon",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "crystal",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 20,
+      "rarity": "rare"
+    },
+    {
+      "id": "emerald",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 30,
+      "rarity": "epic"
+    },
+    {
+      "id": "ruby",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 30,
+      "rarity": "epic"
+    },
+    {
+      "id": "aquarium",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 99,
+      "rarity": "rare"
+    },
+    {
+      "id": "mirror",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 106,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "barrel",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 107,
+      "rarity": "common"
+    },
+    {
+      "id": "crate",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 108,
+      "rarity": "common"
+    },
+    {
+      "id": "pirate_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 100,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "boat_sail",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 104,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "boat_helm",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 109,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "basket_wicker",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 50,
+      "backpackSlots": 9,
+      "backpackRows": 3,
+      "rarity": "uncommon",
+      "equipSlot": "OffHand",
+      "equipMax": 1
+    },
+    {
+      "id": "suitcase",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 50,
+      "backpackSlots": 15,
+      "backpackRows": 3,
+      "rarity": "uncommon",
+      "equipSlot": "OffHand",
+      "equipMax": 1
+    },
+    {
+      "id": "recipe_scroll",
+      "type": "special",
+      "stackSize": 1,
+      "value": 50,
+      "recipeId": 0,
+      "rarity": "rare"
+    },
+    {
+      "id": "armor_stand_item",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 50,
+      "placeableId": 300,
+      "rarity": "rare"
+    },
+    {
+      "id": "thobe",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 150,
+      "rarity": "rare",
+      "coveredZones": ["Torso","Legs"]
+    },
+    {
+      "id": "car_icon",
+      "type": "placeable",
+      "placeableId": 215,
+      "stackSize": 1,
+      "value": 100,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "cool_glasses",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 150,
+      "rarity": "legendary",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "bench",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 15,
+      "placeableId": 114,
+      "rarity": "rare"
+    },
+    {
+      "id": "wooden_box",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 115,
+      "rarity": "common"
+    },
+    {
+      "id": "crow_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "rarity": "rare",
+      "armorCategory": "helmet",
+      "coveredZones": ["TopOfHead", "Ears", "Face"]
+    },
+    {
+      "id": "cordon_bleu",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 5,
+      "rarity": "legendary",
+      "hungerRestore": 10.0,
+      "thirstRestore": 2.5
+    },
+    {
+      "id": "cheese",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 5,
+      "rarity": "common",
+      "hungerRestore": 4.0
+    },
+    {
+      "id": "croissant",
+      "type": "food",
+      "stackSize": 50,
+      "value": 25,
+      "healAmount": 5,
+      "rarity": "common",
+      "hungerRestore": 8.0
+    },
+    {
+      "id": "wolf_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "rare",
+      "warmth": 2,
+      "runeSlots": 1,
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "crown",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 450,
+      "rarity": "rare",
+      "runeSlots": 1,
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "mashed_potatoes",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "baguette",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "hood",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "nasal_helmet",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 70,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead", "Face"],
+      "runeSlots": 1
+    },
+    {
+      "id": "beret",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "rare",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "skirt",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "rare",
+      "coveredZones": ["Waist"]
+    },
+    {
+      "id": "crab",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "water_bottle",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 5,
+      "toolType": "wateringcan",
+      "waterCapacity": 6,
+      "rarity": "common"
+    },
+    {
+      "id": "rain_collector",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 30,
+      "placeableId": 116,
+      "rarity": "common"
+    },
+    {
+      "id": "conical_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 35,
+      "rarity": "rare",
+      "warmth": 2,
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "maracas",
+      "type": "instrument",
+      "stackSize": 2,
+      "value": 15,
+      "rarity": "uncommon",
+      "equipSlot": "OffHand",
+      "equipMax": 1
+    },
+    {
+      "id": "turtle_shell",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "raw_chicken",
+      "type": "food",
+      "stackSize": 50,
+      "value": 6,
+      "healAmount": 2,
+      "rarity": "common",
+      "hungerRestore": 4.0,
+      "thirstRestore": 1.0
+    },
+    {
+      "id": "butter",
+      "type": "food",
+      "stackSize": 99,
+      "value": 15,
+      "healAmount": -3,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": -4.0
+    },
+    {
+      "id": "cooked_chicken",
+      "type": "food",
+      "stackSize": 50,
+      "value": 12,
+      "healAmount": 9,
+      "rarity": "common",
+      "hungerRestore": 18.0,
+      "thirstRestore": 4.5
+    },
+    {
+      "id": "gulper_eyeball",
+      "type": "resource",
+      "stackSize": 1,
+      "value": 250,
+      "rarity": "legendary"
+    },
+    {
+      "id": "worm_gem",
+      "type": "resource",
+      "stackSize": 1,
+      "value": 250,
+      "rarity": "legendary"
+    },
+    {
+      "id": "biggie_finger",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 250,
+      "attackBonus": 24,
+      "rarity": "legendary"
+    },
+    {
+      "id": "gem_eyeball",
+      "type": "resource",
+      "stackSize": 1,
+      "value": 500,
+      "rarity": "legendary"
+    },
+    {
+      "id": "gem_eyeball_base",
+      "type": "placeable",
+      "placeableId": 117,
+      "stackSize": 1,
+      "value": 500,
+      "rarity": "legendary"
+    },
+    {
+      "id": "eyeball_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 300,
+      "rarity": "legendary",
+      "armorCategory": "helmet",
+      "coveredZones": ["Face"]
+    },
+    {
+      "id": "knight_helmet",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "rarity": "rare",
+      "armorCategory": "helmet",
+      "coveredZones": ["TopOfHead", "Ears", "Face"],
+      "runeSlots": 1
+    },
+    {
+      "id": "crop_chestplate",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 80,
+      "rarity": "rare",
+      "coveredZones": ["Torso"],
+      "runeSlots": 2
+    },
+    {
+      "id": "wolf_suit",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 15,
+      "runeSlots": 2,
+      "rarity": "common",
+      "coveredZones": ["Torso"]
+    },
+    {
+      "id": "wolf_leggings",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 1,
+      "value": 20,
+      "rarity": "common",
+      "coveredZones": ["Legs"]
+    },
+    {
+      "id": "wolf_boots",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 1,
+      "value": 15,
+      "rarity": "common",
+      "coveredZones": ["Feet"]
+    },
+    {
+      "id": "ribbon",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 40,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "rare",
+      "coveredZones": ["Ears"]
+    },
+    {
+      "id": "chicken_suit",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 1,
+      "value": 15,
+      "rarity": "common",
+      "coveredZones": ["Torso"]
+    },
+    {
+      "id": "runic_stone",
+      "type": "rune",
+      "stackSize": 1,
+      "value": 40,
+      "rarity": "rare"
+    },
+    {
+      "id": "chicken_leggings",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 1,
+      "value": 20,
+      "rarity": "common",
+      "coveredZones": ["Legs"]
+    },
+    {
+      "id": "chicken_boots",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 1,
+      "value": 15,
+      "rarity": "common",
+      "coveredZones": ["Feet"]
+    },
+    {
+      "id": "crab_hat",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 1,
+      "value": 15,
+      "rarity": "common",
+      "armorCategory": "hat",
+      "coveredZones": ["TopOfHead"]
+    },
+    {
+      "id": "crab_torso",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 2,
+      "value": 25,
+      "rarity": "common",
+      "coveredZones": ["Torso"]
+    },
+    {
+      "id": "crab_legs",
+      "type": "armor",
+      "stackSize": 1,
+      "runeSlots": 1,
+      "value": 20,
+      "rarity": "common",
+      "coveredZones": ["Legs", "Feet"]
+    },
+    {
+      "id": "pistol_ammo",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "mousquet",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 120,
+      "attackBonus": 10,
+      "rarity": "rare",
+      "weaponCategory": "ranged",
+      "maxAmmoPerCharge": 1,
+      "ammoIds": ["pistol_ammo"],
+      "fireRate": 1.2
+    },
+    {
+      "id": "gunpowder",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 10,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "flintlock_pistol",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 260,
+      "attackBonus": 14,
+      "rarity": "epic",
+      "weaponCategory": "ranged",
+      "maxAmmoPerCharge": 1,
+      "ammoIds": ["pistol_ammo"],
+      "fireRate": 2.2
+    },
+    {
+      "id": "tin_ingot",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 7,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "bronze_ingot",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 22,
+      "rarity": "rare"
+    },
+    {
+      "id": "poo",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 1,
+      "fertilizerBoost": 1.0,
+      "rarity": "common"
+    },
+    {
+      "id": "business_suit",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 30,
+      "rarity": "rare",
+      "warmth": 4,
+      "coveredZones": ["Torso"]
+    },
+    {
+      "id": "pants",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 20,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "common",
+      "coveredZones": ["Legs"]
+    },
+    {
+      "id": "shoes",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 15,
+      "dyeable": true,
+      "dyeLayers": 1,
+      "rarity": "common",
+      "coveredZones": ["Feet"]
+    },
+    {
+      "id": "grenat",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 22,
+      "rarity": "rare"
+    },
+    {
+      "id": "amber",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 18,
+      "rarity": "rare"
+    },
+    {
+      "id": "topaze",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 25,
+      "rarity": "rare"
+    },
+    {
+      "id": "onyx",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 25,
+      "rarity": "rare"
+    },
+    {
+      "id": "opale",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 28,
+      "rarity": "rare"
+    },
+    {
+      "id": "obsidian",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 30,
+      "rarity": "rare"
+    },
+    {
+      "id": "genie_lamp",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 120,
+      "rarity": "rare"
+    },
+    {
+      "id": "slime_gel",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 5,
+      "rarity": "common"
+    },
+    {
+      "id": "slime_core",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 15,
+      "rarity": "rare"
+    },
+    {
+      "id": "loom",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 25,
+      "placeableId": 110,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "carpentry_workbench",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 30,
+      "placeableId": 111,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "cloth",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 8,
+      "rarity": "common"
+    },
+    {
+      "id": "wall_covering_tavern",
+      "type": "wallcovering",
+      "stackSize": 64,
+      "value": 15,
+      "placeableId": 901,
+      "rarity": "common"
+    },
+    {
+      "id": "wall_covering_bathroom",
+      "type": "wallcovering",
+      "stackSize": 64,
+      "value": 15,
+      "placeableId": 902,
+      "rarity": "common"
+    },
+    {
+      "id": "rug",
+      "type": "placeable",
+      "stackSize": 25,
+      "isGroundTile": true,
+      "value": 15,
+      "placeableId": 112,
+      "rarity": "common"
+    },
+    {
+      "id": "banner",
+      "type": "resource",
+      "stackSize": 1,
+      "value": 50,
+      "rarity": "rare"
+    },
+    {
+      "id": "magic_wand",
+      "type": "weapon",
+      "stackSize": 1,
+      "value": 75,
+      "attackBonus": 8,
+      "rarity": "rare"
+    },
+    {
+      "id": "steam_engine",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 200,
+      "placeableId": 401,
+      "rarity": "epic"
+    },
+    {
+      "id": "dynamo",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 150,
+      "placeableId": 403,
+      "rarity": "rare"
+    },
+    {
+      "id": "ladder",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 120,
+      "placeableId": 405,
+      "rarity": "rare"
+    },
+    {
+      "id": "ladder",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 407,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "floor_lamp",
+      "type": "placeable",
+      "stackSize": 64,
+      "value": 25,
+      "placeableId": 408,
+      "isLightSource": true,
+      "lightRadius": 350,
+      "lightColor": [255, 220, 150, 255],
+      "rarity": "rare"
+    },
+    {
+      "id": "logic_gate_and",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 100,
+      "placeableId": 410,
+      "rarity": "rare"
+    },
+    {
+      "id": "logic_gate_or",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 100,
+      "placeableId": 411,
+      "rarity": "rare"
+    },
+    {
+      "id": "logic_gate_nand",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 100,
+      "placeableId": 412,
+      "rarity": "rare"
+    },
+    {
+      "id": "logic_gate_nor",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 100,
+      "placeableId": 413,
+      "rarity": "rare"
+    },
+    {
+      "id": "logic_gate_xor",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 120,
+      "placeableId": 414,
+      "rarity": "rare"
+    },
+    {
+      "id": "logic_gate_not",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 90,
+      "placeableId": 415,
+      "rarity": "rare"
+    },
+    {
+      "id": "logic_switch",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 80,
+      "placeableId": 416,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "pressure_plate",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 60,
+      "placeableId": 417,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "logic_delay",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 90,
+      "placeableId": 418,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "raft",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 50,
+      "placeableId": 500,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "small_backpack",
+      "type": "backpack",
+      "stackSize": 1,
+      "value": 50,
+      "backpackSlots": 8,
+      "backpackRows": 2,
+      "rarity": "uncommon",
+      "coveredZones": ["Back"]
+    },
+    {
+      "id": "large_backpack",
+      "type": "backpack",
+      "stackSize": 1,
+      "value": 150,
+      "backpackSlots": 20,
+      "backpackRows": 4,
+      "rarity": "epic",
+      "coveredZones": ["Back"]
+    },
+    {
+      "id": "wheat_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 4001,
+      "growthTime": 180,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "cotton_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 4006,
+      "growthTime": 150,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "cotton",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "carrot_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 4002,
+      "growthTime": 150,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "carrot",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "beetroot_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 4003,
+      "growthTime": 160,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "beetroot",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "cabbage_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 4004,
+      "growthTime": 200,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "cabbage",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 5,
+      "rarity": "common",
+      "hungerRestore": 10.0,
+      "thirstRestore": 2.5
+    },
+    {
+      "id": "eggplant_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 5000,
+      "growthTime": 160,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "tomato_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 5001,
+      "growthTime": 140,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "strawberry_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 3,
+      "isSeed": true,
+      "cropId": 5002,
+      "growthTime": 120,
+      "growthStages": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "pumpkin_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 3,
+      "isSeed": true,
+      "cropId": 5003,
+      "growthTime": 180,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "radish_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 5004,
+      "growthTime": 100,
+      "growthStages": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "chili_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 5005,
+      "growthTime": 130,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "lettuce_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 5006,
+      "growthTime": 90,
+      "growthStages": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "corn_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 5007,
+      "growthTime": 170,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "onion_seeds",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 2,
+      "isSeed": true,
+      "cropId": 5008,
+      "growthTime": 150,
+      "growthStages": 4,
+      "rarity": "common"
+    },
+    {
+      "id": "eggplant",
+      "type": "food",
+      "stackSize": 50,
+      "value": 6,
+      "healAmount": 5,
+      "rarity": "common",
+      "hungerRestore": 10.0,
+      "thirstRestore": 2.5
+    },
+    {
+      "id": "tomato",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "strawberry",
+      "type": "food",
+      "stackSize": 50,
+      "value": 7,
+      "healAmount": 6,
+      "rarity": "common",
+      "hungerRestore": 12.0,
+      "thirstRestore": 3.0
+    },
+    {
+      "id": "pumpkin",
+      "type": "food",
+      "stackSize": 50,
+      "value": 8,
+      "healAmount": 6,
+      "rarity": "common",
+      "hungerRestore": 12.0,
+      "thirstRestore": 3.0
+    },
+    {
+      "id": "radish",
+      "type": "food",
+      "stackSize": 50,
+      "value": 4,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
+      "id": "chili",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "lettuce",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "corn",
+      "type": "food",
+      "stackSize": 50,
+      "value": 6,
+      "healAmount": 5,
+      "rarity": "common",
+      "hungerRestore": 10.0,
+      "thirstRestore": 2.5
+    },
+    {
+      "id": "onion",
+      "type": "food",
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "common",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
+    },
+    {
+      "id": "butterfly_net",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 30,
+      "toolType": "net",
+      "miningPower": 0,
+      "attackBonus": 1,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "butterfly",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 15,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "dragonfly",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 12,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "willowisp",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 25,
+      "lightRadius": 350,
+      "lightColor": [255, 180, 100],
+      "isLightSource": true,
+      "rarity": "rare"
+    },
+    {
+      "id": "portal",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 150,
+      "placeableId": 119,
+      "rarity": "legendary"
+    },
+    {
+      "id": "grandfather_clock",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 120,
+      "placeableId": 122,
+      "rarity": "rare"
+    },
+    {
+      "id": "sunflower",
+      "type": "resource",
+      "stackSize": 99,
+      "value": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "card_deck",
+      "type": "special",
+      "stackSize": 1,
+      "value": 25,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "railway",
+      "type": "placeable",
+      "stackSize": 99,
+      "value": 2,
+      "placeableId": 123,
+      "rarity": "common"
+    },
+    {
+      "id": "wagon",
+      "type": "placeable",
+      "stackSize": 1,
+      "value": 25,
+      "placeableId": 124,
+      "rarity": "uncommon"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+# .NET build outputs
+**/bin/
+**/obj/
+**/artifacts/
+dist/
+publish/
+
+# Local editor and operating-system files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.cache
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Player data and development backups
+Saves/
+GuildEmblems/
+player_id.txt
+Soulfract.rar
+Data/settings.json
+Data/keybindings.json
+Data/servers.json
+Data/player_characters.json
+Data/character_animations.json

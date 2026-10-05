@@ -1,0 +1,4103 @@
+{
+  "species": [
+    {
+      "name": "Human",
+      "type": "biped",
+      "isHumanoid": true,
+      "scale": 1.0,
+      "speed": 160,
+      "runSpeed": 300,
+      "maxHp": 50,
+      "attack": 3,
+      "behavior": "passive",
+      "visionRange": 15,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 4,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 8,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": -1,
+          "baseY": 11,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -4,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Golem",
+      "type": "biped",
+      "scale": 1.0,
+      "speed": 160,
+      "runSpeed": 300,
+      "maxHp": 50,
+      "attack": 3,
+      "behavior": "passive",
+      "visionRange": 9,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 16,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 4,
+          "baseY": -18,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -20,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 32,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": -1,
+          "baseY": 15,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -17,
+          "baseY": 4,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Demon",
+      "type": "biped",
+      "scale": 1.0,
+      "speed": 160,
+      "runSpeed": 300,
+      "maxHp": 50,
+      "attack": 3,
+      "behavior": "passive",
+      "visionRange": 9,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 4,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": -1,
+          "baseY": 11,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -4,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Goblin",
+      "type": "biped",
+      "isHumanoid": true,
+      "scale": 1.0,
+      "speed": 160,
+      "runSpeed": 240,
+      "maxHp": 50,
+      "attack": 3,
+      "behavior": "hostile",
+      "visionRange": 12,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {
+        "coin": {
+          "chance": 0.6,
+          "min": 1,
+          "max": 4
+        }
+      },
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 5,
+          "baseY": 5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 8,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 9,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -3,
+          "baseY": 5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ],
+      "randomFeatures": [
+        {
+          "name": "ears",
+          "attachTo": [
+            "head"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "name": "Skeleton",
+      "type": "biped",
+      "isHumanoid": true,
+      "scale": 1.0,
+      "speed": 130,
+      "runSpeed": 180,
+      "maxHp": 40,
+      "attack": 3,
+      "behavior": "hostile",
+      "visionRange": 12,
+      "alertDuration": 0,
+      "attackCooldown": 1.5,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 4,
+          "baseY": 4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -9,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -9,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 9,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": -1,
+          "baseY": 8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -5,
+          "baseY": 4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Locust",
+      "type": "biped",
+      "scale": 0.4,
+      "speed": 130,
+      "runSpeed": 180,
+      "maxHp": 40,
+      "attack": 3,
+      "behavior": "hostile",
+      "visionRange": 8,
+      "alertDuration": 0,
+      "attackCooldown": 1.5,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 15,
+          "baseY": 20,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -64,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 5,
+          "baseY": -28,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": -1,
+          "baseY": -70,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -11,
+          "baseY": -35,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -65,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 160,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": 2,
+          "baseY": 35,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -13,
+          "baseY": 21,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -6,
+          "baseY": -62,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Biggie",
+      "type": "biped",
+      "scale": 1.4,
+      "speed": 160,
+      "runSpeed": 300,
+      "maxHp": 50,
+      "attack": 3,
+      "behavior": "hostile",
+      "visionRange": 9,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {
+        "biggie_finger": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": 4,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -10,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 19,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": 0,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": -9,
+          "baseY": -15,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        }
+      ]
+    },
+    {
+      "name": "Gulper",
+      "type": "biped",
+      "scale": 1.0,
+      "speed": 160,
+      "runSpeed": 300,
+      "maxHp": 250,
+      "attack": 3,
+      "behavior": "hostile",
+      "visionRange": 9,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {
+        "gulper_eyeball": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": ""
+        }
+      ]
+    },
+    {
+      "name": "Slime",
+      "type": "biped",
+      "preferredFoodId": "milk",
+      "scale": 1.0,
+      "speed": 120,
+      "runSpeed": 300,
+      "maxHp": 15,
+      "attack": 3,
+      "behavior": "neutral",
+      "visionRange": 10,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "tintable": true,
+      "colorMin": [
+        80,
+        120,
+        70
+      ],
+      "colorMax": [
+        170,
+        240,
+        160
+      ],
+      "eyeColorMin": [
+        60,
+        180,
+        80
+      ],
+      "eyeColorMax": [
+        140,
+        240,
+        150
+      ],
+      "presetChance": 0.9,
+      "drops": {
+        "slime_gel": {
+          "chance": 0.6,
+          "min": 1,
+          "max": 5
+        },
+        "slime_core": {
+          "chance": 0.3,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "colorPresets": [
+        {
+          "name": "meadow",
+          "weight": 3,
+          "biomes": [
+            "Plains"
+          ],
+          "colorMin": [
+            120,
+            220,
+            140
+          ],
+          "colorMax": [
+            170,
+            255,
+            190
+          ],
+          "eyeColorMin": [
+            80,
+            200,
+            80
+          ],
+          "eyeColorMax": [
+            140,
+            255,
+            140
+          ]
+        },
+        {
+          "name": "pond",
+          "weight": 2,
+          "biomes": [
+            "Plains"
+          ],
+          "colorMin": [
+            90,
+            140,
+            210
+          ],
+          "colorMax": [
+            140,
+            200,
+            255
+          ],
+          "eyeColorMin": [
+            120,
+            220,
+            240
+          ],
+          "eyeColorMax": [
+            200,
+            255,
+            255
+          ]
+        },
+        {
+          "name": "sunrise",
+          "weight": 2,
+          "biomes": [
+            "Plains",
+            "Forest"
+          ],
+          "colorMin": [
+            220,
+            160,
+            90
+          ],
+          "colorMax": [
+            255,
+            200,
+            140
+          ],
+          "eyeColorMin": [
+            160,
+            120,
+            80
+          ],
+          "eyeColorMax": [
+            220,
+            180,
+            120
+          ]
+        },
+        {
+          "name": "cavern",
+          "weight": 3,
+          "biomes": [
+            "Cave"
+          ],
+          "colorMin": [
+            90,
+            80,
+            70
+          ],
+          "colorMax": [
+            150,
+            130,
+            110
+          ],
+          "eyeColorMin": [
+            120,
+            100,
+            80
+          ],
+          "eyeColorMax": [
+            210,
+            190,
+            150
+          ]
+        },
+        {
+          "name": "rock",
+          "weight": 2,
+          "biomes": [
+            "Cave"
+          ],
+          "colorMin": [
+            100,
+            100,
+            120
+          ],
+          "colorMax": [
+            170,
+            170,
+            190
+          ],
+          "eyeColorMin": [
+            160,
+            160,
+            200
+          ],
+          "eyeColorMax": [
+            220,
+            220,
+            240
+          ]
+        },
+        {
+          "name": "frost",
+          "weight": 4,
+          "biomes": [
+            "Snow",
+            "Tundra",
+            "SnowyForest",
+            "IceSpikes"
+          ],
+          "colorMin": [
+            210,
+            230,
+            240
+          ],
+          "colorMax": [
+            255,
+            255,
+            255
+          ],
+          "eyeColorMin": [
+            120,
+            180,
+            240
+          ],
+          "eyeColorMax": [
+            200,
+            230,
+            255
+          ]
+        },
+        {
+          "name": "dune",
+          "weight": 3,
+          "biomes": [
+            "Desert",
+            "Beach"
+          ],
+          "colorMin": [
+            220,
+            190,
+            120
+          ],
+          "colorMax": [
+            255,
+            230,
+            150
+          ],
+          "eyeColorMin": [
+            180,
+            140,
+            80
+          ],
+          "eyeColorMax": [
+            240,
+            200,
+            130
+          ]
+        },
+        {
+          "name": "sunset",
+          "weight": 2,
+          "biomes": [
+            "Desert",
+            "Savanna"
+          ],
+          "colorMin": [
+            240,
+            170,
+            90
+          ],
+          "colorMax": [
+            255,
+            210,
+            140
+          ],
+          "eyeColorMin": [
+            180,
+            100,
+            60
+          ],
+          "eyeColorMax": [
+            230,
+            150,
+            100
+          ]
+        }
+      ],
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Khamsin",
+      "type": "biped",
+      "scale": 1.0,
+      "speed": 160,
+      "runSpeed": 300,
+      "maxHp": 50,
+      "attack": 3,
+      "behavior": "hostile",
+      "visionRange": 9,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 5,
+          "baseY": 12,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": 2,
+          "baseY": 17,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -4,
+          "baseY": 12,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "ArmorStand",
+      "type": "biped",
+      "scale": 1.0,
+      "speed": 95,
+      "runSpeed": 30,
+      "maxHp": 20,
+      "attack": 3,
+      "behavior": "passive",
+      "visionRange": 1,
+      "alertDuration": 0,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 5,
+          "baseY": 14,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 3,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -2,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 1,
+          "baseY": 8,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 19,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -4,
+          "baseY": 14,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Ogre",
+      "type": "biped",
+      "scale": 1.0,
+      "speed": 125,
+      "runSpeed": 170,
+      "maxHp": 60,
+      "attack": 8,
+      "behavior": "hostile",
+      "visionRange": 11,
+      "alertDuration": 0,
+      "attackCooldown": 2.5,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": 10,
+          "baseY": -20,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -12,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 10,
+          "baseY": 10,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -9,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 40,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -20,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -14,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 20,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -15,
+          "baseY": 10,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 2,
+          "baseY": -9,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Cat",
+      "type": "quadruped",
+      "preferredFoodId": "raw_chicken",
+      "scale": 0.8,
+      "speed": 115,
+      "runSpeed": 310,
+      "maxHp": 15,
+      "attack": 2,
+      "behavior": "passive",
+      "visionRange": 18,
+      "alertDuration": 1.2,
+      "drops": {
+        "wool": {
+          "chance": 1.0,
+          "min": 2,
+          "max": 2
+        }
+      },
+      "tintable": true,
+      "colorMin": [
+        40,
+        30,
+        25
+      ],
+      "colorMax": [
+        230,
+        210,
+        190
+      ],
+      "eyeColorMin": [
+        80,
+        180,
+        60
+      ],
+      "eyeColorMax": [
+        120,
+        220,
+        90
+      ],
+      "presetChance": 0.9,
+      "portable": true,
+      "colorPresets": [
+        {
+          "name": "black",
+          "weight": 2,
+          "colorMin": [
+            10,
+            10,
+            10
+          ],
+          "colorMax": [
+            35,
+            35,
+            35
+          ],
+          "eyeColorMin": [
+            200,
+            190,
+            30
+          ],
+          "eyeColorMax": [
+            230,
+            210,
+            50
+          ],
+          "features": {
+            "paws": {
+              "enabled": false
+            },
+            "face": {
+              "enabled": false
+            },
+            "stripes": {
+              "enabled": false
+            }
+          }
+        },
+        {
+          "name": "tabby",
+          "weight": 3,
+          "colorMin": [
+            150,
+            105,
+            60
+          ],
+          "colorMax": [
+            190,
+            140,
+            90
+          ],
+          "eyeColorMin": [
+            70,
+            160,
+            50
+          ],
+          "eyeColorMax": [
+            100,
+            200,
+            80
+          ],
+          "features": {
+            "paws": {
+              "enabled": true,
+              "colorMin": [
+                235,
+                230,
+                220
+              ],
+              "colorMax": [
+                255,
+                255,
+                255
+              ]
+            },
+            "face": {
+              "enabled": true,
+              "colorMin": [
+                235,
+                230,
+                220
+              ],
+              "colorMax": [
+                255,
+                255,
+                255
+              ]
+            },
+            "stripes": {
+              "enabled": true
+            }
+          }
+        },
+        {
+          "name": "white",
+          "weight": 1,
+          "colorMin": [
+            235,
+            235,
+            235
+          ],
+          "colorMax": [
+            255,
+            255,
+            255
+          ],
+          "eyeColorMin": [
+            90,
+            160,
+            210
+          ],
+          "eyeColorMax": [
+            120,
+            190,
+            235
+          ],
+          "features": {
+            "paws": {
+              "enabled": false
+            },
+            "face": {
+              "enabled": false
+            },
+            "stripes": {
+              "enabled": false
+            }
+          }
+        },
+        {
+          "name": "ginger",
+          "weight": 1.25,
+          "colorMin": [
+            255,
+            124,
+            0
+          ],
+          "colorMax": [
+            255,
+            135,
+            0
+          ],
+          "eyeColorMin": [
+            80,
+            170,
+            60
+          ],
+          "eyeColorMax": [
+            110,
+            200,
+            85
+          ],
+          "features": {
+            "paws": {
+              "enabled": false
+            },
+            "face": {
+              "enabled": false
+            },
+            "stripes": {
+              "enabled": false
+            }
+          }
+        },
+        {
+          "name": "siamese",
+          "weight": 1.25,
+          "colorMin": [
+            210,
+            190,
+            165
+          ],
+          "colorMax": [
+            235,
+            215,
+            190
+          ],
+          "eyeColorMin": [
+            70,
+            140,
+            220
+          ],
+          "eyeColorMax": [
+            100,
+            170,
+            245
+          ],
+          "features": {
+            "paws": {
+              "enabled": true,
+              "colorMin": [
+                60,
+                45,
+                35
+              ],
+              "colorMax": [
+                80,
+                60,
+                45
+              ]
+            },
+            "face": {
+              "enabled": true,
+              "colorMin": [
+                60,
+                45,
+                35
+              ],
+              "colorMax": [
+                80,
+                60,
+                45
+              ]
+            },
+            "stripes": {
+              "enabled": false
+            }
+          }
+        }
+      ],
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -2,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 7,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "tail",
+          "baseX": -8,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -5,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 4,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 7,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ],
+      "randomFeatures": [
+        {
+          "name": "paws",
+          "attachTo": [
+            "larmbottom",
+            "rarmbottom",
+            "llegbottom",
+            "rlegbottom"
+          ],
+          "mode": "overlay",
+          "colorable": true,
+          "chance": 1.0
+        },
+        {
+          "name": "face",
+          "attachTo": [
+            "head"
+          ],
+          "mode": "overlay",
+          "colorable": true,
+          "chance": 0.6
+        },
+        {
+          "name": "stripes",
+          "attachTo": [
+            "body",
+            "tail"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 0.4
+        }
+      ]
+    },
+    {
+      "name": "Raccoon",
+      "type": "quadruped",
+      "preferredFoodId": "raw_chicken",
+      "scale": 0.8,
+      "speed": 115,
+      "runSpeed": 310,
+      "maxHp": 15,
+      "attack": 2,
+      "behavior": "passive",
+      "visionRange": 18,
+      "alertDuration": 1.2,
+      "drops": {
+        "wool": {
+          "chance": 1.0,
+          "min": 2,
+          "max": 2
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -1,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 5,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "tail",
+          "baseX": -6,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 1,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 1,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 3,
+          "baseY": 1,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Pig",
+      "type": "quadruped",
+      "preferredFoodId": "apple",
+      "scale": 0.8,
+      "speed": 115,
+      "runSpeed": 155,
+      "maxHp": 15,
+      "attack": 2,
+      "mountable": true,
+      "behavior": "neutral",
+      "visionRange": 12,
+      "alertDuration": 1.2,
+      "attackCooldown": 1.0,
+      "attackType": "charge",
+      "chargeDuration": 1.2,
+      "chargeSpeed": 550,
+      "chargeCooldown": 2.5,
+      "chargeDamage": 6,
+      "drops": {
+        "raw_porkchop": {
+          "chance": 1.0,
+          "min": 2,
+          "max": 2
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -7,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 10,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -15,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 3,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 1,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 11,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Turtle",
+      "type": "quadruped",
+      "preferredFoodId": "cabbage",
+      "scale": 0.8,
+      "speed": 60,
+      "runSpeed": 120,
+      "maxHp": 12,
+      "attack": 1,
+      "behavior": "passive",
+      "portable": true,
+      "visionRange": 8,
+      "alertDuration": 1.0,
+      "drops": {
+        "turtle_shell": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -4,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 10,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -10,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 0,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 6,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Insect",
+      "type": "quadruped",
+      "scale": 0.6,
+      "speed": 90,
+      "runSpeed": 120,
+      "maxHp": 8,
+      "attack": 0,
+      "behavior": "passive",
+      "visionRange": 6,
+      "alertDuration": 1.2,
+      "attackCooldown": 0,
+      "tintable": true,
+      "colorMin": [
+        140,
+        40,
+        40
+      ],
+      "colorMax": [
+        220,
+        100,
+        100
+      ],
+      "eyeColorMin": [
+        20,
+        20,
+        20
+      ],
+      "eyeColorMax": [
+        50,
+        50,
+        50
+      ],
+      "presetChance": 1.0,
+      "randomFeatures": [
+        {
+          "name": "shell",
+          "attachTo": [
+            "body"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 1.0
+        }
+      ],
+      "colorPresets": [
+        {
+          "name": "ladybug",
+          "weight": 2,
+          "biomes": [
+            "Plains"
+          ],
+          "colorMin": [
+            220,
+            40,
+            40
+          ],
+          "colorMax": [
+            255,
+            100,
+            100
+          ],
+          "eyeColorMin": [
+            20,
+            20,
+            20
+          ],
+          "eyeColorMax": [
+            40,
+            40,
+            40
+          ],
+          "features": {
+            "shell": {
+              "enabled": true,
+              "variant": 0
+            }
+          }
+        },
+        {
+          "name": "beetle",
+          "weight": 2,
+          "biomes": [
+            "Desert"
+          ],
+          "colorMin": [
+            140,
+            110,
+            70
+          ],
+          "colorMax": [
+            190,
+            150,
+            110
+          ],
+          "eyeColorMin": [
+            20,
+            20,
+            20
+          ],
+          "eyeColorMax": [
+            40,
+            40,
+            40
+          ],
+          "features": {
+            "shell": {
+              "enabled": true,
+              "variant": 1
+            }
+          }
+        }
+      ],
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": ""
+        }
+      ]
+    },
+    {
+      "name": "Chicken",
+      "type": "biped",
+      "preferredFoodId": "grass",
+      "scale": 0.6,
+      "speed": 85,
+      "runSpeed": 130,
+      "maxHp": 8,
+      "attack": 1,
+      "behavior": "passive",
+      "portable": true,
+      "visionRange": 10,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "drops": {
+        "chicken_feather": {
+          "chance": 1.0,
+          "min": 2,
+          "max": 2
+        },
+        "raw_chicken": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "llegtop",
+          "baseX": 1,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -1,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 3,
+          "baseY": 1,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "bolet",
+      "type": "biped",
+      "preferredFoodId": "grassy_dirt",
+      "scale": 0.6,
+      "speed": 85,
+      "runSpeed": 130,
+      "maxHp": 8,
+      "attack": 1,
+      "behavior": "neutral",
+      "portable": true,
+      "visionRange": 15,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "randomFeatures": [
+        {
+          "name": "hat",
+          "attachTo": [
+            "body"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 1.0
+        }
+      ],
+      "drops": {
+        "mushroom": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": -2,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": ""
+        }
+      ]
+    },
+    {
+      "name": "Penguin",
+      "type": "biped",
+      "preferredFoodId": "grass",
+      "scale": 0.6,
+      "speed": 85,
+      "runSpeed": 130,
+      "maxHp": 8,
+      "attack": 1,
+      "behavior": "passive",
+      "portable": true,
+      "visionRange": 15,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "drops": {
+        "chicken_feather": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        },
+        "raw_chicken": {
+          "chance": 1.0,
+          "min": 2,
+          "max": 2
+        }
+      },
+      "skeleton": [
+        {
+          "name": "larmtop",
+          "baseX": 3,
+          "baseY": 3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 1,
+          "baseY": -10,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -1,
+          "baseY": -10,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -3,
+          "baseY": 3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 10,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Pigeon",
+      "type": "biped",
+      "preferredFoodId": "grass",
+      "scale": 0.6,
+      "speed": 85,
+      "runSpeed": 130,
+      "maxHp": 8,
+      "attack": 1,
+      "behavior": "passive",
+      "portable": true,
+      "visionRange": 15,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "drops": {
+        "chicken_feather": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        },
+        "raw_chicken": {
+          "chance": 1.0,
+          "min": 2,
+          "max": 2
+        }
+      },
+      "skeleton": [
+        {
+          "name": "tail",
+          "baseX": -5,
+          "baseY": 1,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 3,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -1,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -1,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 3,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ],
+      "randomFeatures": [
+        {
+          "name": "neck",
+          "attachTo": [
+            "body"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 1.0
+        },
+        {
+          "name": "body_skin",
+          "attachTo": [
+            "body",
+            "tail",
+            "rarmtop"
+          ],
+          "mode": "replace",
+          "colorable": false,
+          "chance": 1.0
+        },
+        {
+          "name": "beak",
+          "attachTo": [
+            "head"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 1.0
+        }
+      ],
+      "presetChance": 0.9,
+      "colorPresets": [
+        {
+          "name": "city_pigeon",
+          "weight": 1,
+          "colorMin": [
+            10,
+            10,
+            10
+          ],
+          "colorMax": [
+            35,
+            35,
+            35
+          ],
+          "eyeColorMin": [
+            220,
+            100,
+            0
+          ],
+          "eyeColorMax": [
+            230,
+            115,
+            5
+          ],
+          "features": {
+            "neck": {
+              "variant": 0
+            },
+            "body_skin": {
+              "variant": 0
+            },
+            "beak": {
+              "variant": 0
+            }
+          }
+        },
+        {
+          "name": "wood_pigeon",
+          "weight": 1,
+          "colorMin": [
+            10,
+            10,
+            10
+          ],
+          "colorMax": [
+            35,
+            35,
+            35
+          ],
+          "eyeColorMin": [
+            220,
+            200,
+            0
+          ],
+          "eyeColorMax": [
+            230,
+            215,
+            5
+          ],
+          "features": {
+            "neck": {
+              "variant": 1
+            },
+            "body_skin": {
+              "variant": 1
+            },
+            "beak": {
+              "variant": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Duck",
+      "type": "biped",
+      "scale": 0.7,
+      "speed": 125,
+      "runSpeed": 225,
+      "maxHp": 10,
+      "attack": 1,
+      "behavior": "passive",
+      "preferredFoodId": "worm",
+      "portable": true,
+      "visionRange": 16,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "drops": {
+        "duck_feather": {
+          "chance": 0.8,
+          "min": 1,
+          "max": 4
+        },
+        "raw_duck_meat": {
+          "chance": 0.7,
+          "min": 1,
+          "max": 3
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -2,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 3,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": ""
+        }
+      ],
+      "randomFeatures": [
+        {
+          "name": "beak",
+          "attachTo": [
+            "head"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "name": "Sparrow",
+      "type": "biped",
+      "scale": 0.7,
+      "speed": 125,
+      "runSpeed": 225,
+      "maxHp": 10,
+      "attack": 1,
+      "behavior": "passive",
+      "visionRange": 16,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "drops": {
+        "duck_feather": {
+          "chance": 0.8,
+          "min": 1,
+          "max": 4
+        },
+        "raw_duck_meat": {
+          "chance": 0.7,
+          "min": 1,
+          "max": 3
+        }
+      },
+      "skeleton": [
+        {
+          "name": "tail",
+          "baseX": -4,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": 0,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -9,
+          "baseRot": 0,
+          "parent": ""
+        }
+      ],
+      "randomFeatures": [
+        {
+          "name": "beak",
+          "attachTo": [
+            "body"
+          ],
+          "mode": "overlay",
+          "colorable": false,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "name": "Crow",
+      "type": "biped",
+      "scale": 0.7,
+      "speed": 110,
+      "runSpeed": 125,
+      "maxHp": 10,
+      "attack": 1,
+      "behavior": "passive",
+      "visionRange": 16,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 2,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -2,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 2,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "head",
+          "baseX": 4,
+          "baseY": 5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Goat",
+      "type": "quadruped",
+      "scale": 0.85,
+      "speed": 105,
+      "runSpeed": 115,
+      "maxHp": 14,
+      "attack": 3,
+      "behavior": "neutral",
+      "visionRange": 12,
+      "alertDuration": 1.5,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "llegtop",
+          "baseX": -3,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -6,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 6,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 4,
+          "baseY": 1,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Sheep",
+      "type": "quadruped",
+      "preferredFoodId": "grass",
+      "scale": 0.9,
+      "speed": 90,
+      "runSpeed": 105,
+      "maxHp": 15,
+      "attack": 1,
+      "behavior": "passive",
+      "visionRange": 12,
+      "alertDuration": 1.2,
+      "attackCooldown": 1.0,
+      "drops": {
+        "raw_beef": {
+          "chance": 0.8,
+          "min": 3,
+          "max": 3
+        },
+        "wool": {
+          "chance": 0.8,
+          "min": 1,
+          "max": 4
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -3,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 7,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -6,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "head",
+          "baseX": 8,
+          "baseY": 5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 4,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ],
+      "randomFeatures": [
+        {
+          "name": "fur_head",
+          "attachTo": ["head"],
+          "mode": "overlay",
+          "colorable": true,
+          "chance": 1.0
+        },
+        {
+          "name": "fur_body",
+          "attachTo": ["body"],
+          "mode": "overlay",
+          "colorable": true,
+          "chance": 1.0
+        }
+      ],
+      "presetChance": 1.0,
+      "colorPresets": [
+        {
+          "name": "patches",
+          "weight": 1.0,
+          "features": {
+            "fur_body": {
+              "enabled": true,
+              "variant": 0,
+              "colorMin": [145, 95, 60],
+              "colorMax": [145, 95, 60]
+            },
+            "fur_head": {
+              "enabled": true,
+              "variant": 0,
+              "colorMin": [145, 95, 60],
+              "colorMax": [145, 95, 60]
+            }
+          }
+        },
+        {
+          "name": "solid",
+          "weight": 1.0,
+          "features": {
+            "fur_body": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [210, 205, 190],
+              "colorMax": [170, 140, 110]
+            },
+            "fur_head": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [205, 190, 170],
+              "colorMax": [150, 120, 90]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bat",
+      "type": "flying",
+      "scale": 0.5,
+      "speed": 140,
+      "runSpeed": 150,
+      "maxHp": 6,
+      "attack": 2,
+      "behavior": "neutral",
+      "visionRange": 12,
+      "alertDuration": 0,
+      "attackCooldown": 1.0,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "larmtop",
+          "baseX": 3,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -2,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 1,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Bear",
+      "type": "quadruped",
+      "scale": 1.2,
+      "speed": 90,
+      "runSpeed": 140,
+      "maxHp": 40,
+      "attack": 8,
+      "behavior": "neutral",
+      "visionRange": 8,
+      "alertDuration": 1.5,
+      "attackCooldown": 2.0,
+      "drops": {
+        "bear_leather": {
+          "chance": 1.0,
+          "min": 3,
+          "max": 3
+        },
+        "bear_claws": {
+          "chance": 1.0,
+          "min": 3,
+          "max": 3
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -8,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 9,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -10,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 6,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 10,
+          "baseY": 3,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Cow",
+      "type": "quadruped",
+      "preferredFoodId": "grass",
+      "scale": 1.0,
+      "speed": 105,
+      "runSpeed": 175,
+      "maxHp": 20,
+      "attack": 2,
+      "behavior": "passive",
+      "visionRange": 16,
+      "alertDuration": 1.3,
+      "attackCooldown": 1.0,
+      "drops": {
+        "raw_beef": {
+          "chance": 0.8,
+          "min": 1,
+          "max": 3
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -1,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 9,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -8,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 2,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 3,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Scorpio",
+      "type": "quadruped",
+      "scale": 1.0,
+      "speed": 125,
+      "runSpeed": 225,
+      "maxHp": 20,
+      "attack": 2,
+      "behavior": "hostile",
+      "visionRange": 13,
+      "alertDuration": 1.3,
+      "attackCooldown": 1.0,
+      "drops": {
+        "raw_beef": {
+          "chance": 0.8,
+          "min": 1,
+          "max": 3
+        }
+      },
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 7,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -14,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -10,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": -2,
+          "baseY": -9,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Wolf",
+      "type": "quadruped",
+      "mountable": true,
+      "preferredFoodId": "raw_beef",
+      "scale": 1.0,
+      "speed": 180,
+      "runSpeed": 350,
+      "maxHp": 18,
+      "attack": 5,
+      "behavior": "neutral",
+      "visionRange": 14,
+      "alertDuration": 0,
+      "attackCooldown": 1.5,
+      "tintable": true,
+      "colorMin": [80, 70, 60],
+      "colorMax": [150, 140, 125],
+      "presetChance": 1.0,
+      "randomFeatures": [
+        {
+          "name": "Fur",
+          "attachTo": ["body", "head", "larmtop", "rarmtop", "llegtop", "rlegtop"],
+          "mode": "overlay",
+          "colorable": true,
+          "chance": 1.0
+        }
+      ],
+      "colorPresets": [
+        {
+          "name": "gray",
+          "weight": 4.0,
+          "colorMin": [180, 177, 168],
+          "colorMax": [180, 177, 168],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [78, 75, 70],
+              "colorMax": [78, 75, 70]
+            }
+          }
+        },
+        {
+          "name": "sable",
+          "weight": 3.0,
+          "colorMin": [158, 119, 78],
+          "colorMax": [158, 119, 78],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [76, 55, 38],
+              "colorMax": [76, 55, 38]
+            }
+          }
+        },
+        {
+          "name": "black",
+          "weight": 1.0,
+          "colorMin": [61, 63, 66],
+          "colorMax": [61, 63, 66],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [26, 27, 29],
+              "colorMax": [26, 27, 29]
+            }
+          }
+        },
+        {
+          "name": "white",
+          "weight": 1.0,
+          "colorMin": [235, 232, 220],
+          "colorMax": [235, 232, 220],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [180, 178, 170],
+              "colorMax": [180, 178, 170]
+            }
+          }
+        },
+        {
+          "name": "red",
+          "weight": 1.0,
+          "colorMin": [167, 99, 63],
+          "colorMax": [167, 99, 63],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [85, 49, 35],
+              "colorMax": [85, 49, 35]
+            }
+          }
+        },
+        {
+          "name": "timber_gray",
+          "weight": 3.0,
+          "colorMin": [205, 193, 174],
+          "colorMax": [205, 193, 174],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [107, 110, 105],
+              "colorMax": [107, 110, 105]
+            }
+          }
+        },
+        {
+          "name": "silver_gray",
+          "weight": 2.0,
+          "colorMin": [219, 212, 195],
+          "colorMax": [219, 212, 195],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [131, 133, 129],
+              "colorMax": [131, 133, 129]
+            }
+          }
+        },
+        {
+          "name": "warm_sable",
+          "weight": 2.0,
+          "colorMin": [211, 185, 152],
+          "colorMax": [211, 185, 152],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "colorMin": [130, 104, 79],
+              "colorMax": [130, 104, 79]
+            }
+          }
+        },
+        {
+          "name": "doberman",
+          "weight": 1.0,
+          "colorMin": [200, 100, 60],
+          "colorMax": [200, 100, 60],
+          "features": {
+            "Fur": {
+              "enabled": true,
+              "variant": 2,
+              "colorMin": [60, 50, 70],
+              "colorMax": [60, 50, 70]
+            }
+          }
+        }
+      ],
+      "drops": {
+        "leather": {
+          "chance": 0.8,
+          "min": 1,
+          "max": 5
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 8,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -6,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 4,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 8,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Hyena",
+      "type": "quadruped",
+      "mountable": true,
+      "preferredFoodId": "raw_beef",
+      "scale": 1.0,
+      "speed": 180,
+      "runSpeed": 350,
+      "maxHp": 18,
+      "attack": 5,
+      "behavior": "neutral",
+      "visionRange": 16,
+      "alertDuration": 0,
+      "attackCooldown": 1.5,
+      "drops": {
+        "leather": {
+          "chance": 0.8,
+          "min": 1,
+          "max": 5
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -7,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 6,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "tail",
+          "baseX": -11,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 7,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -10,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 3,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 7,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Squirrel",
+      "type": "quadruped",
+      "scale": 0.5,
+      "speed": 150,
+      "runSpeed": 200,
+      "maxHp": 8,
+      "attack": 2,
+      "behavior": "passive",
+      "visionRange": 15,
+      "alertDuration": 1.3,
+      "attackCooldown": 1.5,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -1,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": -4,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 6,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -3,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": -4,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "tail",
+          "baseX": -6,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 4,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 5,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Crab",
+      "type": "quadruped",
+      "scale": 0.6,
+      "speed": 150,
+      "runSpeed": 230,
+      "maxHp": 8,
+      "attack": 5,
+      "behavior": "passive",
+      "visionRange": 12,
+      "alertDuration": 0,
+      "attackCooldown": 1.0,
+      "drops": {
+        "crab": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": 7,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -7,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 3,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -3,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": ""
+        }
+      ]
+    },
+    {
+      "name": "Fox",
+      "type": "quadruped",
+      "scale": 0.85,
+      "speed": 120,
+      "runSpeed": 160,
+      "maxHp": 18,
+      "attack": 5,
+      "behavior": "hostile",
+      "visionRange": 16,
+      "alertDuration": 0,
+      "attackCooldown": 1.2,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": -5,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "llegtop",
+          "baseX": 1,
+          "baseY": -3,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -1,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 13,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 9,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        },
+        {
+          "name": "head",
+          "baseX": 13,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Spider",
+      "type": "spider",
+      "scale": 0.5,
+      "speed": 130,
+      "runSpeed": 180,
+      "maxHp": 18,
+      "attack": 5,
+      "behavior": "hostile",
+      "visionRange": 8,
+      "alertDuration": 0,
+      "attackCooldown": 1.2,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -4,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "llegtop",
+          "baseX": -2,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "lleg2top",
+          "baseX": -4,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -4,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rleg2top",
+          "baseX": -6,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 2,
+          "baseY": -9,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larm2top",
+          "baseX": 0,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 0,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarm2top",
+          "baseX": -2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 5,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Butterfly",
+      "type": "flying",
+      "scale": 0.6,
+      "speed": 75,
+      "runSpeed": 90,
+      "maxHp": 2,
+      "attack": 0,
+      "behavior": "passive",
+      "portable": true,
+      "visionRange": 5,
+      "alertDuration": 2.0,
+      "attackCooldown": 0,
+      "drops": {
+        "butterfly": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "leftwing",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rightwing",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ],
+      "canBeCaught": true
+    },
+    {
+      "name": "Dragonfly",
+      "type": "flying",
+      "scale": 0.4,
+      "speed": 85,
+      "runSpeed": 100,
+      "maxHp": 2,
+      "attack": 0,
+      "behavior": "passive",
+      "visionRange": 5,
+      "alertDuration": 1.8,
+      "attackCooldown": 0,
+      "drops": {
+        "dragonfly": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "leftwing",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rightwing",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "tail",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ],
+      "canBeCaught": true
+    },
+    {
+      "name": "Willowisp",
+      "type": "flying",
+      "scale": 0.8,
+      "speed": 65,
+      "runSpeed": 80,
+      "maxHp": 3,
+      "attack": 0,
+      "behavior": "passive",
+      "visionRange": 5,
+      "alertDuration": 2.5,
+      "attackCooldown": 0,
+      "drops": {
+        "willowisp": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "glow",
+          "baseX": 0,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ],
+      "canBeCaught": true,
+      "isLightSource": true,
+      "lightRadius": 180,
+      "lightColor": [
+        255,
+        150,
+        100
+      ]
+    },
+    {
+      "name": "Horse",
+      "type": "quadruped",
+      "scale": 1.1,
+      "speed": 160,
+      "runSpeed": 150,
+      "maxHp": 25,
+      "attack": 3,
+      "behavior": "neutral",
+      "visionRange": 16,
+      "alertDuration": 1.2,
+      "attackCooldown": 1.2,
+      "drops": {},
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": -15,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "llegbottom",
+          "baseX": 0,
+          "baseY": -14,
+          "baseRot": 0,
+          "parent": "llegtop"
+        },
+        {
+          "name": "larmtop",
+          "baseX": 26,
+          "baseY": -5,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "larmbottom",
+          "baseX": 0,
+          "baseY": -12,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": 20,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -17,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": 0,
+          "baseY": -14,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "head",
+          "baseX": 22,
+          "baseY": 6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 16,
+          "baseY": -2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 0,
+          "baseY": -14,
+          "baseRot": 0,
+          "parent": "rarmtop"
+        }
+      ]
+    },
+    {
+      "name": "Worm",
+      "type": "worm",
+      "scale": 1.0,
+      "speed": 0,
+      "runSpeed": 0,
+      "maxHp": 400,
+      "attack": 18,
+      "behavior": "hostile",
+      "visionRange": 13,
+      "alertDuration": 0,
+      "attackCooldown": 2.6,
+      "drops": {
+        "worm_gem": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": []
+    }
+  ],
+  "animations": {
+    "walk_quadruped": [
+      "larmtop#0_0_30#0_0_30#0_0_0#0_0_-20#0_0_-45#0_0_-40#0_0_-40#0_0_15#",
+      "larmbottom#0_0_0#0_0_50#0_0_0#0_0_60#0_0_80#0_0_0#0_0_30#0_0_0#",
+      "llegtop#0_0_-40#0_0_-40#0_0_15#0_0_30#0_0_30#0_0_0#0_0_-20#0_0_-45#",
+      "llegbottom#0_0_0#0_0_30#0_0_0#0_0_0#0_0_50#0_0_0#0_0_60#0_0_80#",
+      "body#0_0_0#0_-1_0#0_0_0#0_1_0#0_0_0#0_-1_0#0_0_0#0_1_0#",
+      "rlegtop#0_0_30#0_0_0#0_0_-20#0_0_-45#0_0_-40#0_0_-40#0_0_15#0_0_30#",
+      "rlegbottom#0_0_50#0_0_0#0_0_60#0_0_80#0_0_0#0_0_30#0_0_0#0_0_0#",
+      "head#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmtop#0_0_-20#0_0_-45#0_0_-40#0_0_-40#0_0_15#0_0_30#0_0_30#0_0_0#",
+      "rarmbottom#0_0_60#0_0_80#0_0_0#0_0_30#0_0_0#0_0_0#0_0_50#0_0_0#"
+    ],
+    "run_quadruped": [
+      "larmtop#0_0_80#0_0_80#0_0_0#0_0_-20#0_0_-45#0_0_-40#0_0_-40#0_0_15#",
+      "larmbottom#0_0_0#0_0_50#0_0_0#0_0_60#0_0_80#0_0_0#0_0_30#0_0_0#",
+      "llegtop#0_0_-40#0_0_-40#0_0_15#0_0_30#0_0_30#0_0_0#0_0_-20#0_0_-45#",
+      "llegbottom#0_0_0#0_0_30#0_0_0#0_0_0#0_0_50#0_0_0#0_0_60#0_0_80#",
+      "body#0_0_20#0_1_20#0_1_10#0_1_0#0_0_-10#0_-1_0#0_0_0#0_0_10#",
+      "rlegtop#0_0_30#0_0_0#0_0_-20#0_0_-45#0_0_-40#0_0_-40#0_0_15#0_0_30#",
+      "rlegbottom#0_0_50#0_0_0#0_0_60#0_0_80#0_0_0#0_0_30#0_0_0#0_0_0#",
+      "head#0_0_0#0_-1_0#0_0_0#0_1_0#0_0_0#0_-1_0#0_0_0#0_1_0#",
+      "rarmtop#0_0_-20#0_0_-45#0_0_-40#0_0_-40#0_0_15#0_0_30#0_0_30#0_0_0#",
+      "rarmbottom#0_0_60#0_0_80#0_0_0#0_0_30#0_0_0#0_0_0#0_0_50#0_0_0#"
+    ],
+    "idle_quadruped": [
+      "larmtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "larmbottom#",
+      "llegtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "llegbottom#",
+      "body#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rlegtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rlegbottom#",
+      "head#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmbottom#"
+    ],
+    "hold_quadruped": [
+      "larmtop#0_0_20#",
+      "larmbottom#",
+      "llegtop#-4_1_90#",
+      "llegbottom#",
+      "body#0_0_-90#",
+      "tail#0_2_90#",
+      "rlegtop#-2_2_90#",
+      "rlegbottom#",
+      "head#0_0_90#",
+      "rarmtop#0_0_20#",
+      "rarmbottom#"
+    ],
+    "attack_quadruped": [
+      "larmtop#0_0_-10#0_0_-50#0_0_-90#0_0_-90#",
+      "larmbottom#0_0_10#0_0_0#0_0_0#0_0_0#",
+      "llegtop#0_0_-50#0_0_-30#0_0_0#0_0_0#",
+      "llegbottom#0_0_100#0_0_60#0_0_0#0_0_0#",
+      "body#0_0_0#-1_-1_-10#0_0_-10#1_0_0#",
+      "rlegtop#0_0_-50#0_0_-30#0_0_0#0_0_0#",
+      "rlegbottom#0_0_100#0_0_60#0_0_0#0_0_0#",
+      "head#0_0_0#0_0_0#1_0_10#2_0_30#",
+      "rarmtop#0_0_-10#0_0_-50#0_0_-90#0_0_-90#",
+      "rarmbottom#0_0_10#0_0_0#0_0_0#0_0_0#"
+    ],
+    "walk_spider": [
+      "larm2top#0_0_0#0_0_30#0_1_30#0_1_0#0_1_-30#0_0_-30#",
+      "larmtop#0_0_-30#0_0_0#0_0_30#0_1_30#0_1_0#0_1_-30#",
+      "lleg2top#0_1_-30#0_0_-30#0_0_0#0_0_30#0_1_30#0_1_0#",
+      "llegtop#0_1_0#0_1_-30#0_0_-30#0_0_0#0_0_30#0_1_30#",
+      "body#0_0_0#0_-1_0#0_-1_0#0_-1_0#0_0_0#0_0_0#",
+      "rleg2top#0_0_0#0_0_30#0_1_30#0_1_0#0_1_-30#0_0_-30#",
+      "rlegtop#0_0_-30#0_0_0#0_0_30#0_1_30#0_1_0#0_1_-30#",
+      "head#0_0_0#0_-1_0#0_-1_0#0_-1_0#0_0_0#0_0_0#",
+      "rarm2top#0_1_-30#0_0_-30#0_0_0#0_0_30#0_1_30#0_1_0#",
+      "rarmtop#0_1_0#0_1_-30#0_0_-30#0_0_0#0_0_30#0_1_30#"
+    ],
+    "idle_spider": [
+      "larm2top#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "larmtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "lleg2top#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "llegtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "body#0_0_0#0_-1_0#0_0_0#0_-1_0#",
+      "rleg2top#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rlegtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "head#0_0_0#0_-1_0#0_0_0#0_-1_0#",
+      "rarm2top#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmtop#0_0_0#0_0_0#0_0_0#0_0_0#"
+    ],
+    "walk_biped": [
+      "larmtop#0_0_25#0_0_20#0_0_5#0_0_-5#0_0_-20#0_0_-20#0_0_10#0_0_20#",
+      "larmbottom#0_0_-35#0_0_-7#0_0_-35#0_0_-50#0_0_-40#0_0_-20#0_0_-10#0_0_-40#",
+      "llegtop#0_0_-40#0_0_-40#0_0_15#0_0_30#0_0_30#0_0_0#0_0_-20#0_0_-45#",
+      "llegbottom#0_0_0#0_0_30#0_0_0#0_0_0#0_0_50#0_0_0#0_0_110#0_0_140#",
+      "body#0_0_0#0_-1_0#0_0_0#0_1_0#0_0_0#0_-1_0#0_0_0#0_1_0#",
+      "rlegtop#0_0_30#0_0_0#0_0_-20#0_0_-45#0_0_-40#0_0_-40#0_0_15#0_0_30#",
+      "rlegbottom#0_0_50#0_0_0#0_0_110#0_0_140#0_0_0#0_0_30#0_0_0#0_0_0#",
+      "head#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmtop#0_0_-20#0_0_-20#0_0_10#0_0_20#0_0_25#0_0_20#0_0_5#0_0_-5#",
+      "rarmbottom#0_0_-40#0_0_-20#0_0_-10#0_0_-40#0_0_-35#0_0_-7#0_0_-35#0_0_-50#"
+    ],
+    "climb_biped": [
+      "rarmtop#0_0_-110#0_0_-100#0_0_-95#0_0_-80#0_0_-70#0_0_-70#0_0_-90#0_0_-100#",
+      "larmbottom#0_0_-35#0_0_-7#0_0_-35#0_0_-50#0_0_-40#0_0_-20#0_0_-10#0_0_-40#",
+      "llegtop#0_0_-70#0_0_-70#0_0_-90#0_0_-100#0_0_-110#0_0_-100#0_0_-95#0_0_-80#",
+      "llegbottom#0_0_0#0_0_30#0_0_0#0_0_0#0_0_50#0_0_0#0_0_110#0_0_140#",
+      "body#0_0_0#0_-1_0#0_0_0#0_1_0#0_0_0#0_-1_0#0_0_0#0_1_0#",
+      "rlegtop#0_0_-70#0_0_-70#0_0_-90#0_0_-100#0_0_-110#0_0_-100#0_0_-95#0_0_-80#",
+      "rlegbottom#0_0_50#0_0_0#0_0_110#0_0_140#0_0_0#0_0_30#0_0_0#0_0_0#",
+      "head#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmtop#0_0_-70#0_0_-70#0_0_-90#0_0_-100#0_0_-110#0_0_-100#0_0_-95#0_0_-80#",
+      "rarmbottom#0_0_-40#0_0_-20#0_0_-10#0_0_-40#0_0_-35#0_0_-7#0_0_-35#0_0_-50#"
+    ],
+    "run_biped": [
+      "larmtop#0_0_40#0_-1_35#0_0_10#0_1_-10#0_0_-35#0_-1_-35#0_0_20#0_1_35#",
+      "larmbottom#0_0_-60#0_0_-15#0_0_-60#0_0_-90#0_0_-70#0_0_-35#0_0_-20#0_0_-70#",
+      "llegtop#0_0_-70#0_0_-70#0_0_25#0_0_55#0_0_55#0_0_0#0_0_-35#0_0_-80#",
+      "llegbottom#0_0_0#0_0_50#0_0_0#0_0_0#0_0_90#0_0_0#0_0_180#0_0_220#",
+      "body#0_0_0#0_-2_0#0_0_0#0_2_0#0_0_0#0_-2_0#0_0_0#0_2_0#",
+      "rlegtop#0_0_55#0_0_0#0_0_-35#0_0_-80#0_0_-70#0_0_-70#0_0_25#0_0_55#",
+      "rlegbottom#0_0_90#0_0_0#0_0_180#0_0_220#0_0_0#0_0_50#0_0_0#0_0_0#",
+      "head#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmtop#0_0_-35#0_-1_-35#0_0_20#0_1_35#0_0_40#0_-1_35#0_0_10#0_1_-10#",
+      "rarmbottom#0_0_-70#0_0_-35#0_0_-20#0_0_-70#0_0_-60#0_0_-15#0_0_-60#0_0_-90#"
+    ],
+    "idle_biped": [
+      "larmtop#0_0_0#0_0_-10#0_0_0#0_0_10#",
+      "larmbottom#0_0_10#0_0_0#0_0_0#0_0_10#",
+      "llegtop#0_0_0#0_1_0#0_1_0#0_0_0#",
+      "llegbottom#",
+      "body#0_0_0#0_-1_0#0_-1_0#0_0_0#",
+      "rlegtop#0_0_0#0_1_0#0_1_0#0_0_0#",
+      "rlegbottom#",
+      "head#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rarmtop#0_0_0#0_0_10#0_0_0#0_0_-10#",
+      "rarmbottom#0_0_0#0_0_0#0_0_-10#0_0_-10#"
+    ],
+    "fly_butterfly": [
+      "leftwing#0_10_0#0_20_0#0_10_0#0_-10_0#",
+      "rightwing#0_10_0#0_20_0#0_10_0#0_-10_0#",
+      "body#0_0_0#0_2_0#0_0_0#0_-2_0#",
+      "head#0_0_0#0_2_0#0_0_0#0_-2_0#"
+    ],
+    "idle_butterfly": [
+      "leftwing#0_5_0#0_10_0#0_5_0#0_-5_0#",
+      "rightwing#0_5_0#0_10_0#0_5_0#0_-5_0#",
+      "body#0_0_0#0_1_0#0_0_0#0_-1_0#",
+      "head#0_0_0#0_1_0#0_0_0#0_-1_0#"
+    ],
+    "fly_dragonfly": [
+      "leftwing#0_15_0#0_25_0#0_15_0#0_-15_0#",
+      "rightwing#0_15_0#0_25_0#0_15_0#0_-15_0#",
+      "body#0_0_0#0_3_0#0_0_0#0_-3_0#",
+      "tail#0_0_0#0_2_0#0_0_0#0_-2_0#",
+      "head#0_0_0#0_2_0#0_0_0#0_-2_0#"
+    ],
+    "fly_willowisp": [
+      "glow#0_8_0#0_12_0#0_8_0#0_-8_0#",
+      "body#0_0_0#0_2_0#0_0_0#0_-2_0#"
+    ],
+    "pose": [
+      "larmtop#0_0_0#",
+      "larmbottom#0_0_0#",
+      "llegtop#0_0_0#",
+      "llegbottom#0_0_0#",
+      "body#0_0_0#",
+      "rlegtop#0_0_0#",
+      "rlegbottom#0_0_0#",
+      "head#0_0_0#",
+      "rarmtop#0_0_0#",
+      "rarmbottom#0_0_0#"
+    ],
+    "wavedance_biped": [
+      "larmtop#0_0_-120#0_-1_-120#0_-1_-140#0_0_-140#",
+      "larmbottom#0_0_0#0_0_40#0_0_60#0_0_25#",
+      "llegtop#0_0_-60#0_0_-30#0_0_0#0_0_-30#",
+      "llegbottom#0_0_80#0_0_50#0_0_90#0_0_60#",
+      "body#0_0_0#0_-1_0#0_-1_0#0_0_0#",
+      "rlegtop#0_0_0#0_0_-30#0_0_-60#0_0_-30#",
+      "rlegbottom#0_0_60#0_0_80#0_0_50#0_0_90#",
+      "head#0_0_0#0_-1_0#0_-2_0#0_-1_0#",
+      "rarmtop#0_0_120#0_-1_120#0_-1_140#0_0_140#",
+      "rarmbottom#0_0_0#0_0_-40#0_0_-60#0_0_-25#"
+    ],
+    "hula_dance_biped": [
+      "larmtop#0_0_-100#0_0_-120#0_0_-120#0_0_-100#",
+      "larmbottom#0_0_-30#0_0_-30#0_0_30#0_0_30#",
+      "llegtop#0_0_0#0_1_0#",
+      "llegbottom#0_0_0#",
+      "body#0_0_0#0_-1_0#",
+      "rlegtop#0_0_0#0_1_0#",
+      "rlegbottom#0_0_0#",
+      "head#0_0_-5#0_0_5#",
+      "rarmtop#0_0_120#0_0_100#0_0_100#0_0_120#",
+      "rarmbottom#0_0_30#0_0_30#0_0_-30#0_0_-30#"
+    ],
+    "posepoint_biped": [
+      "larmtop#-6_0_-120#",
+      "larmbottom#0_0_-120#",
+      "llegtop#0_0_-60#",
+      "llegbottom#0_0_80#",
+      "body#-4_-1_-40#",
+      "rlegtop#0_0_0#",
+      "rlegbottom#0_0_60#",
+      "head#-8_-4_-40#",
+      "rarmtop#-7_-3_60#",
+      "rarmbottom#0_0_-120#"
+    ],
+    "flydance_biped": [
+      "larmtop#-2.5_-0.5_-150#-2.5_-0.5_-120#-1.5_-0.5_-100#-1.5_-0.5_-120#",
+      "larmbottom#0_0_55#0_0_40#0_0_-55#0_0_-40#",
+      "llegtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "llegbottom#0_0_80#0_0_80#0_0_80#0_0_80#",
+      "body#-4_-1_-40#-4_-1_-40#-4_-1_-40#-4_-1_-40#",
+      "rlegtop#0_0_0#0_0_0#0_0_0#0_0_0#",
+      "rlegbottom#0_0_60#0_0_60#0_0_60#0_0_60#",
+      "head#-2.5_-0.5_-10#-2.5_-0.5_-10#-1.5_-0.5_-5#-1.5_-0.5_-5#",
+      "rarmtop#-2.5_-0.5_-120#-1.5_-0.5_-100#-1.5_-0.5_-120#-2.5_-0.5_-150#",
+      "rarmbottom#0_0_40#0_0_-55#0_0_-40#0_0_55#"
+    ],
+    "sit_wagon_biped": [
+      "larmtop#0_0_0#",
+      "larmbottom#0_0_10#",
+      "body#0_0_0#",
+      "llegtop#0_0_-120#",
+      "llegbottom#0_0_120#",
+      "rlegtop#0_0_-120#",
+      "rlegbottom#0_0_120#",
+      "head#0_0_0#",
+      "rarmtop#0_0_0#",
+      "rarmbottom#0_0_10#"
+    ],
+    "sit_biped": [
+      "larmtop#0_0_0#",
+      "larmbottom#0_0_10#",
+      "llegtop#0_0_-60#",
+      "llegbottom#0_0_70#",
+      "body#0_2_0#",
+      "rlegtop#0_0_-60#",
+      "rlegbottom#0_0_70#",
+      "head#0_0_0#",
+      "rarmtop#0_0_0#",
+      "rarmbottom#0_0_10#"
+    ],
+    "sleep_biped": [
+      "larmtop#0_0_10#",
+      "larmbottom#0_0_-60#",
+      "llegtop#-2_0_-50#",
+      "llegbottom#0_0_90#",
+      "body#0_-6_10#",
+      "rlegtop#0_0_-20#",
+      "rlegbottom#0_0_40#",
+      "head#0_0_30#",
+      "rarmtop#0_0_-20#",
+      "rarmbottom#0_0_-90#"
+    ],
+    "sit_floor_biped": [
+      "larmtop#0_0_80#",
+      "larmbottom#0_0_0#",
+      "llegtop#0_0_-60#",
+      "llegbottom#0_0_90#",
+      "body#0_-8_-50#",
+      "rlegtop#0_0_-50#",
+      "rlegbottom#0_0_10#",
+      "head#0_0_20#",
+      "rarmtop#0_0_60#",
+      "rarmbottom#0_0_10#"
+    ],
+    "sleep_quadruped": [
+      "larmtop#0_0_-80#",
+      "larmbottom#0_0_70#",
+      "llegtop#0_0_-30#",
+      "llegbottom#0_0_120#",
+      "body#0_-6_0#",
+      "rlegtop#0_0_-30#",
+      "rlegbottom#0_0_120#",
+      "head#0_-2_20#",
+      "rarmtop#0_0_-60#",
+      "rarmbottom#0_0_120#"
+    ]
+  }
+}

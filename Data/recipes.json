@@ -1,0 +1,2731 @@
+{
+  "recipes": [
+    {
+      "id": 1,
+      "resultId": "plank",
+      "resultName": "Planche",
+      "resultCount": 4,
+      "ingredients": [
+        [ "log", 2 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 2,
+      "resultId": "rope",
+      "resultName": "Corde",
+      "resultCount": 2,
+      "ingredients": [
+        [ "leaf", 3 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 3,
+      "resultId": "stick",
+      "resultName": "Bâton",
+      "resultCount": 2,
+      "ingredients": [
+        [ "log", 1 ],
+        [ "leaf", 2 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 4,
+      "resultId": "torch",
+      "resultName": "Torche",
+      "resultCount": 4,
+      "ingredients": [
+        [ "stick", 1 ],
+        [ "leaf", 2 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 5,
+      "resultId": "campfire",
+      "resultName": "Feu de camp",
+      "resultCount": 1,
+      "ingredients": [
+        [ "log", 3 ],
+        [ "rock", 2 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 6,
+      "resultId": "workbench",
+      "resultName": "Établi",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 10 ]
+      ],
+      "station": "",
+      "category": "furniture"
+    },
+    {
+      "id": 7,
+      "resultId": "wooden_axe",
+      "resultName": "Hache",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "stick", 2 ],
+        [ "rock", 2 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 8,
+      "resultId": "wooden_pickaxe",
+      "resultName": "Pioche",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "stick", 2 ],
+        [ "rock", 3 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 9,
+      "resultId": "wooden_shovel",
+      "resultName": "Pelle",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 2 ],
+        [ "rock", 1 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 10,
+      "resultId": "wooden_hoe",
+      "resultName": "Houe",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 2 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 11,
+      "resultId": "scythe",
+      "resultName": "Faux",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 3 ],
+        [ "rock", 2 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 12,
+      "resultId": "hammer",
+      "resultName": "Marteau",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 2 ],
+        [ "rock", 2 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 13,
+      "resultId": "wooden_sword",
+      "resultName": "Épée en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 2 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
+      "id": 14,
+      "resultId": "stone_sword",
+      "resultName": "Épée en pierre",
+      "resultCount": 1,
+      "ingredients": [
+        [ "rock", 5 ],
+        [ "stick", 2 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
+      "id": 15,
+      "resultId": "iron_sword",
+      "resultName": "Épée en fer",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "stick", 2 ]
+      ],
+      "station": "anvil",
+      "category": "weapons"
+    },
+    {
+      "id": 16,
+      "resultId": "clay_oven",
+      "resultName": "Fourneau",
+      "resultCount": 1,
+      "ingredients": [
+        [ "clay", 8 ],
+        [ "stick", 3 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 17,
+      "resultId": "iron_ingot",
+      "resultName": "Lingot de fer",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ore", 2 ],
+        [ "coal", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 18,
+      "resultId": "glass",
+      "resultName": "Verre",
+      "resultCount": 2,
+      "ingredients": [
+        [ "sand", 3 ],
+        [ "coal", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 19,
+      "resultId": "cooked_beef",
+      "resultName": "Viande cuite",
+      "resultCount": 1,
+      "ingredients": [
+        [ "raw_beef", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 20,
+      "resultId": "wooden_bow",
+      "resultName": "Arc en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 3 ],
+        [ "rope", 1 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
+      "id": 21,
+      "resultId": "coat",
+      "resultName": "Manteau",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 5 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 22,
+      "resultId": "dye_tray",
+      "resultName": "Bac à teinture",
+      "resultCount": 1,
+      "ingredients": [
+        [ "log", 4 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 23,
+      "resultId": "leaf_shirt",
+      "resultName": "Toge en feuille",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leaf", 10 ],
+        [ "rope", 2 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 24,
+      "resultId": "shroom_hat",
+      "resultName": "Chapeau champignon",
+      "resultCount": 1,
+      "ingredients": [
+        [ "mushroom", 5 ],
+        [ "rope", 2 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 25,
+      "resultId": "log_helmet",
+      "resultName": "Casque en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 5 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 26,
+      "resultId": "log_chestplate",
+      "resultName": "Plastron en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 8 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 27,
+      "resultId": "log_leggings",
+      "resultName": "Jambières en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 28,
+      "resultId": "iron_chestplate",
+      "resultName": "Plastron en fer",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 8 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 29,
+      "resultId": "iron_leggings",
+      "resultName": "Jambières en fer",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 6 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 30,
+      "resultId": "bear_leather_hat",
+      "resultName": "Casque en peau d'ours",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 3 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 31,
+      "resultId": "bear_leather_chestplate",
+      "resultName": "Plastron en peau d'ours",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 5 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 32,
+      "resultId": "crusader_helmet",
+      "resultName": "Casque de croisé",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 5 ],
+        [ "leather", 2 ],
+        [ "bone", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 33,
+      "resultId": "crusader_chestplate",
+      "resultName": "Plastron de croisé",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 8 ],
+        [ "leather", 4 ],
+        [ "bone", 2 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 34,
+      "resultId": "crusader_leggings",
+      "resultName": "Jambières de croisé",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 6 ],
+        [ "leather", 3 ],
+        [ "bone", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 35,
+      "resultId": "golden_robot_helmet",
+      "resultName": "Casque de robot doré",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 5 ],
+        [ "gem_purple", 2 ],
+        [ "sapphire", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 36,
+      "resultId": "blue_cap",
+      "resultName": "Bonnet bleue",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 2 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 37,
+      "resultId": "woodenfence",
+      "resultName": "Clôture en bois",
+      "resultCount": 4,
+      "ingredients": [
+        [ "log", 3 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 38,
+      "resultId": "wooden_chest",
+      "resultName": "Coffre en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 8 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 39,
+      "resultId": "paving_stone",
+      "resultName": "Pavé",
+      "resultCount": 16,
+      "ingredients": [
+        [ "rock", 4 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 40,
+      "resultId": "armor_stand_item",
+      "resultName": "Porte armure",
+      "resultCount": 1,
+      "ingredients": [
+        [ "log", 3 ],
+        [ "rope", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 42,
+      "resultId": "wooden_shelf",
+      "resultName": "Etagère",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 43,
+      "resultId": "pot",
+      "resultName": "Pot",
+      "resultCount": 1,
+      "ingredients": [
+        [ "log", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 44,
+      "resultId": "wooden_sign",
+      "resultName": "Panneau en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "log", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 45,
+      "resultId": "small_backpack",
+      "resultName": "Petit sac à dos",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 4 ],
+        [ "rope", 3 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 46,
+      "resultId": "large_backpack",
+      "resultName": "Grand sac à dos",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 8 ],
+        [ "rope", 5 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 47,
+      "resultId": "basket_wicker",
+      "resultName": "Panier en osier",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 5 ]
+      ],
+      "station": "",
+      "category": "tools"
+    },
+    {
+      "id": 50,
+      "resultId": "dye",
+      "resultName": "Colorant",
+      "resultCount": 1,
+      "resultColor": [ 255, 80, 80, 255 ],
+      "ingredients": [
+        [ "rose", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 51,
+      "resultId": "wall_covering_tavern",
+      "resultName": "Revêtement de taverne",
+      "resultCount": 2,
+      "ingredients": [
+        [ "plank", 4 ],
+        [ "stick", 2 ],
+        [ "dye", 1 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 52,
+      "resultId": "brick_wall",
+      "resultName": "Mur de briques",
+      "resultCount": 1,
+      "ingredients": [
+        [ "rock", 2 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 53,
+      "resultId": "wooden_door",
+      "resultName": "Porte en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ],
+        [ "stick", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 54,
+      "resultId": "dynamite",
+      "resultName": "Dynamite",
+      "resultCount": 2,
+      "ingredients": [
+        [ "rope", 2 ],
+        [ "sulfur", 3 ],
+        [ "rock", 2 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
+      "id": 55,
+      "resultId": "chair",
+      "resultName": "Chaise",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ],
+        [ "stick", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 56,
+      "resultId": "bed",
+      "resultName": "Lit",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ],
+        [ "cloth", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 57,
+      "resultId": "wooden_coffee_table",
+      "resultName": "Table basse",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 58,
+      "resultId": "wooden_floor",
+      "resultName": "Sol en bois",
+      "resultCount": 16,
+      "ingredients": [
+        [ "plank", 4 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 100,
+      "resultId": "glassbottle_small",
+      "resultName": "Petite potion de soin",
+      "resultCount": 1,
+      "resultColor": [ 255, 80, 80, 255 ],
+      "resultMetadata": "heal:20",
+      "ingredients": [
+        [ "rose", 2 ],
+        [ "mushroom", 2 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 101,
+      "resultId": "dye",
+      "resultName": "Colorant mystérieux",
+      "resultCount": 1,
+      "resultColor": [ 255, 20, 20, 255 ],
+      "ingredients": [
+        [ "rose", 1 ],
+        [ "white_flower", 1 ],
+        [ "mushroom", 1 ]
+      ],
+      "station": "workbench",
+      "category": "basic"
+    },
+    {
+      "id": 102,
+      "resultId": "glassbottle_small",
+      "resultName": "Potion de vitesse",
+      "resultCount": 1,
+      "resultColor": [ 21, 62, 217, 255 ],
+      "resultMetadata": "effect:speed:30",
+      "ingredients": [
+        [ "white_flower", 1 ],
+        [ "mushroom", 1 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 103,
+      "resultId": "glassbottle_small",
+      "resultName": "Potion de force",
+      "resultCount": 1,
+      "resultColor": [ 200, 40, 30, 255 ],
+      "resultMetadata": "effect:strength:60",
+      "ingredients": [
+        [ "mushroom", 2 ],
+        [ "ruby", 1 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 104,
+      "resultId": "glassbottle_small",
+      "resultName": "Potion de résistance",
+      "resultCount": 1,
+      "resultColor": [ 120, 110, 100, 255 ],
+      "resultMetadata": "effect:resistance:60",
+      "ingredients": [
+        [ "rock", 2 ],
+        [ "onyx", 1 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 105,
+      "resultId": "glassbottle_small",
+      "resultName": "Potion de lumière",
+      "resultCount": 1,
+      "resultColor": [ 255, 240, 150, 255 ],
+      "resultMetadata": "effect:light:120",
+      "ingredients": [
+        [ "white_flower", 2 ],
+        [ "topaze", 1 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 106,
+      "resultId": "glassbottle_small",
+      "resultName": "Potion de résistance à la chaleur",
+      "resultCount": 1,
+      "resultColor": [ 255, 130, 40, 255 ],
+      "resultMetadata": "effect:heatresist:90",
+      "ingredients": [
+        [ "rose", 1 ],
+        [ "gem_orange", 1 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 107,
+      "resultId": "glassbottle_small",
+      "resultName": "Potion de résistance au froid",
+      "resultCount": 1,
+      "resultColor": [ 130, 200, 255, 255 ],
+      "resultMetadata": "effect:coldresist:90",
+      "ingredients": [
+        [ "mushroom", 1 ],
+        [ "sapphire", 1 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 108,
+      "resultId": "glassbottle_small",
+      "resultName": "Potion d'invisibilité",
+      "resultCount": 1,
+      "resultColor": [ 220, 220, 235, 120 ],
+      "resultMetadata": "effect:invisibility:20",
+      "ingredients": [
+        [ "white_flower", 1 ],
+        [ "mushroom", 1 ],
+        [ "amber", 1 ]
+      ],
+      "station": "cauldron",
+      "category": "brewing"
+    },
+    {
+      "id": 200,
+      "resultId": "loom",
+      "resultName": "Métier à tisser",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 8 ],
+        [ "rope", 4 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 201,
+      "resultId": "carpentry_workbench",
+      "resultName": "Établi de menuisier",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 12 ],
+        [ "rock", 2 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 202,
+      "resultId": "cloth",
+      "resultName": "Tissu",
+      "resultCount": 2,
+      "ingredients": [
+        [ "wool", 4 ]
+      ],
+      "station": "loom",
+      "category": "crafting"
+    },
+    {
+      "id": 203,
+      "resultId": "rug",
+      "resultName": "Tapis",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "furniture"
+    },
+    {
+      "id": 204,
+      "resultId": "banner",
+      "resultName": "Bannière",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 2 ],
+        [ "stick", 1 ]
+      ],
+      "station": "loom",
+      "category": "furniture"
+    },
+    {
+      "id": 400,
+      "resultId": "magic_wand",
+      "resultName": "Baguette magique",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 3 ],
+        [ "iron_ingot", 1 ],
+        [ "candle", 1 ]
+      ],
+      "station": "anvil",
+      "category": "weapons"
+    },
+    {
+      "id": 137,
+      "resultId": "crusader_sword",
+      "resultName": "Épée de croisé",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 4 ],
+        [ "bone", 2 ],
+        [ "leather", 2 ]
+      ],
+      "station": "anvil",
+      "category": "weapons"
+    },
+    {
+      "id": 138,
+      "resultId": "brass_ingot",
+      "resultName": "Laiton",
+      "resultCount": 1,
+      "ingredients": [
+        [ "copper_ingot", 1 ],
+        [ "zinc_ingot", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 81,
+      "resultId": "bronze_ingot",
+      "resultName": "Bronze",
+      "resultCount": 1,
+      "ingredients": [
+        [ "copper_ingot", 1 ],
+        [ "tin_ingot", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 82,
+      "resultId": "copper_ingot",
+      "resultName": "Lingot de cuivre",
+      "resultCount": 1,
+      "ingredients": [
+        [ "copper_ore", 2 ],
+        [ "coal", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 84,
+      "resultId": "zinc_ingot",
+      "resultName": "Lingot de zinc",
+      "resultCount": 1,
+      "ingredients": [
+        [ "zinc", 2 ],
+        [ "coal", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 299,
+      "resultId": "anvil",
+      "resultName": "Enclume",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 5 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 401,
+      "resultId": "steam_engine",
+      "resultName": "Machine à vapeur",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 5 ],
+        [ "copper_ingot", 8 ],
+        [ "brass_ingot", 2 ]
+      ],
+      "station": "anvil",
+      "category": "machines"
+    },
+    {
+      "id": 402,
+      "resultId": "dynamo",
+      "resultName": "Dynamo",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "copper_ingot", 4 ],
+        [ "brass_ingot", 1 ]
+      ],
+      "station": "anvil",
+      "category": "machines"
+    },
+    {
+      "id": 403,
+      "resultId": "ladder",
+      "resultName": "Chargeur de batterie",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 2 ],
+        [ "copper_ingot", 3 ],
+        [ "brass_ingot", 1 ],
+        [ "glass", 2 ]
+      ],
+      "station": "anvil",
+      "category": "machines"
+    },
+    {
+      "id": 405,
+      "resultId": "floor_lamp",
+      "resultName": "Ampoule électrique",
+      "resultCount": 1,
+      "ingredients": [
+        [ "glass", 2 ],
+        [ "iron_ingot", 1 ],
+        [ "copper_ingot", 1 ]
+      ],
+      "station": "workbench",
+      "category": "machines"
+    },
+    {
+      "id": 500,
+      "resultId": "crate",
+      "resultName": "Caisse en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 501,
+      "resultId": "barrel",
+      "resultName": "Tonneau",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 5 ],
+        [ "rope", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 1001,
+      "resultId": "water_bottle",
+      "resultName": "Épée ensanglantée",
+      "resultCount": 1,
+      "resultColor": [ 200, 50, 50, 255 ],
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "rose", 1 ]
+      ],
+      "station": "",
+      "category": "ritual",
+      "ritual": true,
+      "bloodEssenceCost": 5,
+      "isHidden": false
+    },
+    {
+      "id": 1002,
+      "resultId": "rain_collector",
+      "resultName": "Cristal runique",
+      "resultCount": 1,
+      "ingredients": [
+        [ "crystal", 2 ],
+        [ "rock", 3 ]
+      ],
+      "station": "",
+      "category": "ritual",
+      "ritual": true,
+      "bloodEssenceCost": 3,
+      "isHidden": false
+    },
+    {
+      "id": 1003,
+      "resultId": "???",
+      "resultName": "Masque spectral",
+      "resultCount": 1,
+      "ingredients": [
+        [ "bone", 5 ],
+        [ "rock", 2 ]
+      ],
+      "station": "",
+      "category": "ritual",
+      "ritual": true,
+      "bloodEssenceCost": 8,
+      "isHidden": true,
+      "unlockCondition": "KillBoss"
+    },
+    {
+      "id": 1004,
+      "resultId": "magic_wand",
+      "resultName": "Baguette maudite",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 10 ],
+        [ "gem_purple", 1 ],
+        [ "iron_ingot", 5 ]
+      ],
+      "station": "",
+      "category": "ritual",
+      "ritual": true,
+      "bloodEssenceCost": 15,
+      "isHidden": false
+    },
+    {
+      "id": 1005,
+      "resultId": "wooden_chest",
+      "resultName": "Coffre en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 10 ]
+      ],
+      "station": "",
+      "category": "ritual",
+      "ritual": true,
+      "bloodEssenceCost": 0,
+      "isHidden": false
+    },
+    {
+      "id": 1006,
+      "resultId": "flute",
+      "resultName": "Flûte des landes de sable",
+      "resultCount": 1,
+      "ingredients": [
+        [ "sand", 8 ],
+        [ "stick", 2 ],
+        [ "bone", 1 ]
+      ],
+      "station": "",
+      "category": "ritual",
+      "ritual": true,
+      "bloodEssenceCost": 12,
+      "isHidden": false
+    },
+    {
+      "id": 600,
+      "resultId": "log",
+      "resultName": "Bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 601,
+      "resultId": "leaf",
+      "resultName": "Feuille",
+      "resultCount": 1,
+      "ingredients": [
+        [ "grass", 2 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 602,
+      "resultId": "stick",
+      "resultName": "Bâton",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 603,
+      "resultId": "fried_egg",
+      "resultName": "Œuf au plat",
+      "resultCount": 1,
+      "ingredients": [
+        [ "egg", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 604,
+      "resultId": "omelette",
+      "resultName": "Omelette",
+      "resultCount": 1,
+      "ingredients": [
+        [ "egg", 3 ],
+        [ "milk", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 605,
+      "resultId": "bread",
+      "resultName": "Pain",
+      "resultCount": 1,
+      "ingredients": [
+        [ "flour", 2 ],
+        [ "milk", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 606,
+      "resultId": "flour",
+      "resultName": "Farine",
+      "resultCount": 1,
+      "ingredients": [
+        [ "wheat", 2 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 607,
+      "resultId": "cooked_duck_meat",
+      "resultName": "Viande de canard cuite",
+      "resultCount": 1,
+      "ingredients": [
+        [ "raw_duck_meat", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 608,
+      "resultId": "cooked_chicken",
+      "resultName": "Cuisse de poulet cuite",
+      "resultCount": 1,
+      "ingredients": [
+        [ "raw_chicken", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 609,
+      "resultId": "cooked_porkchop",
+      "resultName": "Côtelette de porc cuite",
+      "resultCount": 1,
+      "ingredients": [
+        [ "raw_porkchop", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 610,
+      "resultId": "dye",
+      "resultName": "Colorant rouge",
+      "resultCount": 1,
+      "resultColor": [ 255, 0, 0, 255 ],
+      "ingredients": [
+        [ "rose", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 611,
+      "resultId": "dye",
+      "resultName": "Colorant blanc",
+      "resultCount": 1,
+      "resultColor": [ 255, 255, 255, 255 ],
+      "ingredients": [
+        [ "white_flower", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 612,
+      "resultId": "scissors",
+      "resultName": "Ciseaux",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "rock", 1 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 613,
+      "resultId": "watering_can",
+      "resultName": "Arrosoir",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "clay", 2 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 614,
+      "resultId": "butterfly_net",
+      "resultName": "Filet à papillons",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 3 ],
+        [ "rope", 2 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 615,
+      "resultId": "oar",
+      "resultName": "Rame",
+      "resultCount": 2,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 1 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 616,
+      "resultId": "baseball_bat",
+      "resultName": "Batte de baseball",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "stick", 1 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
+      "id": 617,
+      "resultId": "log_shoes",
+      "resultName": "Chaussures en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 618,
+      "resultId": "jean",
+      "resultName": "Jean",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "dye", 1 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 619,
+      "resultId": "jester_hat",
+      "resultName": "Jester hat",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 1 ]
+      ],
+      "station": "workbench",
+      "category": "armor"
+    },
+    {
+      "id": 620,
+      "resultId": "roof_tile",
+      "resultName": "Tuile de toit",
+      "resultCount": 16,
+      "ingredients": [
+        [ "clay", 2 ],
+        [ "rock", 1 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 621,
+      "resultId": "woodenwall",
+      "resultName": "Mur en bois",
+      "resultCount": 4,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 1 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 622,
+      "resultId": "clay_mortar",
+      "resultName": "Mortier",
+      "resultCount": 1,
+      "ingredients": [
+        [ "clay", 3 ],
+        [ "sand", 2 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 623,
+      "resultId": "traffic_cone",
+      "resultName": "Cône de chantier",
+      "resultCount": 1,
+      "ingredients": [
+        [ "dye", 1 ],
+        [ "plank", 1 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 624,
+      "resultId": "ladder",
+      "resultName": "Echelle",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 4 ],
+        [ "rope", 2 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 625,
+      "resultId": "raft",
+      "resultName": "Radeau",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 8 ],
+        [ "rope", 4 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 626,
+      "resultId": "pistol",
+      "resultName": "Pistolet",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 5 ],
+        [ "copper_ingot", 2 ],
+        [ "brass_ingot", 1 ]
+      ],
+      "station": "anvil",
+      "category": "weapons"
+    },
+    {
+      "id": 627,
+      "resultId": "heavy_axe",
+      "resultName": "Hache lourde",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 4 ],
+        [ "stick", 2 ]
+      ],
+      "station": "anvil",
+      "category": "tools"
+    },
+    {
+      "id": 628,
+      "resultId": "funky_glasses",
+      "resultName": "Lunettes funky",
+      "resultCount": 1,
+      "ingredients": [
+        [ "glass", 2 ],
+        [ "copper_ingot", 1 ],
+        [ "dye", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 629,
+      "resultId": "tribal_citizen_mask",
+      "resultName": "Masque tribal citoyen",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "rose", 1 ],
+        [ "white_flower", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 630,
+      "resultId": "tribal_hunter_mask",
+      "resultName": "Masque tribal chasseur",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "bone", 2 ],
+        [ "rose", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 631,
+      "resultId": "tribal_cook_mask",
+      "resultName": "Masque tribal cuisinier",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "mushroom", 2 ],
+        [ "rose", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 632,
+      "resultId": "tribal_guard_mask",
+      "resultName": "Masque tribal garde",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 3 ],
+        [ "rock", 2 ],
+        [ "rose", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 633,
+      "resultId": "barbet_helmet",
+      "resultName": "Casque Barbet",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "leather", 2 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 634,
+      "resultId": "wrestler_mask",
+      "resultName": "Masque de lutteur",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 635,
+      "resultId": "ghutra",
+      "resultName": "Ghutra",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 636,
+      "resultId": "candle_hat",
+      "resultName": "Casque de mineur",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "candle", 1 ],
+        [ "copper_ingot", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 637,
+      "resultId": "pirate_hat",
+      "resultName": "Chapeau de pirate",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "bone", 2 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 638,
+      "resultId": "thobe",
+      "resultName": "Thobe",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 5 ],
+        [ "dye", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 639,
+      "resultId": "skullmask",
+      "resultName": "Masque de crâne",
+      "resultCount": 1,
+      "ingredients": [
+        [ "bone", 4 ],
+        [ "rope", 2 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 640,
+      "resultId": "cave_entry",
+      "resultName": "Entrée de cave",
+      "resultCount": 1,
+      "ingredients": [
+        [ "rock", 6 ],
+        [ "iron_ingot", 2 ]
+      ],
+      "station": "anvil",
+      "category": "furniture"
+    },
+    {
+      "id": 641,
+      "resultId": "copper_ingot",
+      "resultName": "Lingot de cuivre",
+      "resultCount": 1,
+      "ingredients": [
+        [ "copper_ore", 2 ],
+        [ "coal", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 642,
+      "resultId": "zinc_ingot",
+      "resultName": "Lingot de zinc",
+      "resultCount": 1,
+      "ingredients": [
+        [ "zinc", 2 ],
+        [ "coal", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 643,
+      "resultId": "brass_ingot",
+      "resultName": "Laiton",
+      "resultCount": 1,
+      "ingredients": [
+        [ "copper_ingot", 1 ],
+        [ "zinc_ingot", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 644,
+      "resultId": "glassbottle_small",
+      "resultName": "Petite bouteille",
+      "resultCount": 1,
+      "ingredients": [
+        [ "glass", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 645,
+      "resultId": "glassbottle_big",
+      "resultName": "Grande bouteille",
+      "resultCount": 1,
+      "ingredients": [
+        [ "glass", 2 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 646,
+      "resultId": "glass",
+      "resultName": "Verre",
+      "resultCount": 2,
+      "ingredients": [
+        [ "sand", 3 ],
+        [ "coal", 1 ]
+      ],
+      "station": "furnace",
+      "category": "smelting"
+    },
+    {
+      "id": 647,
+      "resultId": "cloth",
+      "resultName": "Tissu",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cotton", 2 ]
+      ],
+      "station": "loom",
+      "category": "crafting"
+    },
+    {
+      "id": 649,
+      "resultId": "coat",
+      "resultName": "Veste",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 650,
+      "resultId": "leaf_shirt",
+      "resultName": "Toge en feuille",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leaf", 8 ],
+        [ "rope", 2 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 651,
+      "resultId": "shroom_hat",
+      "resultName": "Chapeau champignon",
+      "resultCount": 1,
+      "ingredients": [
+        [ "mushroom", 4 ],
+        [ "rope", 2 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 652,
+      "resultId": "blue_cap",
+      "resultName": "Casquette bleue",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 653,
+      "resultId": "log_helmet",
+      "resultName": "Casque en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 5 ],
+        [ "cloth", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 654,
+      "resultId": "log_chestplate",
+      "resultName": "Plastron en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 8 ],
+        [ "cloth", 2 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 655,
+      "resultId": "log_leggings",
+      "resultName": "Jambières en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ],
+        [ "cloth", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 656,
+      "resultId": "wooden_chest",
+      "resultName": "Coffre en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 8 ],
+        [ "iron_ingot", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 657,
+      "resultId": "chair",
+      "resultName": "Chaise",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ],
+        [ "stick", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 658,
+      "resultId": "bed",
+      "resultName": "Lit",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ],
+        [ "cloth", 2 ],
+        [ "wool", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 659,
+      "resultId": "woodenfence",
+      "resultName": "Clôture en bois",
+      "resultCount": 4,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 660,
+      "resultId": "plank",
+      "resultName": "Sol en bois",
+      "resultCount": 8,
+      "ingredients": [
+        [ "plank", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 666,
+      "resultId": "bathroom_tile",
+      "resultName": "Carrelage",
+      "resultCount": 8,
+      "ingredients": [
+        [ "clay", 2 ],
+        [ "rock", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 667,
+      "resultId": "wooden_shelf",
+      "resultName": "Etagère",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ],
+        [ "stick", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 668,
+      "resultId": "rug",
+      "resultName": "Tapis",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "dye", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 669,
+      "resultId": "wooden_sign",
+      "resultName": "Panneau en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "stick", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 670,
+      "resultId": "wooden_coffee_table",
+      "resultName": "Table basse",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ],
+        [ "stick", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 671,
+      "resultId": "barrel",
+      "resultName": "Tonneau",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 5 ],
+        [ "iron_ingot", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 672,
+      "resultId": "crate",
+      "resultName": "Caisse en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ],
+        [ "iron_ingot", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 673,
+      "resultId": "armor_stand_item",
+      "resultName": "Porte-armure",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ],
+        [ "stick", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 674,
+      "resultId": "rug",
+      "resultName": "Tapis",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 675,
+      "resultId": "banner",
+      "resultName": "Bannière",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 2 ],
+        [ "stick", 1 ],
+        [ "dye", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 676,
+      "resultId": "roof_tile",
+      "resultName": "Tuile de toit",
+      "resultCount": 16,
+      "ingredients": [
+        [ "clay", 2 ],
+        [ "rock", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 677,
+      "resultId": "pot",
+      "resultName": "Pot",
+      "resultCount": 1,
+      "ingredients": [
+        [ "clay", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 680,
+      "resultId": "crusader_sword",
+      "resultName": "Épée de croisé",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 4 ],
+        [ "bone", 2 ],
+        [ "leather", 2 ]
+      ],
+      "station": "",
+      "category": "ritual",
+      "ritual": true,
+      "bloodEssenceCost": 8,
+      "isHidden": false
+    },
+    {
+      "id": 681,
+      "resultId": "arrow",
+      "resultName": "Flèche",
+      "resultCount": 4,
+      "ingredients": [
+        [ "stick", 1 ],
+        [ "feather", 1 ],
+        [ "rock", 1 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
+      "id": 682,
+      "resultId": "gunpowder",
+      "resultName": "Poudre à canon",
+      "resultCount": 2,
+      "ingredients": [
+        [ "coal", 1 ],
+        [ "sulfur", 1 ],
+        [ "flour", 1 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
+      "id": 683,
+      "resultId": "pistol_ammo",
+      "resultName": "Balle",
+      "resultCount": 4,
+      "ingredients": [
+        [ "iron_ingot", 1 ],
+        [ "gunpowder", 1 ]
+      ],
+      "station": "anvil",
+      "category": "weapons"
+    },
+    {
+      "id": 684,
+      "resultId": "mousquet",
+      "resultName": "Mousquet",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 5 ],
+        [ "copper_ingot", 2 ],
+        [ "brass_ingot", 1 ],
+        [ "gunpowder", 2 ]
+      ],
+      "station": "anvil",
+      "category": "weapons"
+    },
+    {
+      "id": 685,
+      "resultId": "flintlock_pistol",
+      "resultName": "Pistolet à silex",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "brass_ingot", 1 ],
+        [ "copper_ingot", 1 ],
+        [ "gunpowder", 2 ]
+      ],
+      "station": "anvil",
+      "category": "weapons"
+    },
+    {
+      "id": 686,
+      "resultId": "guild_charter",
+      "resultName": "Charte de guilde",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 2 ],
+        [ "gem_purple", 1 ]
+      ],
+      "station": "workbench",
+      "category": "special"
+    },
+    {
+      "id": 687,
+      "resultId": "recipe_scroll",
+      "resultName": "Recette",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 1 ],
+        [ "dye", 1 ]
+      ],
+      "station": "workbench",
+      "category": "special"
+    },
+    {
+      "id": 688,
+      "resultId": "potato",
+      "resultName": "Pomme de terre",
+      "resultCount": 1,
+      "ingredients": [
+        [ "potato", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 689,
+      "resultId": "wheat_seeds",
+      "resultName": "Graines de blé",
+      "resultCount": 2,
+      "ingredients": [
+        [ "wheat", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 690,
+      "resultId": "carrot_seeds",
+      "resultName": "Graines de carotte",
+      "resultCount": 2,
+      "ingredients": [
+        [ "carrot", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 691,
+      "resultId": "beetroot_seeds",
+      "resultName": "Graines de betterave",
+      "resultCount": 2,
+      "ingredients": [
+        [ "beetroot", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 692,
+      "resultId": "cabbage_seeds",
+      "resultName": "Graines de chou",
+      "resultCount": 2,
+      "ingredients": [
+        [ "cabbage", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 693,
+      "resultId": "eggplant_seeds",
+      "resultName": "Graines d'aubergine",
+      "resultCount": 2,
+      "ingredients": [
+        [ "eggplant", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 694,
+      "resultId": "tomato_seeds",
+      "resultName": "Graines de tomate",
+      "resultCount": 2,
+      "ingredients": [
+        [ "tomato", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 695,
+      "resultId": "strawberry_seeds",
+      "resultName": "Graines de fraise",
+      "resultCount": 2,
+      "ingredients": [
+        [ "strawberry", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 696,
+      "resultId": "pumpkin_seeds",
+      "resultName": "Graines de citrouille",
+      "resultCount": 2,
+      "ingredients": [
+        [ "pumpkin", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 697,
+      "resultId": "radish_seeds",
+      "resultName": "Graines de radis",
+      "resultCount": 2,
+      "ingredients": [
+        [ "radish", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 698,
+      "resultId": "chili_seeds",
+      "resultName": "Graines de piment",
+      "resultCount": 2,
+      "ingredients": [
+        [ "chili", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 699,
+      "resultId": "lettuce_seeds",
+      "resultName": "Graines de salade",
+      "resultCount": 2,
+      "ingredients": [
+        [ "lettuce", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 700,
+      "resultId": "corn_seeds",
+      "resultName": "Graines de maïs",
+      "resultCount": 2,
+      "ingredients": [
+        [ "corn", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 701,
+      "resultId": "onion_seeds",
+      "resultName": "Graines d'oignon",
+      "resultCount": 2,
+      "ingredients": [
+        [ "onion", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 702,
+      "resultId": "boat_sail",
+      "resultName": "Voile de bateau",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "rope", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 703,
+      "resultId": "boat_helm",
+      "resultName": "Gouvernail",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 2 ],
+        [ "iron_ingot", 1 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 704,
+      "resultId": "ladder",
+      "resultName": "Escalier",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 4 ],
+        [ "stick", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 705,
+      "resultId": "cheese",
+      "resultName": "Fromage",
+      "resultCount": 1,
+      "ingredients": [
+        [ "milk", 2 ]
+      ],
+      "station": "workbench",
+      "category": "cooking"
+    },
+    {
+      "id": 706,
+      "resultId": "cordon_bleu",
+      "resultName": "Cordon bleu",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cheese", 1 ],
+        [ "raw_chicken", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 707,
+      "resultId": "mashed_potatoes",
+      "resultName": "Purée",
+      "resultCount": 1,
+      "ingredients": [
+        [ "potato", 3 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 708,
+      "resultId": "gem_eyeball",
+      "resultName": "Gemme-oeil",
+      "resultCount": 1,
+      "ingredients": [
+        [ "gulper_eyeball", 1 ],
+        [ "worm_gem", 1 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 709,
+      "resultId": "gem_eyeball_base",
+      "resultName": "Socle de Gemme-oeil",
+      "resultCount": 1,
+      "ingredients": [
+        [ "rock", 4 ]
+      ],
+      "station": "",
+      "category": "basic"
+    },
+    {
+      "id": 1007,
+      "resultId": "guitar",
+      "resultName": "Guitare",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ],
+        [ "rope", 3 ],
+        [ "cloth", 2 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 1008,
+      "resultId": "toilet",
+      "resultName": "Toilette",
+      "resultCount": 1,
+      "ingredients": [
+        [ "clay", 6 ],
+        [ "glass", 2 ],
+        [ "iron_ingot", 1 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 1009,
+      "resultId": "cauldron",
+      "resultName": "Chaudron",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "clay", 4 ]
+      ],
+      "station": "anvil",
+      "category": "furniture"
+    },
+    {
+      "id": 1010,
+      "resultId": "pylon",
+      "resultName": "Pylone",
+      "resultCount": 1,
+      "ingredients": [
+        [ "rock", 8 ],
+        [ "iron_ingot", 3 ],
+        [ "gem_purple", 1 ]
+      ],
+      "station": "anvil",
+      "category": "furniture"
+    },
+    {
+      "id": 1011,
+      "resultId": "aquarium",
+      "resultName": "Aquarium",
+      "resultCount": 1,
+      "ingredients": [
+        [ "glass", 6 ],
+        [ "iron_ingot", 2 ],
+        [ "copper_ingot", 1 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 1012,
+      "resultId": "mirror",
+      "resultName": "Miroir",
+      "resultCount": 1,
+      "ingredients": [
+        [ "glass", 4 ],
+        [ "copper_ingot", 1 ],
+        [ "iron_ingot", 1 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 1013,
+      "resultId": "car_icon",
+      "resultName": "Voiture",
+      "resultCount": 1,
+      "ingredients": [
+        [ "steam_engine", 1 ],
+        [ "car_chassis", 1 ],
+        [ "brass_ingot", 2 ],
+        [ "iron_ingot", 4 ]
+      ],
+      "station": "anvil",
+      "category": "machines"
+    },
+    {
+      "id": 1014,
+      "resultId": "bench",
+      "resultName": "Banc",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 6 ],
+        [ "stick", 4 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 1015,
+      "resultId": "wooden_box",
+      "resultName": "Cajette en bois",
+      "resultCount": 1,
+      "ingredients": [
+        [ "plank", 5 ]
+      ],
+      "station": "carpentry",
+      "category": "furniture"
+    },
+    {
+      "id": 1016,
+      "resultId": "jester_hat",
+      "resultName": "Jester hat",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 2 ],
+        [ "stick", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1017,
+      "resultId": "heart_earring",
+      "resultName": "Boucle d'oreille coeur",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 1 ],
+        [ "rose", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 1018,
+      "resultId": "scarf",
+      "resultName": "Echarpe",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1019,
+      "resultId": "pork_pie_hat",
+      "resultName": "Chapeau pork pie",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "leather", 2 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1020,
+      "resultId": "witch_hat",
+      "resultName": "Chapeau de sorcière",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "bone", 2 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1021,
+      "resultId": "chapka",
+      "resultName": "Chapka",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "snow", 2 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1022,
+      "resultId": "fedora",
+      "resultName": "Fedora",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "leather", 1 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1023,
+      "resultId": "wolf_hat",
+      "resultName": "Chapeau loup",
+      "resultCount": 1,
+      "ingredients": [
+        [ "bear_leather", 2 ],
+        [ "cloth", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1024,
+      "resultId": "hood",
+      "resultName": "Capuche",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "rope", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1025,
+      "resultId": "nasal_helmet",
+      "resultName": "Casque nasal",
+      "resultCount": 1,
+      "ingredients": [
+        [ "iron_ingot", 3 ],
+        [ "leather", 1 ]
+      ],
+      "station": "anvil",
+      "category": "armor"
+    },
+    {
+      "id": 1026,
+      "resultId": "beret",
+      "resultName": "Béret",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 3 ],
+        [ "dye", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1027,
+      "resultId": "skirt",
+      "resultName": "Jupe",
+      "resultCount": 1,
+      "ingredients": [
+        [ "cloth", 4 ],
+        [ "dye", 1 ],
+        [ "rope", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1028,
+      "resultId": "water_bottle",
+      "resultName": "Gourde",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 2 ],
+        [ "rope", 1 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 1029,
+      "resultId": "well",
+      "resultName": "Puits",
+      "resultCount": 1,
+      "ingredients": [
+        [ "rock", 12 ],
+        [ "plank", 8 ],
+        [ "rope", 4 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 1030,
+      "resultId": "runic_stone",
+      "resultName": "Pierre runique de résistance",
+      "resultCount": 1,
+      "resultColor": [ 160, 160, 220, 255 ],
+      "resultMetadata": "Resistance|5",
+      "ingredients": [
+        [ "iron_ingot", 2 ],
+        [ "ruby", 1 ]
+      ],
+      "station": "anvil",
+      "category": "special"
+    },
+    {
+      "id": 1031,
+      "resultId": "runic_stone",
+      "resultName": "Pierre runique de vitalité",
+      "resultCount": 1,
+      "resultColor": [ 220, 100, 100, 255 ],
+      "resultMetadata": "MaxHealth|20",
+      "ingredients": [
+        [ "iron_ingot", 2 ],
+        [ "emerald", 1 ]
+      ],
+      "station": "anvil",
+      "category": "special"
+    },
+    {
+      "id": 1032,
+      "resultId": "runic_stone",
+      "resultName": "Pierre runique de célérité",
+      "resultCount": 1,
+      "resultColor": [ 120, 220, 160, 255 ],
+      "resultMetadata": "Speed|8",
+      "ingredients": [
+        [ "iron_ingot", 2 ],
+        [ "crystal", 1 ]
+      ],
+      "station": "anvil",
+      "category": "special"
+    },
+    {
+      "id": 1033,
+      "resultId": "rain_collector",
+      "resultName": "Cueilleur d'eau de pluie",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 4 ],
+        [ "leaf", 3 ],
+        [ "rope", 2 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 1034,
+      "resultId": "candle",
+      "resultName": "Bougie",
+      "resultCount": 1,
+      "ingredients": [
+        [ "bee_wax", 2 ]
+      ],
+      "station": "workbench",
+      "category": "furniture"
+    },
+    {
+      "id": 1035,
+      "resultId": "gloves",
+      "resultName": "Gants",
+      "resultCount": 1,
+      "ingredients": [
+        [ "leather", 2 ],
+        [ "cloth", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    },
+    {
+      "id": 1036,
+      "resultId": "butter",
+      "resultName": "Beurre",
+      "resultCount": 1,
+      "ingredients": [
+        [ "milk", 3 ]
+      ],
+      "station": "workbench",
+      "category": "cooking"
+    },
+    {
+      "id": 1037,
+      "resultId": "croissant",
+      "resultName": "Croissant",
+      "resultCount": 1,
+      "ingredients": [
+        [ "flour", 2 ],
+        [ "butter", 1 ],
+        [ "egg", 1 ],
+        [ "milk", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 1038,
+      "resultId": "baguette",
+      "resultName": "Baguette",
+      "resultCount": 2,
+      "ingredients": [
+        [ "flour", 3 ],
+        [ "milk", 1 ]
+      ],
+      "station": "furnace",
+      "category": "cooking"
+    },
+    {
+      "id": 1039,
+      "resultId": "fishing_rod",
+      "resultName": "Canne à pêche",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 3 ],
+        [ "rope", 2 ]
+      ],
+      "station": "workbench",
+      "category": "tools"
+    },
+    {
+      "id": 1040,
+      "resultId": "straw_hat",
+      "resultName": "Chapeau de paille",
+      "resultCount": 1,
+      "ingredients": [
+        [ "wheat", 6 ],
+        [ "rope", 1 ]
+      ],
+      "station": "loom",
+      "category": "armor"
+    }
+  ]
+}

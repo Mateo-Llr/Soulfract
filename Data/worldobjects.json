@@ -1,0 +1,3995 @@
+{
+  "tiles": [
+    {
+      "id": 1,
+      "name": "Grass",
+      "texture": "grass",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grassy_dirt",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 2,
+      "name": "Bush",
+      "texture": "bush",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "connectable": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "leaf",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "stick",
+          "minQty": 0,
+          "maxQty": 1,
+          "chance": 0.5
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 3,
+      "name": "Wooden Fence",
+      "texture": "woodenfence",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "connectable": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "plank",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 4,
+      "name": "Oak tree",
+      "texture": "oak_tree",
+      "hardness": 8,
+      "variation": 0,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 7
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 3,
+          "maxQty": 8,
+          "chance": 1.0
+        },
+        {
+          "id": "apple",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        },
+        {
+          "id": "stick",
+          "minQty": 2,
+          "maxQty": 5,
+          "chance": 1.0
+        },
+        {
+          "id": "leaf",
+          "minQty": 2,
+          "maxQty": 6,
+          "chance": 1.0
+        },
+        {
+          "id": "acorn",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.7
+        }
+      ],
+      "swaysInWind": true
+    },
+    {
+      "id": 5,
+      "name": "Grass Tuff",
+      "texture": "smallgrass",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "stick",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 0.5
+        },
+        {
+          "id": "grass",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 0.5
+        },
+        {
+          "id": "rose",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 0.3
+        }
+      ],
+      "miningTool": "scythe",
+      "swaysInWind": true
+    },
+    {
+      "id": 6,
+      "name": "Table",
+      "texture": "table",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "plank",
+          "minQty": 3,
+          "maxQty": 5,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "size": {
+        "width": 2,
+        "height": 1
+      }
+    },
+    {
+      "id": 7,
+      "name": "Wooden Floor",
+      "texture": "woodenfloor",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "plank",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 8,
+      "name": "Brick Wall",
+      "texture": "brick_wall",
+      "animation": null,
+      "hardness": 8,
+      "variation": 0,
+      "material": "stone",
+      "connectable": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 9,
+      "name": "Workbench",
+      "texture": "workbench",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "workbench",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "isStation": true,
+      "stationType": "workbench",
+      "size": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "id": 10,
+      "name": "Ocean",
+      "texture": "water",
+      "animation": true,
+      "hardness": 4,
+      "variation": 0,
+      "material": "water",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": false,
+      "drops": [],
+      "miningTool": "none"
+    },
+    {
+      "id": 11,
+      "name": "Sand",
+      "texture": "sand",
+      "animation": null,
+      "hardness": 2,
+      "variation": 1,
+      "material": "dirt",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "sand",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 12,
+      "name": "Moai Statue",
+      "texture": "moai",
+      "animation": null,
+      "hardness": 8,
+      "variation": 0,
+      "material": "stone",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "moai_statue",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe",
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 1,
+        "height": 2
+      }
+    },
+    {
+      "id": 13,
+      "name": "Red Flower",
+      "texture": "red_flower",
+      "animation": null,
+      "collectable": true,
+      "variation": 0,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rose",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe",
+      "swaysInWind": true
+    },
+    {
+      "id": 14,
+      "name": "White Flower",
+      "texture": "white_flower",
+      "animation": null,
+      "collectable": true,
+      "variation": 0,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "white_flower",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe",
+      "swaysInWind": true
+    },
+    {
+      "id": 15,
+      "name": "Mushroom",
+      "texture": "shroom",
+      "animation": null,
+      "collectable": true,
+      "variation": 2,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "mushroom",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe"
+    },
+    {
+      "id": 16,
+      "name": "Tall Grass",
+      "texture": "tall_grass",
+      "animation": null,
+      "collectable": true,
+      "hardness": 1,
+      "variation": 3,
+      "material": "grass",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grass",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe",
+      "swaysInWind": true
+    },
+    {
+      "id": 17,
+      "name": "Pebble",
+      "texture": "pebble",
+      "variation": 2,
+      "collectable": true,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "none",
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Small Campfire",
+      "texture": "campfire",
+      "animation": true,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "campfire",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "size": {
+        "width": 2,
+        "height": 1
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -20
+      }
+    },
+    {
+      "id": 19,
+      "name": "Stone",
+      "texture": "stone",
+      "animation": null,
+      "hardness": 5,
+      "variation": 0,
+      "material": "stone",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 20,
+      "name": "Reeds",
+      "texture": "reeds",
+      "animation": null,
+      "variation": 0,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "reed",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.7
+        }
+      ],
+      "miningTool": "scythe",
+      "swaysInWind": true
+    },
+    {
+      "id": 23,
+      "name": "Rock Block",
+      "texture": "rock_wall",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "stone",
+      "connectable": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 0.9
+        },
+        {
+          "id": "random_rock",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 24,
+      "name": "Iron Rock",
+      "texture": "iron_rock",
+      "animation": null,
+      "hardness": 3,
+      "variation": 0,
+      "material": "stone",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        },
+        {
+          "id": "iron_ore",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 25,
+      "name": "Four en argile",
+      "texture": "clay_oven",
+      "animation": null,
+      "hardness": 3,
+      "variation": 0,
+      "material": "stone",
+      "connectionType": "none",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "clay_oven",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe",
+      "isStation": true,
+      "stationType": "furnace",
+      "size": {
+        "width": 2,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 2,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 26,
+      "name": "Dirt",
+      "texture": "dirt",
+      "animation": null,
+      "hardness": 2,
+      "variation": 4,
+      "material": "dirt",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grassy_dirt",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 27,
+      "name": "Farmland",
+      "texture": "farmland",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grassy_dirt",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 28,
+      "name": "Potato Crop",
+      "texture": "potato_crop",
+      "isCrop": true,
+      "growthTime": 120,
+      "growthStages": 4,
+      "harvestItemId": "potato",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 5,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "potato",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "name": "Farmland Wet",
+      "texture": "farmland_wet",
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grassy_dirt",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 30,
+      "name": "Pumpkin",
+      "texture": "pumpkin",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "pumpkin",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 32,
+      "name": "Campfire",
+      "texture": "campfire",
+      "animation": true,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "campfire",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "isLightSource": true,
+      "lightRadius": 900,
+      "lightColor": [
+        255,
+        160,
+        30,
+        200
+      ]
+    },
+    {
+      "id": 33,
+      "name": "Torch",
+      "texture": "torch",
+      "animation": true,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "torch",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "wallMountable": true,
+      "isLightSource": true,
+      "lightRadius": 800,
+      "lightColor": [
+        255,
+        160,
+        30,
+        200
+      ]
+    },
+    {
+      "id": 38,
+      "name": "Cactus",
+      "texture": "cactus",
+      "animation": null,
+      "hardness": 2,
+      "variation": 2,
+      "material": "wood",
+      "connectionType": "none",
+      "size": {
+        "width": 3,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": -40,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "stick",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "damageOnTouch": 2
+    },
+    {
+      "id": 40,
+      "name": "Anvil",
+      "texture": "anvil",
+      "animation": null,
+      "hardness": 8,
+      "variation": 0,
+      "material": "stone",
+      "furniture": true,
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "anvil",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe",
+      "isStation": true,
+      "stationType": "anvil",
+      "size": {
+        "width": 2,
+        "height": 1
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 2,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 42,
+      "name": "Wooden Chest",
+      "texture": "wooden_chest",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": true,
+      "isContainer": true,
+      "containerSlots": 24,
+      "containerColumns": 5,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_chest",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 43,
+      "name": "Snow",
+      "texture": "snow",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "snow",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "snow",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 44,
+      "name": "Forest Grass",
+      "texture": "forest_grass",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grassy_dirt",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 45,
+      "name": "Spruce",
+      "texture": "spruce_tree",
+      "hardness": 8,
+      "variation": 0,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 8
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 3,
+          "maxQty": 8,
+          "chance": 1.0
+        },
+        {
+          "id": "apple",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        },
+        {
+          "id": "stick",
+          "minQty": 2,
+          "maxQty": 5,
+          "chance": 1.0
+        },
+        {
+          "id": "leaf",
+          "minQty": 2,
+          "maxQty": 6,
+          "chance": 1.0
+        },
+        {
+          "id": "pine_cone",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.7
+        }
+      ],
+      "swaysInWind": true
+    },
+    {
+      "id": 46,
+      "name": "Savanna Grass",
+      "texture": "savanna",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 47,
+      "name": "Taiga Grass",
+      "texture": "taiga_grass",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grassy_dirt",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 48,
+      "name": "Birch tree",
+      "texture": "birch_tree",
+      "hardness": 8,
+      "variation": 0,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 8
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 3,
+          "maxQty": 8,
+          "chance": 1.0
+        },
+        {
+          "id": "apple",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        },
+        {
+          "id": "stick",
+          "minQty": 2,
+          "maxQty": 5,
+          "chance": 1.0
+        },
+        {
+          "id": "leaf",
+          "minQty": 2,
+          "maxQty": 6,
+          "chance": 1.0
+        },
+        {
+          "id": "acorn",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.7
+        }
+      ],
+      "swaysInWind": true
+    },
+    {
+      "id": 49,
+      "name": "Palm tree",
+      "texture": "palm_tree",
+      "hardness": 8,
+      "variation": 0,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 8
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 3,
+          "maxQty": 8,
+          "chance": 1.0
+        },
+        {
+          "id": "apple",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        },
+        {
+          "id": "stick",
+          "minQty": 2,
+          "maxQty": 5,
+          "chance": 1.0
+        },
+        {
+          "id": "leaf",
+          "minQty": 2,
+          "maxQty": 6,
+          "chance": 1.0
+        },
+        {
+          "id": "acorn",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.7
+        }
+      ],
+      "swaysInWind": true
+    },
+    {
+      "id": 50,
+      "name": "Cave entrance",
+      "texture": "cave_entrance",
+      "variation": 1,
+      "hardness": 10,
+      "walkable": false,
+      "diggable": false,
+      "miningTool": "none",
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 51,
+      "name": "Cave wall",
+      "texture": "rock_wall",
+      "variation": 1,
+      "hardness": 10,
+      "walkable": false,
+      "diggable": false,
+      "miningTool": "none"
+    },
+    {
+      "id": 52,
+      "name": "Cave exit",
+      "texture": "cave_exit",
+      "variation": 1,
+      "hardness": 10,
+      "walkable": true,
+      "diggable": false,
+      "miningTool": "none",
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -20
+      }
+    },
+    {
+      "id": 53,
+      "name": "Swamp mud",
+      "texture": "swamp_mud",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 54,
+      "name": "Wooden floor",
+      "texture": "wooden_zigzag_floor",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_floor",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 55,
+      "name": "Wooden floor",
+      "texture": "wooden_tile_floor",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_floor",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 56,
+      "name": "Wooden floor",
+      "texture": "wooden_square_floor",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_floor",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 57,
+      "name": "Wooden floor",
+      "texture": "wooden_plank_floor",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_floor",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 58,
+      "name": "Wooden floor",
+      "texture": "wooden_flat_floor",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_floor",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 59,
+      "name": "Bathroom tiles",
+      "texture": "bathroom_tiles",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "bathroom_tile",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 60,
+      "name": "Purple carpet",
+      "texture": "purple_carpet",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "connectable": true,
+      "material": "stone",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rug",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 61,
+      "name": "Path",
+      "texture": "path",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "dirt",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grassy_dirt",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "clay",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.4
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 62,
+      "name": "Beach Sand",
+      "texture": "beach_sand",
+      "animation": null,
+      "hardness": 2,
+      "variation": 1,
+      "material": "dirt",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "sand",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 70,
+      "name": "Candle",
+      "texture": "candle",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "furniture": true,
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "candle",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 81,
+      "name": "Shelf",
+      "texture": "wooden_shelf",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "connectable": true,
+      "isContainer": true,
+      "containerSlots": 6,
+      "containerColumns": 2,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_shelf",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 82,
+      "name": "Roof tile",
+      "texture": "roof_tile",
+      "animation": null,
+      "hardness": 1,
+      "variation": 0,
+      "material": "stone",
+      "connectable": true,
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 83,
+      "name": "Paving stone",
+      "texture": "paving_stone",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "paving_stone",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 84,
+      "name": "Wooden door",
+      "texture": "door",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_door",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 85,
+      "name": "Toilet",
+      "texture": "toilet",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "isSittable": true,
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "toilet",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 86,
+      "name": "Pot",
+      "texture": "pot",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "pot",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 87,
+      "name": "Bed",
+      "texture": "bed",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "isSleepable": true,
+      "drops": [
+        {
+          "id": "bed",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 2,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 2,
+        "height": 2
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 88,
+      "name": "Tiki totem",
+      "texture": "tikitotem",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "tikitotem",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 89,
+      "name": "Alchemy table",
+      "texture": "alchemy_table",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "alchemy_table",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 90,
+      "name": "Wooden sign",
+      "texture": "woodensign",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_sign",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 91,
+      "name": "Traffic cone",
+      "texture": "traffic_cone",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "traffic_cone",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 92,
+      "name": "Dye tray",
+      "texture": "dye_tray",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "dye_tray",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "isStation": true,
+      "stationType": "dye"
+    },
+    {
+      "id": 93,
+      "name": "Floor lamp",
+      "texture": "floor_lamp",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "furniture": true,
+      "drops": [
+        {
+          "id": "floor_lamp",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "isLightSource": true,
+      "lightRadius": 580,
+      "lightColor": [
+        255,
+        160,
+        120,
+        200
+      ]
+    },
+    {
+      "id": 94,
+      "name": "Bathroom sink",
+      "texture": "bathroom_sink",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "bathroom_sink",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 95,
+      "name": "Chair",
+      "texture": "chair",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "isSittable": true,
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "chair",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 96,
+      "name": "Wooden coffee table",
+      "texture": "wooden_coffee_table",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_coffee_table",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 97,
+      "name": "Ladder",
+      "texture": "ladder",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "ladder",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 98,
+      "name": "Cauldron",
+      "texture": "cauldron",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "cauldron",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "isStation": true,
+      "stationType": "cauldron",
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 99,
+      "name": "Aquarium",
+      "texture": "aquarium",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "furniture": true,
+      "connectable": true,
+      "isContainer": true,
+      "containerSlots": 4,
+      "containerColumns": 2,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "aquarium",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 100,
+      "name": "Cave Stone",
+      "texture": "cave_stone",
+      "hardness": 6,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "name": "Pylon",
+      "texture": "pylon",
+      "animation": null,
+      "hardness": 10,
+      "variation": 0,
+      "material": "stone",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "pylon",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 106,
+      "name": "Mirror",
+      "texture": "mirror",
+      "hardness": 4,
+      "variation": 0,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "furniture": true,
+      "drops": [
+        {
+          "id": "mirror",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "isStation": true,
+      "stationType": "mirror",
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 107,
+      "name": "Wooden Barrel",
+      "texture": "barrel",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": true,
+      "isContainer": true,
+      "containerSlots": 12,
+      "containerColumns": 3,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "barrel",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 108,
+      "name": "Wooden Crate",
+      "texture": "crate",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": true,
+      "isContainer": true,
+      "containerSlots": 9,
+      "containerColumns": 3,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "crate",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 104,
+      "name": "Boat sail",
+      "texture": "boat_sail",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": false,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "boat_sail",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 8
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe",
+      "IsSail": true
+    },
+    {
+      "id": 109,
+      "name": "Boat helm",
+      "texture": "boat_helm",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": false,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "boat_helm",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 110,
+      "name": "Métier à tisser",
+      "texture": "loom",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "furniture": true,
+      "isStation": true,
+      "stationType": "loom",
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -40
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "loom",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 111,
+      "name": "Établi de menuisier",
+      "texture": "carpentry_workbench",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "furniture": true,
+      "isStation": true,
+      "stationType": "carpentry",
+      "size": {
+        "width": 2,
+        "height": 2
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -40
+      },
+      "collisionSize": {
+        "width": 2,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "carpentry_workbench",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 112,
+      "name": "Tapis",
+      "texture": "rug",
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "isGroundTile": true,
+      "drops": [
+        {
+          "id": "rug",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "shovel"
+    },
+    {
+      "id": 113,
+      "name": "Bannière",
+      "texture": "banner",
+      "hardness": 2,
+      "walkable": false,
+      "diggable": true,
+      "furniture": true,
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 20,
+        "y": 0
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -40
+      },
+      "drops": [
+        {
+          "id": "banner",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe"
+    },
+    {
+      "id": 114,
+      "name": "Bench",
+      "texture": "bench",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "isSittable": true,
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "bench",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "collisionSize": {
+        "width": 2,
+        "height": 1
+      },
+      "size": {
+        "width": 2,
+        "height": 2
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 115,
+      "name": "Wooden Box",
+      "texture": "wooden_box",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": true,
+      "isContainer": true,
+      "containerSlots": 4,
+      "containerColumns": 2,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "wooden_box",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 116,
+      "name": "Rain collector",
+      "texture": "rain_collector",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rain_collector",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 117,
+      "name": "Socle de gemme-oeil",
+      "texture": "gem_base",
+      "animation": null,
+      "hardness": 4,
+      "variation": 0,
+      "material": "stone",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "gem_eyeball_base",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 2,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 2,
+        "height": 1
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 118,
+      "name": "Socle de gemme-oeil (avec oeil)",
+      "texture": "gem_base_eye",
+      "animation": true,
+      "hardness": 4,
+      "variation": 6,
+      "material": "stone",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "gem_eyeball_base",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        },
+        {
+          "id": "gem_eyeball",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 2,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 2,
+        "height": 1
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 136,
+      "name": "Well",
+      "texture": "well",
+      "animation": null,
+      "hardness": 2,
+      "variation": 0,
+      "material": "stone",
+      "isDrinkable": true,
+      "furniture": false,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "well",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 3,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 3,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "axe"
+    },
+    {
+      "id": 200,
+      "name": "Stalactite",
+      "texture": "stalactite",
+      "hardness": 6,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -40
+      },
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 201,
+      "name": "Stalagmite",
+      "texture": "stalagmite",
+      "hardness": 6,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 207,
+      "name": "Glowing Mushroom",
+      "texture": "glowing_mushroom",
+      "hardness": 2,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "drops": [
+        {
+          "id": "mushroom",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "isLightSource": true,
+      "lightRadius": 60,
+      "lightColor": [
+        50,
+        200,
+        100,
+        200
+      ]
+    },
+    {
+      "id": 208,
+      "name": "Giant Mushroom",
+      "texture": "giant_mushroom",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 2,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": -20,
+        "y": -80
+      },
+      "drops": [
+        {
+          "id": "mushroom",
+          "minQty": 2,
+          "maxQty": 5,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 300,
+      "name": "Porte-armure",
+      "texture": "armor_stand",
+      "variation": 1,
+      "hardness": 2,
+      "walkable": false,
+      "diggable": true,
+      "furniture": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -80
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "isArmorStand": true,
+      "drops": [
+        {
+          "id": "armor_stand_item",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 401,
+      "name": "Machine à vapeur",
+      "texture": "steam_engine",
+      "hardness": 6,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "furniture": true,
+      "drops": [
+        {
+          "id": "steam_engine",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 403,
+      "name": "Dynamo",
+      "texture": "dynamo",
+      "hardness": 6,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie électrique"
+        }
+      ],
+      "drops": [
+        {
+          "id": "dynamo",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 405,
+      "name": "Chargeur de batterie",
+      "texture": "battery_charger",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 2,
+        "height": 1
+      },
+      "drawOffset": {
+        "x": -20,
+        "y": 0
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrée câble (socle batterie)"
+        }
+      ],
+      "drops": [
+        {
+          "id": "ladder",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 408,
+      "name": "Ampoule électrique",
+      "texture": "floor_lamp",
+      "hardness": 2,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -20
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrée câble"
+        }
+      ],
+      "drops": [
+        {
+          "id": "floor_lamp",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "isLightSource": true,
+      "lightRadius": 900,
+      "lightColor": [
+        255,
+        220,
+        180
+      ]
+    },
+    {
+      "id": 410,
+      "name": "Porte logique ET",
+      "texture": "logic_gate_and",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrées (2 fils minimum)"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_gate_and",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 411,
+      "name": "Porte logique OU",
+      "texture": "logic_gate_or",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrées"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_gate_or",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 412,
+      "name": "Porte logique NON-ET",
+      "texture": "logic_gate_nand",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrées (2 fils minimum)"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_gate_nand",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 413,
+      "name": "Porte logique NON-OU",
+      "texture": "logic_gate_nor",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrées"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_gate_nor",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 414,
+      "name": "Porte logique OU-EXCLUSIF",
+      "texture": "logic_gate_xor",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrées"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_gate_xor",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 415,
+      "name": "Porte logique NON (inverseur)",
+      "texture": "logic_gate_not",
+      "hardness": 4,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrée"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie (inversée)"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_gate_not",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 416,
+      "name": "Interrupteur",
+      "texture": "logic_switch",
+      "hardness": 3,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie (Maj+E pour basculer)"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_switch",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 417,
+      "name": "Plaque de pression",
+      "texture": "pressure_plate",
+      "hardness": 2,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrée (depuis batterie/alimentation)"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie (ne laisse passer le courant que sous un poids)"
+        }
+      ],
+      "drops": [
+        {
+          "id": "pressure_plate",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 418,
+      "name": "Bloc logique de délai",
+      "texture": "logic_delay",
+      "hardness": 3,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "furniture": true,
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrée"
+        },
+        {
+          "type": "output",
+          "dx": 0,
+          "dy": 0,
+          "label": "Sortie (retardée, Maj+E pour régler le délai)"
+        }
+      ],
+      "drops": [
+        {
+          "id": "logic_delay",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 500,
+      "name": "Raft Tile",
+      "texture": "raft_tile",
+      "hardness": 2,
+      "walkable": true,
+      "diggable": true,
+      "connectable": true,
+      "miningTool": "axe",
+      "drops": [
+        {
+          "id": "raft",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 901,
+      "name": "Revêtement de taverne (Placé)",
+      "texture": "wall_covering_tavern",
+      "animation": null,
+      "hardness": 1,
+      "variation": 1,
+      "material": "stone",
+      "walkable": true,
+      "diggable": false,
+      "miningTool": "pickaxe",
+      "drops": []
+    },
+    {
+      "id": 902,
+      "name": "Revêtement de salle de bain (Placé)",
+      "texture": "wall_covering_bathroom",
+      "animation": null,
+      "hardness": 1,
+      "variation": 1,
+      "material": "stone",
+      "walkable": true,
+      "diggable": false,
+      "miningTool": "pickaxe",
+      "drops": []
+    },
+    {
+      "id": 1001,
+      "name": "Iron Ore Overlay",
+      "texture": "iron_ore",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1002,
+      "name": "Copper Ore Overlay",
+      "texture": "copper_ore",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1003,
+      "name": "Coal Overlay",
+      "texture": "coal_ore",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1004,
+      "name": "Garnet Overlay",
+      "texture": "grenat",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1005,
+      "name": "Amber Overlay",
+      "texture": "amber",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1006,
+      "name": "Topaz Overlay",
+      "texture": "topaze",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1007,
+      "name": "Onyx Overlay",
+      "texture": "onyx",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1008,
+      "name": "Opal Overlay",
+      "texture": "opale",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 1009,
+      "name": "Obsidian Overlay",
+      "texture": "obsidian",
+      "walkable": true,
+      "diggable": false,
+      "hardness": 0
+    },
+    {
+      "id": 3000,
+      "name": "Dungeon Floor",
+      "texture": "dungeon_floor",
+      "walkable": true,
+      "diggable": false,
+      "miningTool": "none",
+      "drops": []
+    },
+    {
+      "id": 3001,
+      "name": "Dungeon Wall",
+      "texture": "dungeon_wall",
+      "walkable": false,
+      "diggable": false,
+      "connectable": true,
+      "miningTool": "none",
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "drops": []
+    },
+    {
+      "id": 3002,
+      "name": "Dungeon Door",
+      "texture": "dungeon_door",
+      "walkable": true,
+      "diggable": false,
+      "miningTool": "none",
+      "drops": []
+    },
+    {
+      "id": 3003,
+      "name": "Dungeon Entrance",
+      "texture": "dungeon_entrance",
+      "variation": 1,
+      "walkable": true,
+      "diggable": false,
+      "miningTool": "none",
+      "drops": []
+    },
+    {
+      "id": 4000,
+      "name": "Ritual Circle",
+      "texture": "ritual_circle",
+      "hardness": 1,
+      "walkable": true,
+      "diggable": false,
+      "size": {
+        "width": 5,
+        "height": 5
+      },
+      "drawOffset": {
+        "x": -80,
+        "y": -40
+      },
+      "miningTool": "none",
+      "drops": [],
+      "isLightSource": true,
+      "lightRadius": 800,
+      "lightColor": [
+        150,
+        10,
+        10,
+        200
+      ]
+    },
+    {
+      "id": 4001,
+      "name": "Blé",
+      "texture": "wheat_crop",
+      "isCrop": true,
+      "growthTime": 180,
+      "growthStages": 4,
+      "harvestItemId": "wheat",
+      "harvestMinQty": 1,
+      "harvestMaxQty": 3,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "wheat",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 4002,
+      "name": "Carotte",
+      "texture": "carrot_crop",
+      "isCrop": true,
+      "growthTime": 150,
+      "growthStages": 4,
+      "harvestItemId": "carrot",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 5,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "carrot",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 4003,
+      "name": "Betterave",
+      "texture": "beetroot_crop",
+      "isCrop": true,
+      "growthTime": 160,
+      "growthStages": 4,
+      "harvestItemId": "beetroot",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 5,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "beetroot",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 4004,
+      "name": "Chou",
+      "texture": "cabbage_crop",
+      "isCrop": true,
+      "growthTime": 200,
+      "growthStages": 4,
+      "harvestItemId": "cabbage",
+      "harvestMinQty": 1,
+      "harvestMaxQty": 3,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "cabbage",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 4006,
+      "name": "Cotton",
+      "texture": "cotton_crop",
+      "isCrop": true,
+      "growthTime": 150,
+      "growthStages": 4,
+      "harvestItemId": "cotton",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 5,
+      "regrowsAfterHarvest": true,
+      "harvestedTexture": "cotton_crop_grow4_empty",
+      "swaysInWind": true,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "drops": [
+        {
+          "id": "cotton_seeds",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5000,
+      "name": "Aubergine",
+      "texture": "eggplant_crop",
+      "isCrop": true,
+      "growthTime": 160,
+      "growthStages": 4,
+      "harvestItemId": "eggplant",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 5,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "eggplant",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5001,
+      "name": "Tomate",
+      "texture": "tomato_crop",
+      "isCrop": true,
+      "growthTime": 140,
+      "growthStages": 4,
+      "harvestItemId": "tomato",
+      "harvestMinQty": 3,
+      "harvestMaxQty": 6,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "tomato",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5002,
+      "name": "Fraise",
+      "texture": "strawberry_crop",
+      "isCrop": true,
+      "growthTime": 120,
+      "growthStages": 4,
+      "harvestItemId": "strawberry",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 4,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "strawberry",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5003,
+      "name": "Citrouille",
+      "texture": "pumpkin_crop",
+      "isCrop": true,
+      "growthTime": 180,
+      "growthStages": 4,
+      "harvestItemId": "pumpkin",
+      "harvestMinQty": 1,
+      "harvestMaxQty": 3,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "pumpkin",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5004,
+      "name": "Radis",
+      "texture": "radish_crop",
+      "isCrop": true,
+      "growthTime": 100,
+      "growthStages": 4,
+      "harvestItemId": "radish",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 4,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "radish",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5005,
+      "name": "Piment",
+      "texture": "chili_crop",
+      "isCrop": true,
+      "growthTime": 130,
+      "growthStages": 4,
+      "harvestItemId": "chili",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 5,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "chili",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5006,
+      "name": "Salade",
+      "texture": "lettuce_crop",
+      "isCrop": true,
+      "growthTime": 90,
+      "growthStages": 4,
+      "harvestItemId": "lettuce",
+      "harvestMinQty": 1,
+      "harvestMaxQty": 3,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "lettuce",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5007,
+      "name": "Maïs",
+      "texture": "corn_crop",
+      "isCrop": true,
+      "growthTime": 170,
+      "growthStages": 4,
+      "harvestItemId": "corn",
+      "harvestMinQty": 1,
+      "harvestMaxQty": 3,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "corn",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5008,
+      "name": "Oignon",
+      "texture": "onion_crop",
+      "isCrop": true,
+      "growthTime": 150,
+      "growthStages": 4,
+      "harvestItemId": "onion",
+      "harvestMinQty": 2,
+      "harvestMaxQty": 5,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "drops": [
+        {
+          "id": "onion",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 5009,
+      "name": "Tournesol",
+      "texture": "sunflower",
+      "collectable": true,
+      "hardness": 1,
+      "walkable": true,
+      "diggable": true,
+      "miningTool": "scythe",
+      "swaysInWind": true,
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "drops": [
+        {
+          "id": "sunflower",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 6001,
+      "name": "Tent",
+      "texture": "tent",
+      "animation": null,
+      "hardness": 3,
+      "variation": 0,
+      "material": "cloth",
+      "connectionType": "none",
+      "walkable": false,
+      "diggable": true,
+      "furniture": true,
+      "isSleepable": true,
+      "drops": [
+        {
+          "id": "stick",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.9
+        }
+      ],
+      "miningTool": "axe",
+      "size": {
+        "width": 3,
+        "height": 4
+      },
+      "collisionSize": {
+        "width": 3,
+        "height": 2
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 6000,
+      "name": "Beehive",
+      "texture": "beehive",
+      "walkable": true,
+      "diggable": false,
+      "collectable": false,
+      "drops": [],
+      "miningTool": "none",
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": -40
+      }
+    },
+    {
+      "id": 7000,
+      "name": "Porte-bannière",
+      "texture": "banner_holder",
+      "walkable": false,
+      "diggable": false,
+      "collectable": false,
+      "furniture": true,
+      "drops": [],
+      "miningTool": "none",
+      "size": {
+        "width": 2,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": -20,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 4005,
+      "name": "Oak Sapling",
+      "texture": "oak_sapling",
+      "isCrop": false,
+      "isSapling": true,
+      "growthTime": 600,
+      "growthStages": 4,
+      "adultTileId": 4,
+      "hardness": 1,
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 7
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [],
+      "swaysInWind": true
+    },
+    {
+      "id": 119,
+      "name": "Portal",
+      "texture": "portal",
+      "animation": false,
+      "hardness": 12,
+      "variation": 0,
+      "material": "stone",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "portal",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe",
+      "size": {
+        "width": 2,
+        "height": 1
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 2,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 122,
+      "name": "Grandfather Clock",
+      "texture": "grandfather_clock",
+      "animation": false,
+      "hardness": 5,
+      "variation": 0,
+      "material": "wood",
+      "connectionType": "none",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "grandfather_clock",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "size": {
+        "width": 1,
+        "height": 2
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 120,
+      "name": "Sandstone",
+      "texture": "sandstone",
+      "animation": null,
+      "hardness": 5,
+      "variation": 0,
+      "material": "stone",
+      "connectionType": "border",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 121,
+      "name": "Sandstone Wall",
+      "texture": "sandstone_wall",
+      "animation": null,
+      "hardness": 6,
+      "variation": 0,
+      "material": "stone",
+      "connectable": true,
+      "walkable": false,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "rock",
+          "minQty": 1,
+          "maxQty": 3,
+          "chance": 0.9
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 3
+      },
+      "drawOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "miningTool": "pickaxe"
+    },
+    {
+      "id": 123,
+      "name": "Railway",
+      "texture": "railway_h",
+      "walkable": true,
+      "onFloor": true,
+      "diggable": true,
+      "hardness": 1,
+      "material": "metal",
+      "drops": [
+        {
+          "id": "railway",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "size": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "id": 124,
+      "name": "Wagon",
+      "texture": "wagon",
+      "walkable": true,
+      "diggable": false,
+      "collectable": false,
+      "hardness": 0,
+      "material": "metal",
+      "size": {
+        "width": 1,
+        "height": 1
+      }
+    }
+  ]
+}

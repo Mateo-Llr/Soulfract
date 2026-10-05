@@ -1,0 +1,52 @@
+name: Build and publish Soulfract
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish game
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          dotnet publish Heroes.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None -p:DebugSymbols=false -p:Version=$version `
+            -o publish/game
+
+      - name: Publish self-contained launcher
+        run: >-
+          dotnet publish Launcher/SoulfractLauncher.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None -p:DebugSymbols=false
+          -o publish/launcher
+
+      - name: Package game
+        shell: pwsh
+        run: |
+          Get-ChildItem publish/game -File -Recurse -Include *.dylib,*.so,*.pdb,*.xml | Remove-Item -Force
+          Compress-Archive -Path publish/game/* -DestinationPath publish/Soulfract-win-x64.zip -CompressionLevel Optimal
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            publish/Soulfract-win-x64.zip
+            publish/launcher/SoulfractLauncher.exe

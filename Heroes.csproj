@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	  <OutputType>Exe</OutputType>
+	  <TargetFramework>net8.0</TargetFramework>
+	  <Nullable>enable</Nullable>
+	  <ImplicitUsings>enable</ImplicitUsings>
+	  <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	  <NoWarn>$(NoWarn);CS0108;CS0162;CS0219;CS0414;CS8600;CS8602;CS8604;CS8618;CS8625;CS8629</NoWarn>
+	  <RootNamespace>Soulfract</RootNamespace>
+	  <AssemblyName>Soulfract</AssemblyName>
+	  <ApplicationIcon>assets/icon.ico</ApplicationIcon>
+	  
+	  <!-- Métadonnées Windows (lues par Discord) -->
+	  <AssemblyTitle>Soulfract</AssemblyTitle>
+	  <AssemblyDescription>Un jeu de survie et d'aventure en monde ouvert procédural</AssemblyDescription>
+	  <AssemblyCompany>Mateo Llr</AssemblyCompany>
+	  <Product>Soulfract</Product>
+	  <Version>1.0.0</Version>
+	  <FileVersion>1.0.0.0</FileVersion>
+	  <InformationalVersion>1.0.0</InformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
+    <PackageReference Include="LiteNetLib" Version="2.1.4" />
+    <PackageReference Include="Melanchall.DryWetMidi" Version="8.0.3" />
+    <PackageReference Include="MeltySynth" Version="2.4.1" />
+	  <PackageReference Include="NAudio" Version="2.3.0" />
+	  <PackageReference Include="NAudio.WinMM" Version="2.3.0" />
+    <PackageReference Include="Raylib-cs" Version="6.*" />
+  </ItemGroup>
+
+	<ItemGroup>
+	  <ResourceCompile Include="app.rc" />
+	</ItemGroup>
+
+  <ItemGroup>
+    <!-- Inclusion de vos assets de jeu (Sons, Images, Textures, Maps) -->
+    <Content Include="Data/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+		<Content Include="assets/**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</Content>
+		<Content Include="GuildEmblems/**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</Content>
+  </ItemGroup>
+
+	<!-- Exclude accidentally created temporary file from compilation -->
+	<ItemGroup>
+		<Compile Remove="Launcher\**\*.cs" />
+		<Compile Remove="src\.temp..cs" />
+	</ItemGroup>
+
+</Project>
