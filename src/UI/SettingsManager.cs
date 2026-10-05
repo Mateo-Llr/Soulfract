@@ -9,7 +9,7 @@ namespace Soulfract
         public int MasterVolume { get; set; } = 100;
         public string VoiceChatMode { get; set; } = "PushToTalk";
         public bool Fullscreen { get; set; } = false;
-        public string Language { get; set; } = "fr";
+        public string Language { get; set; } = "en";
 
         // Boutons UI activés dans la barre
         public bool ShowInventoryButton { get; set; } = true;

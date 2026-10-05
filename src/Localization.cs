@@ -16,7 +16,7 @@ namespace Soulfract
         private static readonly Dictionary<string, string> _translations = new(StringComparer.OrdinalIgnoreCase);
         private static readonly List<LanguageInfo> _supportedLanguages = new();
 
-        public static string CurrentLanguage { get; private set; } = "fr";
+        public static string CurrentLanguage { get; private set; } = "en";
         public static IReadOnlyList<LanguageInfo> AvailableLanguages => _supportedLanguages;
 
         public static bool Initialize()
@@ -244,11 +244,11 @@ namespace Soulfract
 
         private static string GetDefaultLanguageCode()
         {
-            if (_supportedLanguages.Any(language => string.Equals(language.Code, "fr", StringComparison.OrdinalIgnoreCase)))
-                return "fr";
             if (_supportedLanguages.Any(language => string.Equals(language.Code, "en", StringComparison.OrdinalIgnoreCase)))
                 return "en";
-            return _supportedLanguages.Count > 0 ? _supportedLanguages[0].Code : "fr";
+            if (_supportedLanguages.Any(language => string.Equals(language.Code, "fr", StringComparison.OrdinalIgnoreCase)))
+                return "fr";
+            return _supportedLanguages.Count > 0 ? _supportedLanguages[0].Code : "en";
         }
 
         public static void SaveSettings()
@@ -342,6 +342,6 @@ namespace Soulfract
     public sealed record LanguageInfo(string Code, string DisplayName);
     public sealed record LocalizationSettings
     {
-        public string Language { get; set; } = "fr";
+        public string Language { get; set; } = "en";
     }
 }

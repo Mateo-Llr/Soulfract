@@ -8,4 +8,8 @@
     <AssemblyName>SoulfractLauncher</AssemblyName>
     <RootNamespace>SoulfractLauncher</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\assets\render.png"
+                      LogicalName="SoulfractLauncher.Assets.soulfract-logo.png" />
+  </ItemGroup>
 </Project>
