@@ -53,6 +53,7 @@
 
 	<!-- Exclude accidentally created temporary file from compilation -->
 	<ItemGroup>
+		<Compile Remove="Bootstrapper\**\*.cs" />
 		<Compile Remove="Launcher\**\*.cs" />
 		<Compile Remove="src\.temp..cs" />
 	</ItemGroup>

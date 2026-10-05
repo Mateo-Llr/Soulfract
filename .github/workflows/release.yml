@@ -37,6 +37,13 @@ jobs:
           -p:DebugType=None -p:DebugSymbols=false
           -o publish/launcher
 
+      - name: Publish native self-updating bootstrapper
+        run: >-
+          dotnet publish Bootstrapper/SoulfractBootstrapper.csproj
+          -c Release -r win-x64
+          -p:PublishAot=true -p:StripSymbols=true
+          -o publish/bootstrapper
+
       - name: Package game
         shell: pwsh
         run: |
@@ -50,3 +57,4 @@ jobs:
           files: |
             publish/Soulfract-win-x64.zip
             publish/launcher/SoulfractLauncher.exe
+            publish/bootstrapper/SoulfractBootstrapper.exe
