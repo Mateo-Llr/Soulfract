@@ -19,10 +19,19 @@ internal sealed class LauncherForm : Form
     private const int CardRadius = 18;
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
-    private static readonly Color BackgroundColor = Color.FromArgb(15, 12, 22);
-    private static readonly Color SurfaceColor = Color.FromArgb(27, 22, 35);
-    private static readonly Color ElevatedColor = Color.FromArgb(41, 32, 50);
-    private static readonly Color AccentColor = Color.FromArgb(220, 174, 104);
+    private static readonly Color BackgroundColor = Color.FromArgb(13, 11, 18);
+    private static readonly Color SurfaceColor = Color.FromArgb(25, 20, 31);
+    private static readonly Color ElevatedColor = Color.FromArgb(38, 30, 46);
+    private static readonly Color AccentColor = Color.FromArgb(226, 179, 105);
+    private static readonly Color AddedColor = Color.FromArgb(126, 207, 151);
+    private static readonly Color FixedColor = Color.FromArgb(119, 174, 232);
+    private static readonly Color ChangedColor = Color.FromArgb(232, 190, 112);
+    private static readonly Color PerformanceColor = Color.FromArgb(190, 153, 231);
+    private static readonly Color RemovedColor = Color.FromArgb(222, 132, 132);
+    private static readonly Font ChangelogHeadingFont = new("Segoe UI Semibold", 12F, FontStyle.Bold);
+    private static readonly Font ChangelogCategoryFont = new("Segoe UI Semibold", 8.5F, FontStyle.Bold);
+    private static readonly Font ChangelogEntryFont = new("Segoe UI", 10.5F, FontStyle.Regular);
+    private static readonly Font ChangelogPlainFont = new("Segoe UI", 10F, FontStyle.Regular);
     private static readonly Color PrimaryTextColor = Color.FromArgb(246, 241, 234);
     private static readonly Color MutedTextColor = Color.FromArgb(172, 161, 179);
 
@@ -49,8 +58,8 @@ internal sealed class LauncherForm : Form
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = true;
         MinimizeBox = true;
-        MinimumSize = new Size(860, 650);
-        ClientSize = new Size(1180, 780);
+        MinimumSize = new Size(900, 660);
+        ClientSize = new Size(1120, 740);
         BackColor = BackgroundColor;
         ForeColor = PrimaryTextColor;
         Font = new Font("Segoe UI", 10F);
@@ -60,43 +69,32 @@ internal sealed class LauncherForm : Form
             Dock = DockStyle.Fill,
             BackColor = BackgroundColor,
             ColumnCount = 1,
-            RowCount = 4,
-            Padding = new Padding(26, 14, 26, 14)
+            RowCount = 5,
+            Padding = new Padding(26, 12, 26, 12)
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 276));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 202));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 94));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
         Controls.Add(root);
 
         var header = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
-        Image logo = LoadLauncherLogo();
-        var logoView = new PictureBox
-        {
-            Image = logo,
-            Location = new Point(0, 3),
-            Size = new Size(150, 56),
-            SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = BackgroundColor
-        };
-        var subtitle = CreateLabel("UN MONDE À FAÇONNER", 8.5F, FontStyle.Bold, MutedTextColor);
-        subtitle.Location = new Point(158, 21);
-        subtitle.AutoSize = true;
-        var versionCaption = CreateLabel("VERSION DU JEU", 8.5F, FontStyle.Bold, MutedTextColor);
+        var versionCaption = CreateLabel("VERSION", 8F, FontStyle.Bold, MutedTextColor);
         versionCaption.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         versionCaption.TextAlign = ContentAlignment.MiddleRight;
-        versionCaption.SetBounds(770, 8, 300, 18);
-        _versionLabel = CreateLabel("Vérification...", 11, FontStyle.Bold, AccentColor);
+        versionCaption.SetBounds(770, 4, 300, 17);
+        _versionLabel = CreateLabel("Vérification...", 10, FontStyle.Bold, AccentColor);
         _versionLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         _versionLabel.TextAlign = ContentAlignment.MiddleRight;
-        _versionLabel.SetBounds(770, 27, 300, 24);
-        header.Controls.AddRange([logoView, subtitle, versionCaption, _versionLabel]);
+        _versionLabel.SetBounds(770, 21, 300, 22);
+        header.Controls.AddRange([versionCaption, _versionLabel]);
         root.Controls.Add(header, 0, 0);
 
         var hero = new HeroBackdropPanel
         {
             Dock = DockStyle.Fill,
-            Margin = new Padding(0, 4, 0, 14)
+            Margin = new Padding(0, 2, 0, 12)
         };
         BuildHero(hero);
         root.Controls.Add(hero, 0, 1);
@@ -105,153 +103,93 @@ internal sealed class LauncherForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = BackgroundColor,
-            ColumnCount = 2,
+            ColumnCount = 1,
             RowCount = 1,
-            Padding = new Padding(0, 0, 0, 8)
+            Padding = new Padding(0, 0, 0, 10)
         };
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 43));
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57));
         root.Controls.Add(content, 0, 2);
-
-        var gameCard = CreateCard();
-        gameCard.Dock = DockStyle.Fill;
-        gameCard.Margin = new Padding(0, 0, 9, 0);
-        BuildGameCard(gameCard);
-        content.Controls.Add(gameCard, 0, 0);
 
         var changelogCard = CreateCard();
         changelogCard.Dock = DockStyle.Fill;
-        changelogCard.Margin = new Padding(9, 0, 0, 0);
+        changelogCard.Margin = new Padding(0);
         BuildChangelogCard(changelogCard);
-        content.Controls.Add(changelogCard, 1, 0);
+        content.Controls.Add(changelogCard, 0, 0);
 
-        var footer = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
-        var footerLabel = CreateLabel("Explorez. Construisez. Survivez.", 8.5F, FontStyle.Regular, MutedTextColor);
-        footerLabel.Dock = DockStyle.Left;
-        footerLabel.TextAlign = ContentAlignment.MiddleLeft;
-        var footerLink = CreateLinkLabel("COMMUNAUTÉ  ↗", 8.5F, "https://github.com/Mateo-Llr/Soulfract");
-        footerLink.Dock = DockStyle.Right;
-        footerLink.TextAlign = ContentAlignment.MiddleRight;
-        footer.Controls.AddRange([footerLabel, footerLink]);
-        root.Controls.Add(footer, 0, 3);
-        FormClosed += (_, _) => logo.Dispose();
-
-        Shown += async (_, _) => await CheckForUpdatesAsync();
-    }
-
-    private void BuildHero(Panel hero)
-    {
-        var eyebrow = CreateLabel("AVENTURE • SURVIE • MULTIJOUEUR", 9, FontStyle.Bold, AccentColor);
-        eyebrow.Location = new Point(38, 42);
-        eyebrow.AutoSize = true;
-
-        var title = CreateLabel("Votre monde.\nVos règles.", 32, FontStyle.Bold, PrimaryTextColor);
-        title.Location = new Point(34, 74);
-        title.Size = new Size(520, 102);
-        title.TextAlign = ContentAlignment.MiddleLeft;
-
-        var description = CreateLabel(
-            "Explorez des terres inconnues, bâtissez votre refuge\net écrivez votre propre histoire.",
-            11F,
-            FontStyle.Regular,
-            Color.FromArgb(222, 213, 224));
-        description.Location = new Point(39, 181);
-        description.Size = new Size(500, 42);
-        description.TextAlign = ContentAlignment.TopLeft;
-
-        var worldLabel = CreateLabel("UN UNIVERS QUI N'ATTEND QUE VOUS", 8.5F, FontStyle.Bold, Color.FromArgb(222, 213, 224));
-        worldLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        worldLabel.TextAlign = ContentAlignment.MiddleRight;
-        worldLabel.SetBounds(690, 32, 420, 22);
-
-        hero.Controls.AddRange([eyebrow, title, description, worldLabel]);
-    }
-
-    private void BuildGameCard(Panel card)
-    {
-        var layout = new TableLayoutPanel
+        var actions = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = SurfaceColor,
-            ColumnCount = 2,
-            RowCount = 1,
-            Padding = new Padding(20, 18, 18, 16)
+            BackColor = BackgroundColor,
+            ColumnCount = 3,
+            RowCount = 3,
+            Padding = new Padding(0, 0, 0, 2)
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 205));
-        card.Controls.Add(layout);
-
-        var details = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = SurfaceColor,
-            ColumnCount = 1,
-            RowCount = 5,
-            Margin = new Padding(0, 0, 12, 0)
-        };
-        details.RowStyles.Add(new RowStyle(SizeType.Absolute, 23));
-        details.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        details.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        details.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        details.RowStyles.Add(new RowStyle(SizeType.Absolute, 16));
-        layout.Controls.Add(details, 0, 0);
-
-        var eyebrow = CreateLabel("PRÊT À JOUER", 8.5F, FontStyle.Bold, AccentColor);
-        eyebrow.Dock = DockStyle.Fill;
-        eyebrow.TextAlign = ContentAlignment.MiddleLeft;
-        details.Controls.Add(eyebrow, 0, 0);
-
-        var title = CreateLabel("Soulfract", 21, FontStyle.Bold, PrimaryTextColor);
-        title.Dock = DockStyle.Fill;
-        title.TextAlign = ContentAlignment.MiddleLeft;
-        details.Controls.Add(title, 0, 1);
-
-        var description = CreateLabel("Le monde vous attend.", 9.5F, FontStyle.Regular, MutedTextColor);
-        description.Dock = DockStyle.Fill;
-        description.TextAlign = ContentAlignment.MiddleLeft;
-        details.Controls.Add(description, 0, 2);
-
-        _statusLabel = CreateLabel("Connexion à GitHub...", 10, FontStyle.Regular, MutedTextColor);
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+        actions.RowStyles.Add(new RowStyle(SizeType.Absolute, 19));
+        actions.RowStyles.Add(new RowStyle(SizeType.Absolute, 6));
+        actions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        _statusLabel = CreateLabel("Connexion...", 9F, FontStyle.Regular, MutedTextColor);
         _statusLabel.Dock = DockStyle.Fill;
-        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _statusLabel.TextAlign = ContentAlignment.MiddleCenter;
         _statusLabel.AutoEllipsis = true;
-        details.Controls.Add(_statusLabel, 0, 3);
+        actions.Controls.Add(_statusLabel, 0, 0);
+        actions.SetColumnSpan(_statusLabel, 3);
 
         _progressBar = new ProgressBar
         {
             Dock = DockStyle.Fill,
             Style = ProgressBarStyle.Marquee,
             MarqueeAnimationSpeed = 24,
-            Visible = true
+            Visible = true,
+            Margin = new Padding(140, 0, 140, 0)
         };
-        details.Controls.Add(_progressBar, 0, 4);
+        actions.Controls.Add(_progressBar, 0, 1);
+        actions.SetColumnSpan(_progressBar, 3);
 
-        var buttonPanel = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            BackColor = SurfaceColor,
-            Padding = new Padding(0, 3, 0, 0),
-            Anchor = AnchorStyles.None
-        };
-        _playButton = CreateButton("▶   JOUER", AccentColor, BackgroundColor, 176, 48);
-        _playButton.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
-        _playButton.Enabled = false;
-        _playButton.Click += (_, _) => LaunchInstalledGame();
-        buttonPanel.Controls.Add(_playButton);
-
-        _checkUpdatesButton = CreateButton("Vérifier les mises à jour", ElevatedColor, PrimaryTextColor, 176, 34);
-        _checkUpdatesButton.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
+        _checkUpdatesButton = CreateButton("VÉRIFIER", ElevatedColor, PrimaryTextColor, 190, 46);
+        _checkUpdatesButton.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold);
+        _checkUpdatesButton.Anchor = AnchorStyles.None;
         _checkUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync();
-        buttonPanel.Controls.Add(_checkUpdatesButton);
+        actions.Controls.Add(_checkUpdatesButton, 0, 2);
 
-        _folderButton = CreateButton("Ouvrir le dossier", SurfaceColor, MutedTextColor, 176, 28);
-        _folderButton.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
+        _playButton = CreateButton("▶   JOUER", AccentColor, BackgroundColor, 244, 56);
+        _playButton.Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold);
+        _playButton.Enabled = false;
+        _playButton.Anchor = AnchorStyles.None;
+        _playButton.Click += (_, _) => LaunchInstalledGame();
+        actions.Controls.Add(_playButton, 1, 2);
+
+        _folderButton = CreateButton("DOSSIER DU JEU", ElevatedColor, MutedTextColor, 190, 46);
+        _folderButton.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold);
         _folderButton.Enabled = false;
+        _folderButton.Anchor = AnchorStyles.None;
         _folderButton.Click += (_, _) => OpenGameFolder();
-        buttonPanel.Controls.Add(_folderButton);
-        layout.Controls.Add(buttonPanel, 1, 0);
+        actions.Controls.Add(_folderButton, 2, 2);
+        root.Controls.Add(actions, 0, 3);
+
+        var footer = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
+        var footerLink = CreateLinkLabel("GitHub", 8.5F, "https://github.com/Mateo-Llr/Soulfract");
+        footerLink.Dock = DockStyle.Right;
+        footerLink.TextAlign = ContentAlignment.MiddleRight;
+        footer.Controls.Add(footerLink);
+        root.Controls.Add(footer, 0, 4);
+
+        Shown += async (_, _) => await CheckForUpdatesAsync();
+    }
+
+    private void BuildHero(Panel hero)
+    {
+        PictureBox titleTexture = new()
+        {
+            Image = LoadTitleTexture(),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            Location = new Point(64, 14),
+            Size = new Size(260, 174),
+            TabStop = false
+        };
+        hero.Controls.Add(titleTexture);
     }
 
     private void BuildChangelogCard(Panel card)
@@ -261,23 +199,17 @@ internal sealed class LauncherForm : Form
             Dock = DockStyle.Fill,
             BackColor = SurfaceColor,
             ColumnCount = 1,
-            RowCount = 3,
-            Padding = new Padding(22, 16, 22, 16)
+            RowCount = 2,
+            Padding = new Padding(22, 15, 22, 15)
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         card.Controls.Add(layout);
 
-        var title = CreateLabel("Quoi de neuf ?", 19, FontStyle.Bold, PrimaryTextColor);
+        var title = CreateLabel("Nouveautés", 17, FontStyle.Bold, PrimaryTextColor);
         title.Dock = DockStyle.Fill;
         title.TextAlign = ContentAlignment.MiddleLeft;
         layout.Controls.Add(title, 0, 0);
-
-        var hint = CreateLabel("Les dernières nouveautés de Soulfract", 9.5F, FontStyle.Regular, MutedTextColor);
-        hint.Dock = DockStyle.Fill;
-        hint.TextAlign = ContentAlignment.MiddleLeft;
-        layout.Controls.Add(hint, 0, 1);
 
         _changelogBox = new RichTextBox
         {
@@ -286,14 +218,14 @@ internal sealed class LauncherForm : Form
             BorderStyle = BorderStyle.None,
             BackColor = SurfaceColor,
             ForeColor = PrimaryTextColor,
-            Font = new Font("Segoe UI", 10F),
+            Font = new Font("Segoe UI", 10.5F),
             DetectUrls = false,
             HideSelection = false,
             ScrollBars = RichTextBoxScrollBars.Vertical,
             WordWrap = true,
             Text = "Chargement du journal des modifications..."
         };
-        layout.Controls.Add(_changelogBox, 0, 2);
+        layout.Controls.Add(_changelogBox, 0, 1);
     }
 
     private async Task CheckForUpdatesAsync()
@@ -492,7 +424,7 @@ internal sealed class LauncherForm : Form
 
         var selectedSections = sections
             .Where(section => section.Entries.Count > 0)
-            .TakeLast(8)
+            .TakeLast(3)
             .Reverse()
             .ToList();
         if (selectedSections.Count == 0)
@@ -502,8 +434,8 @@ internal sealed class LauncherForm : Form
         foreach ((string title, List<string> entries) in selectedSections)
         {
             formatted.AppendLine($"## {title}");
-            foreach (string entry in entries)
-                formatted.AppendLine($"•  {entry}");
+            foreach (string entry in entries.TakeLast(6))
+                formatted.AppendLine(entry);
             formatted.AppendLine();
         }
 
@@ -532,23 +464,67 @@ internal sealed class LauncherForm : Form
         {
             if (line.StartsWith("## ", StringComparison.Ordinal))
             {
+                if (_changelogBox.TextLength > 0)
+                    _changelogBox.AppendText(Environment.NewLine);
                 _changelogBox.SelectionColor = AccentColor;
-                _changelogBox.SelectionFont = new Font(_changelogBox.Font, FontStyle.Bold);
+                _changelogBox.SelectionFont = ChangelogHeadingFont;
                 _changelogBox.AppendText(line[3..] + Environment.NewLine);
+            }
+            else if (TrySplitChangelogEntry(line, out string category, out string description))
+            {
+                Color categoryColor = category switch
+                {
+                    "ADDED" => AddedColor,
+                    "FIXED" => FixedColor,
+                    "CHANGED" => ChangedColor,
+                    "PERF" => PerformanceColor,
+                    "REMOVED" => RemovedColor,
+                    _ => PrimaryTextColor
+                };
+                string categoryLabel = category switch
+                {
+                    "ADDED" => "AJOUT",
+                    "FIXED" => "CORRECTION",
+                    "CHANGED" => "MODIFIÉ",
+                    "PERF" => "PERF",
+                    "REMOVED" => "RETIRÉ",
+                    _ => category
+                };
+
+                _changelogBox.SelectionIndent = 0;
+                _changelogBox.SelectionColor = categoryColor;
+                _changelogBox.SelectionFont = ChangelogCategoryFont;
+                _changelogBox.AppendText(categoryLabel.PadRight(12));
                 _changelogBox.SelectionColor = PrimaryTextColor;
-                _changelogBox.SelectionFont = _changelogBox.Font;
+                _changelogBox.SelectionFont = ChangelogEntryFont;
+                _changelogBox.AppendText(description + Environment.NewLine);
             }
             else
             {
-                _changelogBox.SelectionColor = line.StartsWith("•", StringComparison.Ordinal)
-                    ? PrimaryTextColor
-                    : MutedTextColor;
-                _changelogBox.SelectionFont = _changelogBox.Font;
+                _changelogBox.SelectionColor = MutedTextColor;
+                _changelogBox.SelectionFont = ChangelogPlainFont;
                 _changelogBox.AppendText(line + Environment.NewLine);
             }
         }
 
+        _changelogBox.SelectionIndent = 0;
         _changelogBox.Select(0, 0);
+    }
+
+    private static bool TrySplitChangelogEntry(string line, out string category, out string description)
+    {
+        category = "";
+        description = "";
+        if (line.Length < 4 || line[0] != '[')
+            return false;
+
+        int closingBracket = line.IndexOf(']');
+        if (closingBracket <= 1 || closingBracket + 1 >= line.Length)
+            return false;
+
+        category = line[1..closingBracket].Trim().ToUpperInvariant();
+        description = line[(closingBracket + 1)..].Trim();
+        return category is "ADDED" or "FIXED" or "CHANGED" or "PERF" or "REMOVED";
     }
 
     private static HttpClient CreateHttpClient()
@@ -844,10 +820,10 @@ internal sealed class LauncherForm : Form
         };
     }
 
-    private static Image LoadLauncherLogo()
+    private static Image LoadTitleTexture()
     {
         using Stream stream = typeof(LauncherForm).Assembly.GetManifestResourceStream(
-            "SoulfractLauncher.Assets.soulfract-logo.png")
+            "SoulfractLauncher.Assets.title.png")
             ?? throw new InvalidOperationException("Le logo intégré du lanceur est introuvable.");
         using Image source = Image.FromStream(stream);
         return new Bitmap(source);
@@ -951,34 +927,40 @@ internal sealed class LauncherForm : Form
             using (var sun = new SolidBrush(Color.FromArgb(80, 229, 177, 127)))
                 graphics.FillEllipse(sun, 855 * scaleX, 70 * scaleY, 106 * scaleX, 106 * scaleY);
 
+            GraphicsState sceneryState = graphics.Save();
+            graphics.SetClip(new Rectangle(
+                (int)(390 * scaleX),
+                0,
+                Math.Max(0, bounds.Width - (int)(390 * scaleX)),
+                bounds.Height));
             PointF[] distantRidge =
             [
-                new(0, 175 * scaleY),
-                new(145 * scaleX, 115 * scaleY),
-                new(260 * scaleX, 167 * scaleY),
-                new(405 * scaleX, 105 * scaleY),
-                new(548 * scaleX, 171 * scaleY),
-                new(735 * scaleX, 112 * scaleY),
-                new(910 * scaleX, 165 * scaleY),
+                new(390 * scaleX, 175 * scaleY),
+                new(470 * scaleX, 115 * scaleY),
+                new(575 * scaleX, 167 * scaleY),
+                new(690 * scaleX, 105 * scaleY),
+                new(805 * scaleX, 171 * scaleY),
+                new(900 * scaleX, 112 * scaleY),
+                new(1000 * scaleX, 165 * scaleY),
                 new(1060 * scaleX, 103 * scaleY),
                 new(bounds.Width, 155 * scaleY),
                 new(bounds.Width, bounds.Height),
-                new(0, bounds.Height)
+                new(390 * scaleX, bounds.Height)
             ];
             using (var distantLand = new SolidBrush(Color.FromArgb(76, 53, 85)))
                 graphics.FillPolygon(distantLand, distantRidge);
 
             PointF[] foregroundRidge =
             [
-                new(0, 213 * scaleY),
-                new(150 * scaleX, 171 * scaleY),
-                new(320 * scaleX, 210 * scaleY),
-                new(510 * scaleX, 158 * scaleY),
-                new(690 * scaleX, 204 * scaleY),
-                new(875 * scaleX, 151 * scaleY),
+                new(390 * scaleX, 213 * scaleY),
+                new(500 * scaleX, 171 * scaleY),
+                new(640 * scaleX, 210 * scaleY),
+                new(755 * scaleX, 158 * scaleY),
+                new(880 * scaleX, 204 * scaleY),
+                new(1010 * scaleX, 151 * scaleY),
                 new(bounds.Width, 200 * scaleY),
                 new(bounds.Width, bounds.Height),
-                new(0, bounds.Height)
+                new(390 * scaleX, bounds.Height)
             ];
             using (var foregroundLand = new SolidBrush(Color.FromArgb(186, 29, 28, 42)))
                 graphics.FillPolygon(foregroundLand, foregroundRidge);
@@ -997,6 +979,7 @@ internal sealed class LauncherForm : Form
                 foreach (PointF point in stars)
                     graphics.FillRectangle(star, point.X, point.Y, Math.Max(2, 4 * scaleX), Math.Max(2, 4 * scaleY));
             }
+            graphics.Restore(sceneryState);
 
             using (var border = new Pen(Color.FromArgb(92, 213, 174, 132)))
                 graphics.DrawRectangle(border, 0, 0, bounds.Width - 1, bounds.Height - 1);

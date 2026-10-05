@@ -14,6 +14,8 @@ namespace Soulfract
 {
     public static partial class Program
     {
+		private static long _lastScreenshotScanAt;
+
 		[DllImport("kernel32.dll", SetLastError = true)]
 		private static extern bool AllocConsole();
 
@@ -520,6 +522,7 @@ void main()
 					Weather.SetPaused(_gameState != GameState.Playing);
 					AmbientAudio.SetPaused(_gameState != GameState.Playing);
 					Draw(_playerPos, facing, hitboxDim, camera, craftSelected, _showDebug);
+					OrganizeScreenshots();
 				}
 			}
 			catch (Exception ex)
@@ -551,6 +554,44 @@ void main()
 				_discordClient?.Dispose();
 				World.UnloadWaterShader();
 				Raylib.CloseWindow();
+			}
+		}
+
+		private static void OrganizeScreenshots()
+		{
+			long now = Environment.TickCount64;
+			if (now - _lastScreenshotScanAt < 500)
+				return;
+			_lastScreenshotScanAt = now;
+
+			try
+			{
+				string workingDirectory = Environment.CurrentDirectory;
+				string[] screenshots = Directory.GetFiles(workingDirectory, "screenshot*.png", SearchOption.TopDirectoryOnly);
+				if (screenshots.Length == 0)
+					return;
+
+				string screenshotDirectory = Path.Combine(workingDirectory, "Screenshots");
+				Directory.CreateDirectory(screenshotDirectory);
+				foreach (string screenshot in screenshots)
+				{
+					string fileName = Path.GetFileName(screenshot);
+					string destination = Path.Combine(screenshotDirectory, fileName);
+					string extension = Path.GetExtension(fileName);
+					string name = Path.GetFileNameWithoutExtension(fileName);
+					for (int suffix = 1; File.Exists(destination); suffix++)
+						destination = Path.Combine(screenshotDirectory, $"{name}-{suffix}{extension}");
+
+					File.Move(screenshot, destination);
+				}
+			}
+			catch (IOException exception)
+			{
+				Console.Error.WriteLine($"Impossible de déplacer une capture vers le dossier Screenshots : {exception.Message}");
+			}
+			catch (UnauthorizedAccessException exception)
+			{
+				Console.Error.WriteLine($"Accès refusé au dossier Screenshots : {exception.Message}");
 			}
 		}
 

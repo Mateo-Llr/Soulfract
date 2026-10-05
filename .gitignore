@@ -4,6 +4,7 @@
 **/artifacts/
 dist/
 publish/
+Screenshots/
 
 # Local editor and operating-system files
 .vs/

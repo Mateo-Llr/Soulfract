@@ -13,18 +13,20 @@ principal dans ce même dossier ; les joueurs existants peuvent ainsi mettre à 
 installation sans déplacer les sauvegardes.
 
 Le lanceur s'ouvre sur une interface graphique : il affiche la version disponible, les
-dernières entrées de `Data/changelog.md`, l'état de la mise à jour et un bouton **Jouer**.
-Il installe ou met à jour le jeu au démarrage, mais ne le lance qu'après un clic sur ce
-bouton. Si aucune préférence de langue n'est encore enregistrée, le jeu démarre en
-anglais.
+dernières entrées de `Data/changelog.md` avec une couleur par type de changement, l'état
+de la mise à jour, le titre graphique du jeu et un bouton **Jouer** centré en bas. Il
+installe ou met à jour le jeu au démarrage, mais ne le lance qu'après un clic sur ce
+bouton. Si aucune préférence de langue n'est encore enregistrée, le jeu démarre en anglais.
+Les captures d'écran réalisées en jeu sont rangées dans `Screenshots/` à côté de
+l'installation et ne sont pas incluses dans les mises à jour.
 
 ## Publier une version
 
 Après avoir poussé les modifications sur GitHub, créer et pousser un tag de version :
 
 ```powershell
-git tag v1.0.4
-git push origin v1.0.4
+git tag v1.0.5
+git push origin v1.0.5
 ```
 
 Le workflow GitHub Actions compile le jeu, le lanceur principal et le bootstrapper, puis

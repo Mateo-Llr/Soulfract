@@ -9,7 +9,7 @@
     <RootNamespace>SoulfractLauncher</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\assets\render.png"
-                      LogicalName="SoulfractLauncher.Assets.soulfract-logo.png" />
+    <EmbeddedResource Include="..\assets\title.png"
+                      LogicalName="SoulfractLauncher.Assets.title.png" />
   </ItemGroup>
 </Project>
