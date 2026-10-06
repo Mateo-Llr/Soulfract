@@ -20,15 +20,10 @@ internal sealed class LauncherForm : Form
     private const string LauncherExecutableName = "SoulfractLauncher.exe";
     private const string BootstrapperAssetName = "SoulfractBootstrapper.exe";
     private const string LauncherVersionFileName = ".soulfract-launcher-version";
-    private const int CardRadius = 18;
+    private const int ChangelogPanelRadius = 16;
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
-    private static readonly JsonSerializerOptions DeltaManifestJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
     private static readonly Color BackgroundColor = Color.FromArgb(13, 11, 18);
-    private static readonly Color SurfaceColor = Color.FromArgb(25, 20, 31);
     private static readonly Color ElevatedColor = Color.FromArgb(38, 30, 46);
     private static readonly Color AccentColor = Color.FromArgb(226, 179, 105);
     private static readonly Color AddedColor = Color.FromArgb(126, 207, 151);
@@ -51,8 +46,8 @@ internal sealed class LauncherForm : Form
     private Button _playButton = new();
     private Button _checkUpdatesButton = new();
     private Button _folderButton = new();
-    private Panel _changelogPanel = new();
-    private bool _changelogVisible = false;
+    private GlassSidebarPanel _changelogPanel = new();
+    private Button _changelogToggleButton = new();
     private bool _isWorking;
     private string? _latestVersion;
 
@@ -78,14 +73,13 @@ internal sealed class LauncherForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = BackgroundColor,
-            ColumnCount = 2,
+            ColumnCount = 1,
             RowCount = 5,
             Padding = new Padding(26, 12, 26, 12)
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 202));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 230));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 94));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
@@ -100,16 +94,17 @@ internal sealed class LauncherForm : Form
         _versionLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         _versionLabel.TextAlign = ContentAlignment.MiddleLeft;
         _versionLabel.SetBounds(0, 21, 300, 22);
-        
-        var changelogButton = CreateButton("📋", ElevatedColor, PrimaryTextColor, 32, 32);
-        changelogButton.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
-        changelogButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        changelogButton.TextAlign = ContentAlignment.MiddleCenter;
-        changelogButton.Click += (_, _) => ToggleChangelog();
-        
-        header.Controls.AddRange([versionCaption, _versionLabel, changelogButton]);
+
+        _changelogToggleButton = CreateButton("☰  NOUVEAUTÉS", ElevatedColor, PrimaryTextColor, 164, 36);
+        _changelogToggleButton.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+        _changelogToggleButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        _changelogToggleButton.Location = new Point(header.Width - _changelogToggleButton.Width, 4);
+        _changelogToggleButton.Click += (_, _) => ToggleChangelog();
+        header.Resize += (_, _) =>
+            _changelogToggleButton.Location = new Point(header.ClientSize.Width - _changelogToggleButton.Width, 4);
+
+        header.Controls.AddRange([versionCaption, _versionLabel, _changelogToggleButton]);
         root.Controls.Add(header, 0, 0);
-        root.SetColumnSpan(header, 2);
 
         var hero = new HeroBackdropPanel
         {
@@ -118,7 +113,6 @@ internal sealed class LauncherForm : Form
         };
         BuildHero(hero);
         root.Controls.Add(hero, 0, 1);
-        root.SetColumnSpan(hero, 2);
 
         var content = new TableLayoutPanel
         {
@@ -130,12 +124,16 @@ internal sealed class LauncherForm : Form
         };
         root.Controls.Add(content, 0, 2);
 
-        _changelogPanel = CreateCard();
-        _changelogPanel.Dock = DockStyle.Fill;
-        _changelogPanel.Margin = new Padding(0, 0, 12, 0);
-        _changelogPanel.Visible = false;
+        _changelogPanel = new GlassSidebarPanel
+        {
+            Visible = false,
+            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right
+        };
         BuildChangelogCard(_changelogPanel);
-        root.Controls.Add(_changelogPanel, 1, 2);
+        Controls.Add(_changelogPanel);
+        PositionChangelogPanel();
+        _changelogPanel.Visible = false;
+        Resize += (_, _) => PositionChangelogPanel();
 
         var actions = new TableLayoutPanel
         {
@@ -189,7 +187,6 @@ internal sealed class LauncherForm : Form
         _folderButton.Click += (_, _) => OpenGameFolder();
         actions.Controls.Add(_folderButton, 2, 2);
         root.Controls.Add(actions, 0, 3);
-        root.SetColumnSpan(actions, 2);
 
         var footer = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
         var footerLink = CreateLinkLabel("GitHub", 8.5F, "https://github.com/Mateo-Llr/Soulfract");
@@ -197,65 +194,46 @@ internal sealed class LauncherForm : Form
         footerLink.TextAlign = ContentAlignment.MiddleRight;
         footer.Controls.Add(footerLink);
         root.Controls.Add(footer, 0, 4);
-        root.SetColumnSpan(footer, 2);
 
         Shown += async (_, _) => await CheckForUpdatesAsync();
     }
 
     private void ToggleChangelog()
     {
-        _changelogVisible = !_changelogVisible;
-        _changelogPanel.Visible = _changelogVisible;
+        _changelogPanel.Visible = !_changelogPanel.Visible;
+        _changelogToggleButton.Text = _changelogPanel.Visible ? "×  FERMER" : "☰  NOUVEAUTÉS";
+        if (_changelogPanel.Visible)
+            _changelogPanel.BringToFront();
     }
 
-    private void BuildHero(Panel hero)
+    private void PositionChangelogPanel()
     {
-        var banner = new PixelPictureBox
-        {
-            Image = LoadGameBannerTexture(),
-            SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = Color.Transparent,
-            Dock = DockStyle.Fill,
-            TabStop = false
-        };
-        hero.Controls.Add(banner);
-
-        PixelPictureBox titleTexture = new()
-        {
-            Image = LoadTitleTexture(),
-            SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = Color.Transparent,
-            AutoSize = false,
-            Size = new Size(260, 174),
-            TabStop = false
-        };
-        hero.Resize += (_, _) =>
-        {
-            titleTexture.Location = new Point(
-                (hero.Width - titleTexture.Width) / 2,
-                (hero.Height - titleTexture.Height) / 2);
-        };
-        titleTexture.Location = new Point(
-            (hero.Width - titleTexture.Width) / 2,
-            (hero.Height - titleTexture.Height) / 2);
-        hero.Controls.Add(titleTexture);
+        int width = Math.Min(390, Math.Max(320, ClientSize.Width - 40));
+        int top = 76;
+        int height = Math.Max(200, ClientSize.Height - top - 18);
+        _changelogPanel.SetBounds(ClientSize.Width - width - 18, top, width, height);
     }
 
-    private void BuildChangelogCard(Panel card)
+    private void BuildHero(HeroBackdropPanel hero)
+    {
+        hero.SetImages(LoadGameBannerTexture(), LoadTitleTexture());
+    }
+
+    private void BuildChangelogCard(GlassSidebarPanel card)
     {
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = SurfaceColor,
+            BackColor = Color.Transparent,
             ColumnCount = 1,
             RowCount = 2,
-            Padding = new Padding(22, 15, 22, 15)
+            Padding = new Padding(22, 20, 22, 20)
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         card.Controls.Add(layout);
 
-        var title = CreateLabel("Nouveautés", 17, FontStyle.Bold, PrimaryTextColor);
+        var title = CreateLabel("Nouveautés", 18, FontStyle.Bold, PrimaryTextColor);
         title.Dock = DockStyle.Fill;
         title.TextAlign = ContentAlignment.MiddleLeft;
         layout.Controls.Add(title, 0, 0);
@@ -265,7 +243,7 @@ internal sealed class LauncherForm : Form
             Dock = DockStyle.Fill,
             ReadOnly = true,
             BorderStyle = BorderStyle.None,
-            BackColor = SurfaceColor,
+            BackColor = Color.FromArgb(30, 25, 36),
             ForeColor = PrimaryTextColor,
             Font = new Font("Segoe UI", 10.5F),
             DetectUrls = false,
@@ -358,9 +336,7 @@ internal sealed class LauncherForm : Form
                 if (!File.Exists(manifestPath))
                     throw new InvalidDataException("L'archive différentielle ne contient pas son manifeste.");
 
-                DeltaManifest manifest = JsonSerializer.Deserialize<DeltaManifest>(
-                    await File.ReadAllTextAsync(manifestPath),
-                    DeltaManifestJsonOptions)
+                DeltaManifest manifest = JsonSerializer.Deserialize<DeltaManifest>(await File.ReadAllTextAsync(manifestPath))
                     ?? throw new InvalidDataException("Le manifeste de mise à jour est invalide.");
                 if (!string.Equals(manifest.BaseVersion, installedVersion, StringComparison.Ordinal)
                     || manifest.DeletedFiles == null)
@@ -1072,22 +1048,107 @@ internal sealed class LauncherForm : Form
         return link;
     }
 
-    private static Panel CreateCard()
-    {
-        var panel = new RoundedCardPanel(CardRadius)
-        {
-            BackColor = SurfaceColor,
-            Padding = new Padding(0)
-        };
-        return panel;
-    }
-
     private sealed class HeroBackdropPanel : Panel
     {
+        private Image? _banner;
+        private Image? _title;
+
         public HeroBackdropPanel()
         {
-            DoubleBuffered = true;
-            ResizeRedraw = true;
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint
+                    | ControlStyles.OptimizedDoubleBuffer
+                    | ControlStyles.ResizeRedraw
+                    | ControlStyles.UserPaint,
+                true);
+            BackColor = BackgroundColor;
+        }
+
+        public void SetImages(Image banner, Image title)
+        {
+            _banner?.Dispose();
+            _title?.Dispose();
+            _banner = banner;
+            _title = title;
+            Invalidate();
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            e.Graphics.Clear(BackgroundColor);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            Rectangle bounds = ClientRectangle;
+            if (bounds.Width <= 0 || bounds.Height <= 0 || _banner == null || _title == null)
+                return;
+
+            Graphics graphics = e.Graphics;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            graphics.PixelOffsetMode = PixelOffsetMode.Half;
+            Rectangle sourceBounds = new(0, 0, _banner.Width, _banner.Height);
+            float sourceAspect = (float)_banner.Width / _banner.Height;
+            float targetAspect = (float)bounds.Width / bounds.Height;
+            if (sourceAspect < targetAspect)
+            {
+                int cropHeight = (int)Math.Round(_banner.Width / targetAspect);
+                sourceBounds.Y = (_banner.Height - cropHeight) / 2;
+                sourceBounds.Height = cropHeight;
+            }
+            else if (sourceAspect > targetAspect)
+            {
+                int cropWidth = (int)Math.Round(_banner.Height * targetAspect);
+                sourceBounds.X = (_banner.Width - cropWidth) / 2;
+                sourceBounds.Width = cropWidth;
+            }
+            graphics.DrawImage(
+                _banner,
+                bounds,
+                sourceBounds,
+                GraphicsUnit.Pixel);
+
+            float titleWidth = Math.Min(bounds.Width * 0.42F, 420F);
+            float titleHeight = titleWidth * _title.Height / _title.Width;
+            float maxTitleHeight = bounds.Height * 0.82F;
+            if (titleHeight > maxTitleHeight)
+            {
+                titleHeight = maxTitleHeight;
+                titleWidth = titleHeight * _title.Width / _title.Height;
+            }
+
+            var titleBounds = new RectangleF(
+                (bounds.Width - titleWidth) / 2F,
+                (bounds.Height - titleHeight) / 2F,
+                titleWidth,
+                titleHeight);
+            graphics.DrawImage(_title, titleBounds);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _banner?.Dispose();
+                _title?.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
+
+    private sealed class GlassSidebarPanel : Panel
+    {
+        public GlassSidebarPanel()
+        {
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint
+                    | ControlStyles.OptimizedDoubleBuffer
+                    | ControlStyles.ResizeRedraw
+                    | ControlStyles.UserPaint,
+                true);
+            BackColor = Color.FromArgb(29, 24, 36);
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)
@@ -1096,8 +1157,41 @@ internal sealed class LauncherForm : Form
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 return;
 
-            Graphics graphics = e.Graphics;
-            graphics.Clear(BackgroundColor);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using GraphicsPath path = CreateRoundedPath(bounds, ChangelogPanelRadius);
+            using var surface = new LinearGradientBrush(
+                bounds,
+                Color.FromArgb(39, 31, 47),
+                Color.FromArgb(24, 20, 31),
+                LinearGradientMode.Vertical);
+            e.Graphics.FillPath(surface, path);
+
+            using var border = new Pen(Color.FromArgb(130, 218, 177, 124));
+            e.Graphics.DrawPath(border, path);
+            using var highlight = new Pen(Color.FromArgb(50, Color.White));
+            e.Graphics.DrawLine(highlight, ChangelogPanelRadius, 1, bounds.Width - ChangelogPanelRadius, 1);
+        }
+
+        protected override void OnResize(EventArgs eventargs)
+        {
+            base.OnResize(eventargs);
+            using GraphicsPath path = CreateRoundedPath(ClientRectangle, ChangelogPanelRadius);
+            Region = new Region(path);
+        }
+
+        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+        {
+            var path = new GraphicsPath();
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return path;
+
+            int diameter = Math.Max(1, Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height)));
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 
@@ -1135,60 +1229,4 @@ internal sealed class LauncherForm : Form
         }
     }
 
-    private sealed class RoundedCardPanel : Panel
-    {
-        private readonly int _radius;
-
-        public RoundedCardPanel(int radius)
-        {
-            _radius = radius;
-            DoubleBuffered = true;
-            ResizeRedraw = true;
-        }
-
-        protected override void OnPaintBackground(PaintEventArgs e)
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using GraphicsPath path = CreateRoundedPath(ClientRectangle, _radius);
-            using var brush = new SolidBrush(BackColor);
-            e.Graphics.FillPath(brush, path);
-            using var border = new Pen(Color.FromArgb(72, 218, 177, 124));
-            e.Graphics.DrawPath(border, path);
-        }
-
-        protected override void OnResize(EventArgs eventargs)
-        {
-            base.OnResize(eventargs);
-            using GraphicsPath path = CreateRoundedPath(ClientRectangle, _radius);
-            Region = new Region(path);
-        }
-
-        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
-        {
-            var path = new GraphicsPath();
-            if (bounds.Width <= 0 || bounds.Height <= 0)
-                return path;
-
-            int diameter = Math.Max(1, Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height)));
-            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
-    }
-
-    private sealed class PixelPictureBox : PictureBox
-    {
-        protected override void OnPaint(PaintEventArgs pe)
-        {
-            if (Image != null)
-            {
-                pe.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                pe.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-            }
-            base.OnPaint(pe);
-        }
-    }
 }
