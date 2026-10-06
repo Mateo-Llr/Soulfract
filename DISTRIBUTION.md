@@ -15,13 +15,16 @@ installation sans déplacer les sauvegardes.
 Le lanceur s'ouvre sur une interface graphique : il affiche la version disponible, les
 dernières entrées de `Data/changelog.md` avec une couleur par type de changement, l'état
 de la mise à jour, le titre graphique du jeu et un bouton **Jouer** centré en bas. Il
-installe ou met à jour le jeu au démarrage, mais ne le lance qu'après un clic sur ce
-bouton. Si aucune préférence de langue n'est encore enregistrée, le jeu démarre en anglais.
+vérifie les mises à jour au démarrage sans les installer et indique si une mise à jour est
+disponible. Le bouton **Vérifier les mises à jour** relance cette vérification ; le
+téléchargement et l'installation du jeu commencent uniquement au clic sur **Jouer**, puis
+le jeu démarre automatiquement. Si aucune préférence de langue n'est encore enregistrée,
+le jeu démarre en anglais.
 Les captures d'écran réalisées en jeu sont rangées dans `Screenshots/` à côté de
 l'installation et ne sont pas incluses dans les mises à jour.
-Le bouton **Vérifier** met également à jour le lanceur lui-même : après la toute première
-installation de cette fonction, les futures versions du lanceur s'installent sans lancer
-à nouveau le bootstrapper.
+Au clic sur **Jouer**, le lanceur vérifie également s'il doit lui-même être mis à jour :
+après la toute première installation de cette fonction, les futures versions du lanceur
+s'installent sans lancer à nouveau le bootstrapper.
 
 ## Publier une version
 
@@ -57,9 +60,9 @@ Toute modification de l'interface du lanceur principal est incluse dans
 l'empreinte SHA-256 du lanceur installé avec celle de la dernière release et remplace
 l'exécutable entier si son contenu a changé. Les joueurs doivent donc démarrer le jeu
 avec le bootstrapper distribué pour la première mise à jour qui apporte l'auto-mise à jour
-du lanceur. Les versions suivantes peuvent aussi se mettre à jour depuis le bouton
-**Vérifier** du lanceur. Une ancienne version du lanceur qui ne contient pas encore cette
-fonction doit être mise à jour par le bootstrapper une dernière fois.
+du lanceur. Les versions suivantes peuvent aussi se mettre à jour depuis le lanceur. Une
+ancienne version du lanceur qui ne contient pas encore cette fonction doit être mise à
+jour par le bootstrapper une dernière fois.
 
 La première version doit également être créée avec un tag `v*` afin que l'API GitHub
 renvoie une release « latest ». Si GitHub est temporairement inaccessible, le bootstrapper

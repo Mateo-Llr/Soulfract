@@ -48,6 +48,7 @@ internal sealed class LauncherForm : Form
     private ProgressBar _progressBar = new();
     private Button _playButton = new();
     private Button _checkUpdatesButton = new();
+    private Label _updateAvailableLabel = new();
     private Button _folderButton = new();
     private GlassSidebarPanel _changelogPanel = new();
     private Button _changelogToggleButton = new();
@@ -170,17 +171,34 @@ internal sealed class LauncherForm : Form
         actions.Controls.Add(_progressBar, 0, 1);
         actions.SetColumnSpan(_progressBar, 3);
 
-        _checkUpdatesButton = CreateButton("VÉRIFIER", ElevatedColor, PrimaryTextColor, 190, 46);
+        _checkUpdatesButton = CreateButton("VÉRIFIER LES MISES À JOUR", ElevatedColor, PrimaryTextColor, 210, 46);
         _checkUpdatesButton.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold);
         _checkUpdatesButton.Anchor = AnchorStyles.None;
         _checkUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync();
-        actions.Controls.Add(_checkUpdatesButton, 0, 2);
+
+        var updateActions = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = BackgroundColor,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = Padding.Empty
+        };
+        updateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 210));
+        updateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _updateAvailableLabel = CreateLabel("Mise à jour possible", 8.5F, FontStyle.Bold, ChangedColor);
+        _updateAvailableLabel.Dock = DockStyle.Fill;
+        _updateAvailableLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _updateAvailableLabel.Visible = false;
+        updateActions.Controls.Add(_checkUpdatesButton, 0, 0);
+        updateActions.Controls.Add(_updateAvailableLabel, 1, 0);
+        actions.Controls.Add(updateActions, 0, 2);
 
         _playButton = CreateButton("▶   JOUER", AccentColor, BackgroundColor, 244, 56);
         _playButton.Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold);
         _playButton.Enabled = false;
         _playButton.Anchor = AnchorStyles.None;
-        _playButton.Click += (_, _) => LaunchInstalledGame();
+        _playButton.Click += async (_, _) => await CheckForUpdatesAsync(installUpdate: true);
         actions.Controls.Add(_playButton, 1, 2);
 
         _folderButton = CreateButton("DOSSIER DU JEU", ElevatedColor, MutedTextColor, 190, 46);
@@ -258,15 +276,15 @@ internal sealed class LauncherForm : Form
         layout.Controls.Add(_changelogBox, 0, 1);
     }
 
-    private async Task CheckForUpdatesAsync()
+    private async Task CheckForUpdatesAsync(bool installUpdate = false)
     {
         if (_isWorking)
             return;
 
         _isWorking = true;
         SetWorkingState();
-        string archivePath = Path.Combine(Path.GetTempPath(), $"Soulfract-{Guid.NewGuid():N}.zip");
-        string extractionDirectory = Path.Combine(Path.GetTempPath(), $"Soulfract-{Guid.NewGuid():N}");
+        string? archivePath = null;
+        string? extractionDirectory = null;
 
         try
         {
@@ -277,12 +295,13 @@ internal sealed class LauncherForm : Form
             JsonElement root = release.RootElement;
             _latestVersion = root.GetProperty("tag_name").GetString()
                 ?? throw new InvalidDataException("La release GitHub n'a pas de numéro de version.");
-            if (await UpdateLauncherIfNeededAsync(root))
-                return;
 
             GameArchiveAsset? fullArchive = FindGameArchive(root, GameArchiveName);
             if (fullArchive == null)
                 throw new InvalidDataException($"La release {_latestVersion} ne contient pas {GameArchiveName}.");
+
+            if (installUpdate && await UpdateLauncherIfNeededAsync(root))
+                return;
 
             _versionLabel.Text = _latestVersion;
             await LoadChangelogAsync(_latestVersion, root);
@@ -292,11 +311,25 @@ internal sealed class LauncherForm : Form
             string gamePath = Path.Combine(_installDirectory, GameExecutableName);
             bool hasInstalledGame = File.Exists(gamePath);
 
-            if (hasInstalledGame && string.Equals(installedVersion, _latestVersion, StringComparison.Ordinal))
+            bool isGameUpToDate = hasInstalledGame
+                && string.Equals(installedVersion, _latestVersion, StringComparison.Ordinal);
+            _updateAvailableLabel.Visible = !isGameUpToDate;
+
+            if (!installUpdate)
             {
-                UpdateStatus($"Version {_latestVersion} installée et à jour.");
+                UpdateStatus(isGameUpToDate
+                    ? $"Version {_latestVersion} installée et à jour."
+                    : $"Mise à jour disponible : Soulfract {_latestVersion}.");
+                _folderButton.Enabled = hasInstalledGame;
+                SetIdleState(canPlay: true);
+                return;
+            }
+
+            if (isGameUpToDate)
+            {
                 _folderButton.Enabled = true;
                 SetIdleState(canPlay: true);
+                LaunchInstalledGame();
                 return;
             }
 
@@ -308,6 +341,8 @@ internal sealed class LauncherForm : Form
                 return;
             }
 
+            archivePath = Path.Combine(Path.GetTempPath(), $"Soulfract-{Guid.NewGuid():N}.zip");
+            extractionDirectory = Path.Combine(Path.GetTempPath(), $"Soulfract-{Guid.NewGuid():N}");
             GameArchiveAsset? deltaArchive = hasInstalledGame && !string.IsNullOrWhiteSpace(installedVersion)
                 ? FindGameArchive(root, $"{DeltaArchivePrefix}{installedVersion}.zip")
                 : null;
@@ -362,16 +397,19 @@ internal sealed class LauncherForm : Form
             await File.WriteAllTextAsync(temporaryVersionPath, _latestVersion);
             File.Move(temporaryVersionPath, versionPath, overwrite: true);
 
-            UpdateStatus($"Soulfract {_latestVersion} est prêt. Cliquez sur Jouer.");
+            UpdateStatus($"Soulfract {_latestVersion} est prêt. Démarrage du jeu...");
             _folderButton.Enabled = true;
             SetIdleState(canPlay: true);
+            _updateAvailableLabel.Visible = false;
+            LaunchInstalledGame();
         }
         catch (Exception exception) when (IsRecoverableLauncherFailure(exception))
         {
             UpdateStatus($"Mise à jour impossible : {exception.Message}");
             if (_latestVersion == null)
                 _versionLabel.Text = "Version indisponible";
-            _folderButton.Enabled = File.Exists(Path.Combine(_installDirectory, GameExecutableName));
+            bool hasInstalledGame = File.Exists(Path.Combine(_installDirectory, GameExecutableName));
+            _folderButton.Enabled = hasInstalledGame;
             SetIdleState(canPlay: _folderButton.Enabled);
             if (_changelogBox.Text.StartsWith("Chargement", StringComparison.Ordinal))
                 SetChangelogText("Impossible de charger le journal des modifications.\n\nRéessayez lorsque la connexion sera disponible.");
@@ -379,8 +417,10 @@ internal sealed class LauncherForm : Form
         finally
         {
             _isWorking = false;
-            TryDeleteFile(archivePath);
-            TryDeleteDirectory(extractionDirectory);
+            if (archivePath != null)
+                TryDeleteFile(archivePath);
+            if (extractionDirectory != null)
+                TryDeleteDirectory(extractionDirectory);
         }
     }
 
