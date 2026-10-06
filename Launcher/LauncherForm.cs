@@ -24,9 +24,11 @@ internal sealed class LauncherForm : Form
     private const int ChangelogPanelRadius = 16;
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
-    private static readonly Color BackgroundColor = Color.FromArgb(13, 11, 18);
-    private static readonly Color ElevatedColor = Color.FromArgb(38, 30, 46);
-    private static readonly Color AccentColor = Color.FromArgb(226, 179, 105);
+    private static readonly Color BackgroundColor = Color.FromArgb(24, 26, 29);
+    private static readonly Color ElevatedColor = Color.FromArgb(39, 42, 47);
+    private static readonly Color SurfaceColor = Color.FromArgb(31, 34, 39);
+    private static readonly Color BorderColor = Color.FromArgb(59, 63, 70);
+    private static readonly Color AccentColor = Color.FromArgb(47, 220, 133);
     private static readonly Color AddedColor = Color.FromArgb(126, 207, 151);
     private static readonly Color FixedColor = Color.FromArgb(119, 174, 232);
     private static readonly Color ChangedColor = Color.FromArgb(232, 190, 112);
@@ -34,10 +36,10 @@ internal sealed class LauncherForm : Form
     private static readonly Color RemovedColor = Color.FromArgb(222, 132, 132);
     private static readonly Font ChangelogHeadingFont = new("Segoe UI Semibold", 12F, FontStyle.Bold);
     private static readonly Font ChangelogCategoryFont = new("Segoe UI Semibold", 8.5F, FontStyle.Bold);
-    private static readonly Font ChangelogEntryFont = new("Segoe UI", 10.5F, FontStyle.Regular);
-    private static readonly Font ChangelogPlainFont = new("Segoe UI", 10F, FontStyle.Regular);
-    private static readonly Color PrimaryTextColor = Color.FromArgb(246, 241, 234);
-    private static readonly Color MutedTextColor = Color.FromArgb(172, 161, 179);
+    private static readonly Font ChangelogEntryFont = new("Segoe UI", 10.5F, FontStyle.Bold);
+    private static readonly Font ChangelogPlainFont = new("Segoe UI", 10F, FontStyle.Bold);
+    private static readonly Color PrimaryTextColor = Color.FromArgb(239, 242, 244);
+    private static readonly Color MutedTextColor = Color.FromArgb(160, 167, 176);
 
     private readonly string _installDirectory;
     private readonly Label _versionLabel;
@@ -68,7 +70,7 @@ internal sealed class LauncherForm : Form
         ClientSize = new Size(1120, 740);
         BackColor = BackgroundColor;
         ForeColor = PrimaryTextColor;
-        Font = new Font("Segoe UI", 10F);
+        Font = new Font("Segoe UI", 10F, FontStyle.Bold);
 
         var root = new TableLayoutPanel
         {
@@ -150,7 +152,7 @@ internal sealed class LauncherForm : Form
         actions.RowStyles.Add(new RowStyle(SizeType.Absolute, 19));
         actions.RowStyles.Add(new RowStyle(SizeType.Absolute, 6));
         actions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        _statusLabel = CreateLabel("Connexion...", 9F, FontStyle.Regular, MutedTextColor);
+        _statusLabel = CreateLabel("Connexion...", 9F, FontStyle.Bold, MutedTextColor);
         _statusLabel.Dock = DockStyle.Fill;
         _statusLabel.TextAlign = ContentAlignment.MiddleCenter;
         _statusLabel.AutoEllipsis = true;
@@ -244,9 +246,9 @@ internal sealed class LauncherForm : Form
             Dock = DockStyle.Fill,
             ReadOnly = true,
             BorderStyle = BorderStyle.None,
-            BackColor = Color.FromArgb(30, 25, 36),
+            BackColor = SurfaceColor,
             ForeColor = PrimaryTextColor,
-            Font = new Font("Segoe UI", 10.5F),
+            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
             DetectUrls = false,
             HideSelection = false,
             ScrollBars = RichTextBoxScrollBars.Vertical,
@@ -999,22 +1001,157 @@ internal sealed class LauncherForm : Form
 
     private static Button CreateButton(string text, Color background, Color foreground, int width, int height)
     {
-        var button = new Button
+        var button = new RoundedButton(background, foreground)
         {
             Text = text,
             Size = new Size(width, height),
-            BackColor = background,
-            ForeColor = foreground,
-            FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand,
-            UseVisualStyleBackColor = false,
             Margin = new Padding(0, 0, 0, 10),
             TabStop = true
         };
-        button.FlatAppearance.BorderSize = 0;
-        button.FlatAppearance.MouseOverBackColor = ControlPaint.Light(background, 0.12F);
-        button.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(background, 0.12F);
         return button;
+    }
+
+    private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+    {
+        var path = new GraphicsPath();
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            return path;
+
+        int diameter = Math.Max(1, Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height)));
+        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private sealed class RoundedButton : Button
+    {
+        private readonly Color _baseColor;
+        private readonly Color _textColor;
+        private bool _isHovered;
+        private bool _isPressed;
+
+        public RoundedButton(Color background, Color foreground)
+        {
+            _baseColor = background;
+            _textColor = foreground;
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint
+                    | ControlStyles.OptimizedDoubleBuffer
+                    | ControlStyles.ResizeRedraw
+                    | ControlStyles.UserPaint,
+                true);
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
+            UseVisualStyleBackColor = false;
+            BackColor = BackgroundColor;
+            ForeColor = foreground;
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            Region?.Dispose();
+            using GraphicsPath path = CreateRoundedPath(ClientRectangle, ScaleRadius(10));
+            Region = new Region(path);
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            base.OnMouseEnter(e);
+            _isHovered = true;
+            Invalidate();
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            _isHovered = false;
+            _isPressed = false;
+            Invalidate();
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button == MouseButtons.Left)
+            {
+                _isPressed = true;
+                Invalidate();
+            }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            _isPressed = false;
+            Invalidate();
+        }
+
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            base.OnEnabledChanged(e);
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+
+            Graphics graphics = e.Graphics;
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.Clear(Parent?.BackColor ?? BackgroundColor);
+
+            Rectangle bounds = ClientRectangle;
+            if (bounds.Width <= 1 || bounds.Height <= 1)
+                return;
+
+            Color fillColor = !Enabled
+                ? ElevatedColor
+                : _isPressed
+                    ? ControlPaint.Dark(_baseColor, 0.08F)
+                    : _isHovered
+                        ? ControlPaint.Light(_baseColor, 0.08F)
+                        : _baseColor;
+            Color borderColor = _baseColor == AccentColor
+                ? ControlPaint.Light(_baseColor, _isHovered ? 0.12F : 0.02F)
+                : _isHovered
+                    ? Color.FromArgb(86, 133, 107)
+                    : BorderColor;
+
+            Rectangle shapeBounds = Rectangle.Inflate(bounds, -1, -1);
+            using GraphicsPath path = CreateRoundedPath(shapeBounds, ScaleRadius(10));
+            using (var fill = new SolidBrush(fillColor))
+                graphics.FillPath(fill, path);
+            using (var border = new Pen(borderColor, 1F))
+                graphics.DrawPath(border, path);
+
+            Color textColor = Enabled ? _textColor : MutedTextColor;
+            TextRenderer.DrawText(
+                graphics,
+                Text,
+                Font,
+                bounds,
+                textColor,
+                TextFormatFlags.HorizontalCenter
+                    | TextFormatFlags.VerticalCenter
+                    | TextFormatFlags.SingleLine
+                    | TextFormatFlags.EndEllipsis
+                    | TextFormatFlags.NoPadding);
+
+            if (Focused && ShowFocusCues)
+            {
+                Rectangle focusBounds = Rectangle.Inflate(shapeBounds, -4, -4);
+                using GraphicsPath focusPath = CreateRoundedPath(focusBounds, ScaleRadius(7));
+                using var focusBorder = new Pen(AccentColor, 1F);
+                graphics.DrawPath(focusBorder, focusPath);
+            }
+        }
+
+        private int ScaleRadius(int radius) => Math.Max(1, (int)Math.Round(radius * DeviceDpi / 96F));
     }
 
     private static LinkLabel CreateLinkLabel(string text, float size, string url)
@@ -1022,7 +1159,7 @@ internal sealed class LauncherForm : Form
         var link = new LinkLabel
         {
             Text = text,
-            Font = new Font("Segoe UI", size, FontStyle.Regular),
+            Font = new Font("Segoe UI", size, FontStyle.Bold),
             LinkColor = MutedTextColor,
             ActiveLinkColor = AccentColor,
             VisitedLinkColor = MutedTextColor,
@@ -1092,6 +1229,9 @@ internal sealed class LauncherForm : Form
             Graphics graphics = e.Graphics;
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
             graphics.PixelOffsetMode = PixelOffsetMode.Half;
+            using GraphicsPath clipPath = CreateRoundedPath(bounds, 16);
+            GraphicsState graphicsState = graphics.Save();
+            graphics.SetClip(clipPath);
             Rectangle sourceBounds = new(0, 0, _banner.Width, _banner.Height);
             float sourceAspect = (float)_banner.Width / _banner.Height;
             float targetAspect = (float)bounds.Width / bounds.Height;
@@ -1128,6 +1268,13 @@ internal sealed class LauncherForm : Form
                 titleWidth,
                 titleHeight);
             graphics.DrawImage(_title, titleBounds);
+            graphics.Restore(graphicsState);
+
+            Rectangle borderBounds = Rectangle.Inflate(bounds, -1, -1);
+            using GraphicsPath borderPath = CreateRoundedPath(borderBounds, 16);
+            using var border = new Pen(BorderColor, 1F);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.DrawPath(border, borderPath);
         }
 
         protected override void Dispose(bool disposing)
@@ -1152,7 +1299,7 @@ internal sealed class LauncherForm : Form
                     | ControlStyles.ResizeRedraw
                     | ControlStyles.UserPaint,
                 true);
-            BackColor = Color.FromArgb(29, 24, 36);
+            BackColor = SurfaceColor;
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)
@@ -1165,14 +1312,14 @@ internal sealed class LauncherForm : Form
             using GraphicsPath path = CreateRoundedPath(bounds, ChangelogPanelRadius);
             using var surface = new LinearGradientBrush(
                 bounds,
-                Color.FromArgb(39, 31, 47),
-                Color.FromArgb(24, 20, 31),
+                Color.FromArgb(39, 42, 47),
+                Color.FromArgb(29, 32, 36),
                 LinearGradientMode.Vertical);
             e.Graphics.FillPath(surface, path);
 
-            using var border = new Pen(Color.FromArgb(130, 218, 177, 124));
+            using var border = new Pen(BorderColor);
             e.Graphics.DrawPath(border, path);
-            using var highlight = new Pen(Color.FromArgb(50, Color.White));
+            using var highlight = new Pen(Color.FromArgb(30, Color.White));
             e.Graphics.DrawLine(highlight, ChangelogPanelRadius, 1, bounds.Width - ChangelogPanelRadius, 1);
         }
 
@@ -1183,20 +1330,6 @@ internal sealed class LauncherForm : Form
             Region = new Region(path);
         }
 
-        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
-        {
-            var path = new GraphicsPath();
-            if (bounds.Width <= 0 || bounds.Height <= 0)
-                return path;
-
-            int diameter = Math.Max(1, Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height)));
-            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
     }
 
     private static void TryDeleteFile(string path)

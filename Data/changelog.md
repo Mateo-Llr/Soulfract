@@ -1233,6 +1233,8 @@
 
 ### 6 octobre
 
+- [CHANGED] Identité visuelle du lanceur affinée avec des tons graphite et verts, des textes plus épais et des boutons arrondis
+- [FIXED] La version publiée du jeu ne lance plus de console en arrière-plan ; celle-ci reste réservée au développement
 - [CHANGED] Refonte du lanceur : interface simplifiée, titre pixelisé du jeu et boutons d'action centrés en bas
 - [CHANGED] Présentation du changelog améliorée avec des couleurs par type de changement et davantage d'entrées récentes
 - [FIXED] Captures d'écran du jeu rangées dans un dossier Screenshots dédié, conservé lors des mises à jour

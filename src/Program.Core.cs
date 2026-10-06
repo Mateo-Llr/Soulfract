@@ -346,7 +346,9 @@ void main()
 
 		static void Main(string[] args)
 		{
+#if DEBUG
 			TryEnableDebugConsole();
+#endif
 
 			if (TryConsumeAutoHostArg(args, out int autoHostPort))
 			{

@@ -49,6 +49,8 @@ le runtime intégré dans un unique exécutable. Le passage de l'ancienne distri
 monofichier aux fichiers séparés peut toutefois nécessiter une mise à jour différentielle
 plus volumineuse une seule fois ; les mises à jour suivantes ne retransfèrent que les
 fichiers réellement modifiés.
+Les versions publiées s'ouvrent sans console en arrière-plan ; la console de debug est
+réservée aux compilations de développement (`Debug`).
 
 Toute modification de l'interface du lanceur principal est incluse dans
 `SoulfractLauncher.exe`. À chaque lancement du bootstrapper, celui-ci compare

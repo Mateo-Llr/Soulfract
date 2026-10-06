@@ -2,6 +2,7 @@
 
   <PropertyGroup>
 	  <OutputType>Exe</OutputType>
+	  <OutputType Condition="'$(Configuration)' == 'Release'">WinExe</OutputType>
 	  <TargetFramework>net8.0</TargetFramework>
 	  <Nullable>enable</Nullable>
 	  <ImplicitUsings>enable</ImplicitUsings>

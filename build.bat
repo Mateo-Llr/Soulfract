@@ -15,10 +15,10 @@ if exist "dist" (
 )
 
 echo.
-echo [INFO] Publication en mode console pour permettre l'affichage de l'invite de debug...
+echo [INFO] Publication du jeu en mode fenetre, sans console...
 echo.
 
-dotnet publish Heroes.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -p:OutputType=Exe -o ./dist
+dotnet publish Heroes.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o ./dist
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -44,7 +44,7 @@ echo ===========================================
 echo.
 
 echo [INFO] Lancement du jeu...
-dotnet .\dist\Soulfract.dll
+.\dist\Soulfract.exe
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
