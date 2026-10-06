@@ -100,7 +100,7 @@ internal sealed class LauncherForm : Form
         var changelogButton = CreateButton("📋", ElevatedColor, PrimaryTextColor, 32, 32);
         changelogButton.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
         changelogButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        changelogButton.SetBounds(0, 0, 32, 32);
+        changelogButton.TextAlign = ContentAlignment.MiddleCenter;
         changelogButton.Click += (_, _) => ToggleChangelog();
         
         header.Controls.AddRange([versionCaption, _versionLabel, changelogButton]);
