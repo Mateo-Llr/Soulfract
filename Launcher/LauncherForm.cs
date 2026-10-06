@@ -596,7 +596,7 @@ internal sealed class LauncherForm : Form
 
         var selectedSections = sections
             .Where(section => section.Entries.Count > 0)
-            .TakeLast(8)
+            .TakeLast(50)
             .Reverse()
             .ToList();
         if (selectedSections.Count == 0)
