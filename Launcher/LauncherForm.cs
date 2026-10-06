@@ -23,6 +23,10 @@ internal sealed class LauncherForm : Form
     private const int CardRadius = 18;
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
+    private static readonly JsonSerializerOptions DeltaManifestJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
     private static readonly Color BackgroundColor = Color.FromArgb(13, 11, 18);
     private static readonly Color SurfaceColor = Color.FromArgb(25, 20, 31);
     private static readonly Color ElevatedColor = Color.FromArgb(38, 30, 46);
@@ -354,7 +358,9 @@ internal sealed class LauncherForm : Form
                 if (!File.Exists(manifestPath))
                     throw new InvalidDataException("L'archive différentielle ne contient pas son manifeste.");
 
-                DeltaManifest manifest = JsonSerializer.Deserialize<DeltaManifest>(await File.ReadAllTextAsync(manifestPath))
+                DeltaManifest manifest = JsonSerializer.Deserialize<DeltaManifest>(
+                    await File.ReadAllTextAsync(manifestPath),
+                    DeltaManifestJsonOptions)
                     ?? throw new InvalidDataException("Le manifeste de mise à jour est invalide.");
                 if (!string.Equals(manifest.BaseVersion, installedVersion, StringComparison.Ordinal)
                     || manifest.DeletedFiles == null)
