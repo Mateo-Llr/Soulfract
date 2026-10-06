@@ -8,6 +8,8 @@ namespace Soulfract
     {
         public int MasterVolume { get; set; } = 100;
         public string VoiceChatMode { get; set; } = "PushToTalk";
+        public int VoiceInputVolume { get; set; } = 150;
+        public int VoiceOutputVolume { get; set; } = 100;
         public bool Fullscreen { get; set; } = false;
         public string Language { get; set; } = "en";
 

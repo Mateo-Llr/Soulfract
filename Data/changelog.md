@@ -1220,6 +1220,8 @@
 - [ADDED] Chat vocal multijoueur avec push-to-talk, micro désactivé ou activation permanente
 - [CHANGED] Passage du chat vocal en mono 24 kHz et correction de l'ouverture répétée des règles UDP du pare-feu
 - [FIXED] Affichage du rappel pare-feu vocal lorsque la règle UDP manque malgré la règle TCP du jeu
+- [FIXED] Redémarrage automatique de la capture micro après un arrêt du périphérique
+- [ADDED] Réglages séparés du volume d'entrée du micro et de sortie du chat vocal
 - [ADDED] Tempêtes prolongées avec pluie renforcée, rafales, éclairs atténués et tonnerre
 - [CHANGED] Transitions météo adoucies; état, minuteur et audio de la météo sont sauvegardés, réinitialisés par monde et mis en pause avec la partie
 - [FIXED] Augmentation de la visibilité de la neige et suppression de la pluie sur les sols enneigés

@@ -10207,9 +10207,9 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 
 			// ── Onglets ──
 			int tabSpacing = 16;
-			int tabW = Math.Min(260, Math.Max(120, (sw - 100 - tabSpacing * 2) / 3));
+			int tabW = Math.Min(260, Math.Max(120, (sw - 100 - tabSpacing * 3) / 4));
 			int tabH = 54;
-			string[] tabNames = { Localization.Get("menu.general"), Localization.Get("menu.controls"), Localization.Get("menu.interface") };
+			string[] tabNames = { Localization.Get("menu.general"), Localization.Get("menu.controls"), Localization.Get("menu.interface"), Localization.GetOrDefault("menu.voice", "VOICE") };
 			int tabsTotalW = tabNames.Length * tabW + (tabNames.Length - 1) * tabSpacing;
 			int tabStartX = px + panelW / 2 - tabsTotalW / 2;
 			int tabY = py + 96;
@@ -10682,6 +10682,61 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					}
 					y += 44;
 				}
+			}
+			else if (_optionsTab == 3)
+			{
+				void DrawVoiceVolumeSlider(string labelKey, string fallback, int currentValue, Action<int> setValue, int y)
+				{
+					int value = Math.Clamp(currentValue, 0, 300);
+					string label = string.Format(Localization.GetOrDefault(labelKey, fallback), value);
+					FontManager.DrawText(label, contentX, y, 24, new Color(220, 210, 190, 230));
+
+					int sliderX = contentX;
+					int sliderY = y + 42;
+					int sliderW = contentWidth - 20;
+					const int sliderH = 20;
+					Rectangle sliderRect = new Rectangle(sliderX, sliderY, sliderW, sliderH);
+					Raylib.DrawRectangleRounded(sliderRect, 0.5f, 8, new Color(40, 38, 45, 220));
+					Raylib.DrawRectangleRoundedLines(sliderRect, 0.5f, 8, 1, new Color(100, 90, 70, 180));
+					float fillRatio = value / 300f;
+					if (fillRatio > 0f)
+					{
+						Rectangle fillRect = new Rectangle(sliderX, sliderY, sliderW * fillRatio, sliderH);
+						Raylib.DrawRectangleRounded(fillRect, 0.5f, 8, new Color(210, 170, 90, 240));
+					}
+					float knobX = sliderX + sliderW * fillRatio;
+					Raylib.DrawCircle((int)knobX, sliderY + sliderH / 2, 15, new Color(255, 225, 150, 255));
+
+					Rectangle hitbox = new Rectangle(sliderX - 10, sliderY - 10, sliderW + 20, sliderH + 20);
+					if (Raylib.CheckCollisionPointRec(mousePos, hitbox) && Raylib.IsMouseButtonDown(MouseButton.Left))
+					{
+						int updatedValue = (int)Math.Round(Math.Clamp((mousePos.X - sliderX) / sliderW, 0f, 1f) * 300f);
+						if (updatedValue != value)
+						{
+							setValue(updatedValue);
+							_voiceVolumeSliderChanged = true;
+						}
+					}
+				}
+
+				DrawVoiceVolumeSlider(
+					"options.voice.input_volume",
+					"Microphone input: {0}%",
+					SettingsManager.Settings.VoiceInputVolume,
+					value => SettingsManager.Settings.VoiceInputVolume = value,
+					contentY);
+				DrawVoiceVolumeSlider(
+					"options.voice.output_volume",
+					"Voice output: {0}%",
+					SettingsManager.Settings.VoiceOutputVolume,
+					value => SettingsManager.Settings.VoiceOutputVolume = value,
+					contentY + 120);
+			}
+
+			if (_voiceVolumeSliderChanged && Raylib.IsMouseButtonReleased(MouseButton.Left))
+			{
+				SettingsManager.Save();
+				_voiceVolumeSliderChanged = false;
 			}
 
 			// ── ACTIONS DU MENU ──

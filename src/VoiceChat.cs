@@ -20,6 +20,7 @@ namespace Soulfract
         private static readonly ConcurrentDictionary<int, IPEndPoint> HostPeers = new();
         private static readonly ConcurrentDictionary<int, BufferedWaveProvider> VoiceSources = new();
         private static readonly object CaptureLock = new();
+        private static readonly object MicrophoneLock = new();
         private static readonly byte[] CaptureFrame = new byte[FrameBytes];
         private static int _captureFrameCount;
         private static UdpClient? _udp;
@@ -32,6 +33,7 @@ namespace Soulfract
         private static int _localConnectionId;
         private static string _voiceToken = string.Empty;
         private static DateTime _lastRegistration;
+        private static DateTime _microphoneRetryAfter;
         private static volatile bool _transmitting;
 
         public static bool IsTransmitting => _transmitting;
@@ -84,8 +86,7 @@ namespace Soulfract
 
             if (pushToTalk)
             {
-                if (_microphone == null)
-                    StartMicrophone();
+                StartMicrophone();
             }
             else
             {
@@ -111,6 +112,7 @@ namespace Soulfract
             _localConnectionId = 0;
             _voiceToken = string.Empty;
             _lastRegistration = DateTime.MinValue;
+            _microphoneRetryAfter = DateTime.MinValue;
             _captureFrameCount = 0;
             HostPeers.Clear();
             VoiceSources.Clear();
@@ -270,50 +272,104 @@ namespace Soulfract
 
         private static void StartMicrophone()
         {
-            try
+            lock (MicrophoneLock)
             {
-                var microphone = new WaveInEvent
+                if (_microphone != null || DateTime.UtcNow < _microphoneRetryAfter)
+                    return;
+
+                WaveInEvent? microphone = null;
+                try
                 {
-                    WaveFormat = VoiceFormat,
-                    BufferMilliseconds = 20,
-                    NumberOfBuffers = 3
-                };
-                microphone.DataAvailable += OnMicrophoneData;
-                microphone.StartRecording();
-                _microphone = microphone;
-                _transmitting = true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Voice] Micro indisponible : {ex.Message}");
-                try { _microphone?.Dispose(); } catch { }
-                _microphone = null;
-                _transmitting = false;
+                    microphone = new WaveInEvent
+                    {
+                        WaveFormat = VoiceFormat,
+                        BufferMilliseconds = 20,
+                        NumberOfBuffers = 3
+                    };
+                    microphone.DataAvailable += OnMicrophoneData;
+                    microphone.RecordingStopped += OnMicrophoneStopped;
+                    _microphone = microphone;
+                    microphone.StartRecording();
+                    _transmitting = true;
+                }
+                catch (Exception ex)
+                {
+                    if (ReferenceEquals(_microphone, microphone))
+                        _microphone = null;
+                    _transmitting = false;
+                    _microphoneRetryAfter = DateTime.UtcNow.AddSeconds(3);
+                    if (microphone != null)
+                    {
+                        microphone.DataAvailable -= OnMicrophoneData;
+                        microphone.RecordingStopped -= OnMicrophoneStopped;
+                        try { microphone.Dispose(); } catch { }
+                    }
+                    Console.WriteLine($"[Voice] Micro indisponible : {ex.Message}");
+                }
             }
         }
 
         private static void StopMicrophone()
         {
-            _transmitting = false;
-            WaveInEvent? microphone = _microphone;
-            _microphone = null;
-            if (microphone == null)
-                return;
+            WaveInEvent? microphone;
+            lock (MicrophoneLock)
+            {
+                _transmitting = false;
+                microphone = _microphone;
+                _microphone = null;
+            }
 
-            try { microphone.StopRecording(); } catch { }
-            try { microphone.Dispose(); } catch { }
+            if (microphone != null)
+            {
+                microphone.DataAvailable -= OnMicrophoneData;
+                microphone.RecordingStopped -= OnMicrophoneStopped;
+                try { microphone.StopRecording(); } catch { }
+                try { microphone.Dispose(); } catch { }
+            }
+
             lock (CaptureLock)
                 _captureFrameCount = 0;
         }
 
-        private static void OnMicrophoneData(object? sender, WaveInEventArgs args)
+        private static void OnMicrophoneStopped(object? sender, StoppedEventArgs args)
         {
-            if (!_transmitting)
+            if (sender is not WaveInEvent microphone)
                 return;
 
+            lock (MicrophoneLock)
+            {
+                if (!ReferenceEquals(_microphone, microphone))
+                    return;
+
+                _microphone = null;
+                _transmitting = false;
+                _microphoneRetryAfter = DateTime.UtcNow.AddSeconds(3);
+            }
+
+            lock (CaptureLock)
+                _captureFrameCount = 0;
+
+            microphone.DataAvailable -= OnMicrophoneData;
+            microphone.RecordingStopped -= OnMicrophoneStopped;
+            try { microphone.Dispose(); } catch { }
+
+            if (args.Exception != null)
+                Console.WriteLine($"[Voice] Capture micro interrompue : {args.Exception.Message}");
+            else
+                Console.WriteLine("[Voice] Capture micro interrompue.");
+        }
+
+        private static void OnMicrophoneData(object? sender, WaveInEventArgs args)
+        {
             List<byte[]> frames = new();
             lock (CaptureLock)
             {
+                lock (MicrophoneLock)
+                {
+                    if (!_transmitting || !ReferenceEquals(sender, _microphone))
+                        return;
+                }
+
                 int offset = 0;
                 while (offset < args.BytesRecorded)
                 {
@@ -332,10 +388,15 @@ namespace Soulfract
             foreach (byte[] frame in frames)
             {
                 byte[] encoded = new byte[FrameSamples];
+                float inputGain = Math.Clamp(SettingsManager.Settings.VoiceInputVolume, 0, 300) / 100f;
                 for (int i = 0; i < FrameSamples; i++)
                 {
                     short sample = BinaryPrimitives.ReadInt16LittleEndian(frame.AsSpan(i * 2, 2));
-                    encoded[i] = EncodeMuLaw(sample);
+                    short amplifiedSample = (short)Math.Clamp(
+                        (int)Math.Round(sample * inputGain),
+                        short.MinValue,
+                        short.MaxValue);
+                    encoded[i] = EncodeMuLaw(amplifiedSample);
                 }
                 SendVoice(encoded);
             }
@@ -430,9 +491,13 @@ namespace Soulfract
                         mixedSamples[i / 2] += BinaryPrimitives.ReadInt16LittleEndian(sourceBuffer.AsSpan(i, 2));
                 }
 
+                float outputGain = Math.Clamp(SettingsManager.Settings.VoiceOutputVolume, 0, 300) / 100f;
                 for (int i = 0; i < sampleCount; i++)
                 {
-                    short sample = (short)Math.Clamp(mixedSamples[i], short.MinValue, short.MaxValue);
+                    short sample = (short)Math.Clamp(
+                        (int)Math.Round(mixedSamples[i] * outputGain),
+                        short.MinValue,
+                        short.MaxValue);
                     BinaryPrimitives.WriteInt16LittleEndian(buffer.AsSpan(offset + i * 2, 2), sample);
                 }
                 return count;

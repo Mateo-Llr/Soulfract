@@ -28,6 +28,8 @@ namespace Soulfract
 
 		static int _optionsTab = 0;
 
+		private static bool _voiceVolumeSliderChanged;
+
 		private static Dictionary<string, Texture2D> _uiBarButtonTextures = new Dictionary<string, Texture2D>();
 
 		private static Texture2D _lmouseButtonTex;
