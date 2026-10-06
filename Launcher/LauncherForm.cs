@@ -47,6 +47,8 @@ internal sealed class LauncherForm : Form
     private Button _playButton = new();
     private Button _checkUpdatesButton = new();
     private Button _folderButton = new();
+    private Panel _changelogPanel = new();
+    private bool _changelogVisible = false;
     private bool _isWorking;
     private string? _latestVersion;
 
@@ -72,10 +74,12 @@ internal sealed class LauncherForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = BackgroundColor,
-            ColumnCount = 1,
+            ColumnCount = 2,
             RowCount = 5,
             Padding = new Padding(26, 12, 26, 12)
         };
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 202));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -85,15 +89,23 @@ internal sealed class LauncherForm : Form
 
         var header = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
         var versionCaption = CreateLabel("VERSION", 8F, FontStyle.Bold, MutedTextColor);
-        versionCaption.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        versionCaption.TextAlign = ContentAlignment.MiddleRight;
-        versionCaption.SetBounds(770, 4, 300, 17);
+        versionCaption.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        versionCaption.TextAlign = ContentAlignment.MiddleLeft;
+        versionCaption.SetBounds(0, 4, 300, 17);
         _versionLabel = CreateLabel("Vérification...", 10, FontStyle.Bold, AccentColor);
-        _versionLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _versionLabel.TextAlign = ContentAlignment.MiddleRight;
-        _versionLabel.SetBounds(770, 21, 300, 22);
-        header.Controls.AddRange([versionCaption, _versionLabel]);
+        _versionLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        _versionLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _versionLabel.SetBounds(0, 21, 300, 22);
+        
+        var changelogButton = CreateButton("📋", ElevatedColor, PrimaryTextColor, 32, 32);
+        changelogButton.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
+        changelogButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        changelogButton.SetBounds(0, 0, 32, 32);
+        changelogButton.Click += (_, _) => ToggleChangelog();
+        
+        header.Controls.AddRange([versionCaption, _versionLabel, changelogButton]);
         root.Controls.Add(header, 0, 0);
+        root.SetColumnSpan(header, 2);
 
         var hero = new HeroBackdropPanel
         {
@@ -102,6 +114,7 @@ internal sealed class LauncherForm : Form
         };
         BuildHero(hero);
         root.Controls.Add(hero, 0, 1);
+        root.SetColumnSpan(hero, 2);
 
         var content = new TableLayoutPanel
         {
@@ -113,11 +126,12 @@ internal sealed class LauncherForm : Form
         };
         root.Controls.Add(content, 0, 2);
 
-        var changelogCard = CreateCard();
-        changelogCard.Dock = DockStyle.Fill;
-        changelogCard.Margin = new Padding(0);
-        BuildChangelogCard(changelogCard);
-        content.Controls.Add(changelogCard, 0, 0);
+        _changelogPanel = CreateCard();
+        _changelogPanel.Dock = DockStyle.Fill;
+        _changelogPanel.Margin = new Padding(0, 0, 12, 0);
+        _changelogPanel.Visible = false;
+        BuildChangelogCard(_changelogPanel);
+        root.Controls.Add(_changelogPanel, 1, 2);
 
         var actions = new TableLayoutPanel
         {
@@ -171,6 +185,7 @@ internal sealed class LauncherForm : Form
         _folderButton.Click += (_, _) => OpenGameFolder();
         actions.Controls.Add(_folderButton, 2, 2);
         root.Controls.Add(actions, 0, 3);
+        root.SetColumnSpan(actions, 2);
 
         var footer = new Panel { Dock = DockStyle.Fill, BackColor = BackgroundColor };
         var footerLink = CreateLinkLabel("GitHub", 8.5F, "https://github.com/Mateo-Llr/Soulfract");
@@ -178,21 +193,47 @@ internal sealed class LauncherForm : Form
         footerLink.TextAlign = ContentAlignment.MiddleRight;
         footer.Controls.Add(footerLink);
         root.Controls.Add(footer, 0, 4);
+        root.SetColumnSpan(footer, 2);
 
         Shown += async (_, _) => await CheckForUpdatesAsync();
     }
 
+    private void ToggleChangelog()
+    {
+        _changelogVisible = !_changelogVisible;
+        _changelogPanel.Visible = _changelogVisible;
+    }
+
     private void BuildHero(Panel hero)
     {
-        PictureBox titleTexture = new()
+        var banner = new PixelPictureBox
+        {
+            Image = LoadGameBannerTexture(),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            Dock = DockStyle.Fill,
+            TabStop = false
+        };
+        hero.Controls.Add(banner);
+
+        PixelPictureBox titleTexture = new()
         {
             Image = LoadTitleTexture(),
             SizeMode = PictureBoxSizeMode.Zoom,
             BackColor = Color.Transparent,
-            Location = new Point(64, 14),
+            AutoSize = false,
             Size = new Size(260, 174),
             TabStop = false
         };
+        hero.Resize += (_, _) =>
+        {
+            titleTexture.Location = new Point(
+                (hero.Width - titleTexture.Width) / 2,
+                (hero.Height - titleTexture.Height) / 2);
+        };
+        titleTexture.Location = new Point(
+            (hero.Width - titleTexture.Width) / 2,
+            (hero.Height - titleTexture.Height) / 2);
         hero.Controls.Add(titleTexture);
     }
 
@@ -961,6 +1002,15 @@ internal sealed class LauncherForm : Form
         return new Bitmap(source);
     }
 
+    private static Image LoadGameBannerTexture()
+    {
+        using Stream stream = typeof(LauncherForm).Assembly.GetManifestResourceStream(
+            "SoulfractLauncher.Assets.game_banner.png")
+            ?? throw new InvalidOperationException("La bannière du jeu n'est pas trouvée.");
+        using Image source = Image.FromStream(stream);
+        return new Bitmap(source);
+    }
+
     private static Button CreateButton(string text, Color background, Color foreground, int width, int height)
     {
         var button = new Button
@@ -1041,80 +1091,7 @@ internal sealed class LauncherForm : Form
                 return;
 
             Graphics graphics = e.Graphics;
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var sky = new LinearGradientBrush(
-                bounds,
-                Color.FromArgb(78, 44, 93),
-                Color.FromArgb(23, 19, 33),
-                LinearGradientMode.Vertical))
-            {
-                graphics.FillRectangle(sky, bounds);
-            }
-
-            float scaleX = bounds.Width / 1120F;
-            float scaleY = bounds.Height / 260F;
-            RectangleF sunGlow = new(760 * scaleX, 10 * scaleY, 300 * scaleX, 300 * scaleY);
-            using (var glow = new SolidBrush(Color.FromArgb(24, 240, 182, 126)))
-                graphics.FillEllipse(glow, sunGlow);
-            using (var sun = new SolidBrush(Color.FromArgb(80, 229, 177, 127)))
-                graphics.FillEllipse(sun, 855 * scaleX, 70 * scaleY, 106 * scaleX, 106 * scaleY);
-
-            GraphicsState sceneryState = graphics.Save();
-            graphics.SetClip(new Rectangle(
-                (int)(390 * scaleX),
-                0,
-                Math.Max(0, bounds.Width - (int)(390 * scaleX)),
-                bounds.Height));
-            PointF[] distantRidge =
-            [
-                new(390 * scaleX, 175 * scaleY),
-                new(470 * scaleX, 115 * scaleY),
-                new(575 * scaleX, 167 * scaleY),
-                new(690 * scaleX, 105 * scaleY),
-                new(805 * scaleX, 171 * scaleY),
-                new(900 * scaleX, 112 * scaleY),
-                new(1000 * scaleX, 165 * scaleY),
-                new(1060 * scaleX, 103 * scaleY),
-                new(bounds.Width, 155 * scaleY),
-                new(bounds.Width, bounds.Height),
-                new(390 * scaleX, bounds.Height)
-            ];
-            using (var distantLand = new SolidBrush(Color.FromArgb(76, 53, 85)))
-                graphics.FillPolygon(distantLand, distantRidge);
-
-            PointF[] foregroundRidge =
-            [
-                new(390 * scaleX, 213 * scaleY),
-                new(500 * scaleX, 171 * scaleY),
-                new(640 * scaleX, 210 * scaleY),
-                new(755 * scaleX, 158 * scaleY),
-                new(880 * scaleX, 204 * scaleY),
-                new(1010 * scaleX, 151 * scaleY),
-                new(bounds.Width, 200 * scaleY),
-                new(bounds.Width, bounds.Height),
-                new(390 * scaleX, bounds.Height)
-            ];
-            using (var foregroundLand = new SolidBrush(Color.FromArgb(186, 29, 28, 42)))
-                graphics.FillPolygon(foregroundLand, foregroundRidge);
-
-            PointF[] stars =
-            [
-                new(660 * scaleX, 57 * scaleY),
-                new(725 * scaleX, 111 * scaleY),
-                new(1032 * scaleX, 51 * scaleY),
-                new(1090 * scaleX, 118 * scaleY),
-                new(580 * scaleX, 132 * scaleY),
-                new(985 * scaleX, 178 * scaleY)
-            ];
-            using (var star = new SolidBrush(Color.FromArgb(115, 239, 194, 151)))
-            {
-                foreach (PointF point in stars)
-                    graphics.FillRectangle(star, point.X, point.Y, Math.Max(2, 4 * scaleX), Math.Max(2, 4 * scaleY));
-            }
-            graphics.Restore(sceneryState);
-
-            using (var border = new Pen(Color.FromArgb(92, 213, 174, 132)))
-                graphics.DrawRectangle(border, 0, 0, bounds.Width - 1, bounds.Height - 1);
+            graphics.Clear(BackgroundColor);
         }
     }
 
@@ -1193,6 +1170,19 @@ internal sealed class LauncherForm : Form
             path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
             path.CloseFigure();
             return path;
+        }
+    }
+
+    private sealed class PixelPictureBox : PictureBox
+    {
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            if (Image != null)
+            {
+                pe.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                pe.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            }
+            base.OnPaint(pe);
         }
     }
 }

@@ -11,5 +11,7 @@
   <ItemGroup>
     <EmbeddedResource Include="..\assets\title.png"
                       LogicalName="SoulfractLauncher.Assets.title.png" />
+    <EmbeddedResource Include="..\assets\gui\game_banner.png"
+                      LogicalName="SoulfractLauncher.Assets.game_banner.png" />
   </ItemGroup>
 </Project>
