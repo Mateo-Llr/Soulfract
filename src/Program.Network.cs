@@ -90,7 +90,7 @@ namespace Soulfract
 
 				Console.WriteLine($" La règle complète TCP/UDP n'existe pas pour le port {port}.");
 				Console.WriteLine("Tentative d'ajout automatique...");
-				if (!FirewallHelper.GameRuleExists(port))
+				if (!FirewallHelper.GameRuleExists(port) || !FirewallHelper.VoiceRuleExists(port))
 					FirewallHelper.ShowFirewallDialog(port);
 				bool added = FirewallHelper.AddRule(port);
 				if (added)
