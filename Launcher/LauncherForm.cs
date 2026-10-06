@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace SoulfractLauncher;
@@ -730,7 +731,10 @@ internal sealed class LauncherForm : Form
 
     private sealed class DeltaManifest
     {
+        [JsonPropertyName("baseVersion")]
         public string BaseVersion { get; set; } = "";
+
+        [JsonPropertyName("deletedFiles")]
         public List<string> DeletedFiles { get; set; } = new();
     }
 
