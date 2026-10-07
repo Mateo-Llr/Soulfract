@@ -1883,8 +1883,7 @@ namespace Soulfract
 				float proximity = Math.Clamp(MathF.Min(overlapX, overlapY) / MathF.Min(playerBox.Width, playerBox.Height), 0f, 1f);
 				float acceleration = MathF.Min(3000f, incomingSpeed * 5f + proximity * proximity * 1200f);
 
-				entity.KnockbackVelocity += awayFromPlayer * (acceleration * dt);
-				entity.IsKnockedBack = true;
+				entity.ApplyPushImpulse(awayFromPlayer * (acceleration * dt));
 			}
 		}
 
@@ -1922,11 +1921,11 @@ namespace Soulfract
 			if (first.IsPlayer)
 				Program.ApplyEntityPush(push);
 			else
-				first.KnockbackVelocity += push;
+				first.ApplyPushImpulse(push);
 			if (second.IsPlayer)
 				Program.ApplyEntityPush(-push);
 			else
-				second.KnockbackVelocity -= push;
+				second.ApplyPushImpulse(-push);
 			first.IsKnockedBack = true;
 			second.IsKnockedBack = true;
 		}

@@ -1991,6 +1991,17 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			return true;
 		}
 
+		private static (string Objective, string Reward) GetQuestCompletionSplashText(Quest quest)
+		{
+			var target = QuestManager.FindEntityByNetId(GetQuestNpcs(), quest.TargetId);
+			string targetName = target?.DisplayName ?? target?.FirstName ?? Localization.Get("quest.unknown_target", "???");
+			string objective = quest.GetReminderLine(targetName);
+			string reward = string.Format(
+				Localization.Get("quest.offer_reward", "Récompense : {0}"),
+				quest.GetRewardLine());
+			return (objective, reward);
+		}
+
 		//  MULTIJOUEUR : la récompense est ajoutée à l'inventaire du joueur si possible ;
 		// si l'inventaire est plein, le reliquat tombe au sol à la position du PNJ. Les clients
 		// ne modifient pas directement le sol, ils délèguent via le host.
@@ -2002,24 +2013,32 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			if (NetworkManager.IsClient)
 			{
 				NetworkManager.RequestQuestAction(npc.NetId, "Validate");
-				AddNotification(new Notification(
-					$" Quête terminée ! Récompense : {incomingQuest.GetRewardLine()}",
-					new Color(220, 200, 100, 255), 2.5f));
+				var splashText = GetQuestCompletionSplashText(incomingQuest);
+				QuestSplashUI.Show(
+					Localization.Get("quest.splash.completed", "Quête terminée"),
+					splashText.Objective,
+					splashText.Reward,
+					new Color(140, 255, 170, 255),
+					new Color(255, 255, 255, 255));
 				return true;
 			}
 
 			bool completed = QuestManager.TryCompleteQuest(
 				npc,
 				GetQuestNpcs(),
-				giveItem: (itemId, qty) => GiveItemToPlayer(itemId, qty, npc.WorldPos),
+				giveItem: (itemId, qty) => GiveQuestItemToPlayer(itemId, qty, npc.WorldPos),
 				out var completedQuest
 			);
 
 			if (completed && completedQuest != null)
 			{
-				AddNotification(new Notification(
-					$" Quête terminée ! Récompense : {completedQuest.GetRewardLine()}",
-					new Color(220, 200, 100, 255), 2.5f));
+				var splashText = GetQuestCompletionSplashText(completedQuest);
+				QuestSplashUI.Show(
+					Localization.Get("quest.splash.completed", "Quête terminée"),
+					splashText.Objective,
+					splashText.Reward,
+					new Color(140, 255, 170, 255),
+					new Color(255, 255, 255, 255));
 			}
 			else
 			{
@@ -2900,6 +2919,15 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			if (!GameData.ItemDatabase.TryGetValue(id, out var itemData)) return;
 			DropCustomItemOnGround(sourceWorldPos, id, count, customColors, null, 0f, metadata, meta, pickupCooldown: pickupCooldown);
         }
+
+		private static void GiveQuestItemToPlayer(int id, int count, Vector2 sourceWorldPos)
+		{
+			if (count <= 0) return;
+
+			int remaining = AddItemToInventory(id, count);
+			if (remaining > 0)
+				GiveItemToPlayer(id, remaining, sourceWorldPos);
+		}
 
 		public static void DropItemOnGround(Vector2 worldPos, int itemId, int count)
         {

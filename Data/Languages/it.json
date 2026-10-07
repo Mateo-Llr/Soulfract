@@ -229,6 +229,8 @@
     "quest.log.none":  "Nessuna missione attiva al momento.",
     "quest.log.objective":  "Porta {0}x {1} a {2}",
     "quest.log.reward":  "Ricompensa",
+    "quest.splash.completed":  "Missione completata",
+    "quest.splash.new":  "Nuova missione",
     "quest.log.title":  "Diario delle missioni",
     "quest.npc_title":  "Abitante",
     "quest.offer_line":  "Ehi, potresti portare {0}x {1} a {2}? Ti ricompenserò.",

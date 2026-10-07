@@ -229,6 +229,8 @@
     "quest.log.none":  "Brak aktywnych zadaÅ„.",
     "quest.log.objective":  "PrzynieÅ› {0}x {1} do {2}",
     "quest.log.reward":  "Nagroda",
+    "quest.splash.completed":  "Zadanie ukończone",
+    "quest.splash.new":  "Nowe zadanie",
     "quest.log.title":  "Dziennik ZadaÅ„",
     "quest.npc_title":  "WieÅ›niak",
     "quest.offer_line":  "Hej, czy mógłbyś przynieść {0}x {1} do {2}? Wynagrodzę cię.",

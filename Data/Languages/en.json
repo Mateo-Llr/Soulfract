@@ -243,6 +243,8 @@
     "quest.log.none":  "No active quests right now.",
     "quest.log.objective":  "Bring {0}x {1} to {2}",
     "quest.log.reward":  "Reward",
+    "quest.splash.completed":  "Quest completed",
+    "quest.splash.new":  "New quest",
     "quest.log.title":  "Quest Journal",
     "quest.npc_title":  "Villager",
     "quest.offer_line":  "Hey, could you bring {0}x {1} to {2}? I\u0027ll make it worth your while.",

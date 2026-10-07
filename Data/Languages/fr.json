@@ -250,6 +250,8 @@
     "quest.log.none":  "Aucune quête en cours pour le moment.",
     "quest.log.objective":  "Apporter {0}x {1} à {2}",
     "quest.log.reward":  "Récompense",
+    "quest.splash.completed":  "Quête terminée",
+    "quest.splash.new":  "Nouvelle quête",
     "quest.log.title":  "Journal des quêtes",
     "quest.npc_title":  "Villageois",
     "quest.offer_line":  "Hé, pourrais-tu apporter {0}x {1} à {2} ? Je te revaudrai ça.",

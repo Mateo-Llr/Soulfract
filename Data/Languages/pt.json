@@ -229,6 +229,8 @@
     "quest.log.none":  "Nenhuma missão ativa neste momento.",
     "quest.log.objective":  "Trazer {0}x {1} para {2}",
     "quest.log.reward":  "Recompensa",
+    "quest.splash.completed":  "Missão concluída",
+    "quest.splash.new":  "Nova missão",
     "quest.log.title":  "Diário de Missões",
     "quest.npc_title":  "Aldeão",
     "quest.offer_line":  "Ei, podes trazer {0}x {1} para {2}? Vou compensar-te.",

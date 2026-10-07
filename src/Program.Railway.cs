@@ -399,8 +399,7 @@ namespace Soulfract
                 ApplyEntityPush(push);
             else if (pusherEntity != null)
             {
-                pusherEntity.KnockbackVelocity += push;
-                pusherEntity.IsKnockedBack = true;
+                pusherEntity.ApplyPushImpulse(push);
             }
 
             Vector2 railAxis = wagon.Heading.y != 0 ? new Vector2(0f, 1f) : new Vector2(1f, 0f);

@@ -306,6 +306,9 @@ namespace Soulfract
                     var deliverReward = rewardPool.Length > 0
                         ? rewardPool[Random.Shared.Next(rewardPool.Length)]
                         : item;
+                    int maxQuestItemQty = GameData.ItemDatabase.TryGetValue(item.id, out var questItemData)
+                        ? Math.Max(1, questItemData.StackSize)
+                        : 1;
 
                     npc.ActiveQuest = new Quest
                     {
@@ -314,7 +317,7 @@ namespace Soulfract
                         TargetId = target.NetId,
                         ItemId = item.id,
                         ItemName = item.name,
-                        ItemQty = Random.Shared.Next(1, 4),
+                        ItemQty = Random.Shared.Next(1, Math.Min(3, maxQuestItemQty) + 1),
                         RewardItemId = rewardInfo.itemId,
                         RewardItemName = rewardInfo.itemName,
                         RewardItemQty = rewardInfo.qty
@@ -392,6 +395,13 @@ namespace Soulfract
             else if (quest.ItemId > 0 && GameData.ItemDatabase.TryGetValue(quest.ItemId, out var itemData))
             {
                 quest.ItemName = itemData.Name;
+            }
+
+            if (quest.Type == QuestType.DeliverItem &&
+                quest.ItemId > 0 &&
+                GameData.ItemDatabase.TryGetValue(quest.ItemId, out var questItemData))
+            {
+                quest.ItemQty = Math.Clamp(quest.ItemQty, 1, Math.Max(1, questItemData.StackSize));
             }
 
             if (!string.IsNullOrWhiteSpace(quest.RewardItemName))
@@ -500,6 +510,7 @@ namespace Soulfract
             if (giver.ActiveQuest != null && giver.ActiveQuest.State == QuestState.Offered)
             {
                 var quest = giver.ActiveQuest;
+                NormalizeQuestItemData(quest);
                 if (quest.ItemId > 0 && quest.ItemQty > 0)
                     giveItem(quest.ItemId, quest.ItemQty);
 

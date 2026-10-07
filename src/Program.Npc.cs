@@ -347,11 +347,11 @@ namespace Soulfract
 				// rester interactible pour les quêtes/commerce comme n'importe quel autre villageois.
 				if (entity.IsTamed && !entity.IsGuildMember) continue;
 
-				int tileX = (int)(entity.WorldPos.X / TileSize);
-				int tileY = (int)(entity.WorldPos.Y / TileSize);
+				Vector2 entityVisualPos = entity.VisualWorldPos;
+				int tileX = (int)(entityVisualPos.X / TileSize);
+				int tileY = (int)(entityVisualPos.Y / TileSize);
 				int height = World.GetHeightAt(tileX, tileY);
-				float yOffset = -height * TileSize / 4;
-				Vector2 visualPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + yOffset);
+				Vector2 visualPos = new(entityVisualPos.X, entityVisualPos.Y - height * TileSize / 4f);
 
 				float distSq = Vector2.DistanceSquared(mouseWorld, visualPos);
 				if (distSq < bestDistSq)
@@ -422,6 +422,8 @@ namespace Soulfract
 		// disponible s'il n'y en a qu'une (ex : un simple marchand sans quête).
 		private static bool TryOpenVillagerDialog(Entity npc)
 		{
+			npc.WakeFromInteraction();
+
 			bool hasOfferAction = npc.ActiveQuest != null && npc.ActiveQuest.State == QuestState.Offered;
 			var deliveryTarget = QuestManager.GetQuestToDeliverFor(npc, GetQuestNpcs());
 			var incoming = QuestManager.GetIncomingQuestFor(npc, GetQuestNpcs());

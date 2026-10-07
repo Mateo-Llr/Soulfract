@@ -3081,12 +3081,20 @@ void main()
 						}
 						else
 						{
-							QuestManager.AcceptQuest(giver, (itemId, qty) => GiveItemToPlayer(itemId, qty, giver.WorldPos));
+							QuestManager.AcceptQuest(giver, (itemId, qty) => GiveQuestItemToPlayer(itemId, qty, giver.WorldPos));
 						}
 						if (quest != null)
 						{
-							string questText = $" Quête acceptée : apporte {quest.ItemQty}x {quest.ItemName}";
-							AddNotification(new Notification(questText, new Color(220, 200, 100, 255), 3.2f, giver, true));
+							var target = QuestManager.FindEntityByNetId(GetQuestNpcs(), quest.TargetId);
+							string targetName = quest.Type == QuestType.TameAndBring
+								? giver.DisplayName ?? giver.FirstName ?? Localization.Get("quest.unknown_target", "???")
+								: target?.DisplayName ?? target?.FirstName ?? Localization.Get("quest.unknown_target", "???");
+							QuestSplashUI.Show(
+								Localization.Get("quest.splash.new", "Nouvelle quête"),
+								quest.GetReminderLine(targetName),
+								string.Format(Localization.Get("quest.offer_reward", "Récompense : {0}"), quest.GetRewardLine()),
+								new Color(255, 215, 100, 255),
+								new Color(255, 255, 255, 255));
 						}
 					}
 				}
@@ -8358,6 +8366,8 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			{
 				DrawLoadingFadeOutOverlay();
 			}
+
+			QuestSplashUI.Draw();
 
 			//  ÉCRAN DE MORT : dessiné en tout dernier, par-dessus absolument tout le reste
 			// (lumière jour/nuit, température, HUD, notifications, fade...) puisque c'est une

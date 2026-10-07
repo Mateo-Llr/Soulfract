@@ -229,6 +229,8 @@
     "quest.log.none":  "Нет активных заданий.",
     "quest.log.objective":  "Принесите {0}x {1} к {2}",
     "quest.log.reward":  "Награда",
+    "quest.splash.completed":  "Задание выполнено",
+    "quest.splash.new":  "Новое задание",
     "quest.log.title":  "Журнал заданий",
     "quest.npc_title":  "Житель",
     "quest.offer_line":  "Эй, не мог бы ты принести {0}x {1} к {2}? Я отблагодарю тебя.",

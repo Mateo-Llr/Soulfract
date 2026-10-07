@@ -229,6 +229,8 @@
     "quest.log.none":  "現在進行中のクエストはありません。",
     "quest.log.objective":  "{0}x {1} を {2} に届ける",
     "quest.log.reward":  "報酬",
+    "quest.splash.completed":  "クエスト完了",
+    "quest.splash.new":  "新しいクエスト",
     "quest.log.title":  "クエスト日誌",
     "quest.npc_title":  "村人",
     "quest.offer_line":  "やあ、{0}x {1} を {2} に届けてくれないか？きちんと報いるよ。",

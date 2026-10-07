@@ -229,6 +229,8 @@
     "quest.log.none":  "Inga aktiva uppdrag just nu.",
     "quest.log.objective":  "Ta med {0}x {1} till {2}",
     "quest.log.reward":  "Belöning",
+    "quest.splash.completed":  "Uppdrag slutfört",
+    "quest.splash.new":  "Nytt uppdrag",
     "quest.log.title":  "Uppdragsdagbok",
     "quest.npc_title":  "Bybo",
     "quest.offer_line":  "Hej, kan du ta med {0}x {1} till {2}? Jag ska belöna dig.",

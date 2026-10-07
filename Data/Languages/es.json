@@ -229,6 +229,8 @@
     "quest.log.none":  "No hay misiones activas ahora mismo.",
     "quest.log.objective":  "Llevar {0}x {1} a {2}",
     "quest.log.reward":  "Recompensa",
+    "quest.splash.completed":  "Misión completada",
+    "quest.splash.new":  "Nueva misión",
     "quest.log.title":  "Diario de misiones",
     "quest.npc_title":  "Aldeano",
     "quest.offer_line":  "Oye, ¿podrías llevar {0}x {1} a {2}? Te lo compensaré.",

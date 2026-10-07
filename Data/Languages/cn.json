@@ -229,6 +229,8 @@
     "quest.log.none":  "当前没有活跃任务。",
     "quest.log.objective":  "将 {0}x {1} 带给 {2}",
     "quest.log.reward":  "奖励",
+    "quest.splash.completed":  "任务完成",
+    "quest.splash.new":  "新任务",
     "quest.log.title":  "任务日志",
     "quest.npc_title":  "村民",
     "quest.offer_line":  "嘿，你能带 {0}x {1} 给 {2} 吗？我会酬谢你的。",

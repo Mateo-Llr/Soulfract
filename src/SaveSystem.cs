@@ -98,6 +98,7 @@ namespace Soulfract
             if (!string.IsNullOrEmpty(entityData.NetId) && Guid.TryParse(entityData.NetId, out var netId))
                 entity.NetId = netId;
 
+            entity.InitializeSocialProfile();
             entity.FirstName = string.IsNullOrEmpty(entityData.FirstName) ? null : entityData.FirstName;
 
             if (entityData.HasActiveQuest && !string.IsNullOrEmpty(entityData.QuestTargetNetId)

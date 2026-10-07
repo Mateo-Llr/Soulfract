@@ -539,6 +539,8 @@ namespace Soulfract
         public string SocialHabit { get; private set; } = "observer";
         public string SocialDesire { get; private set; } = "quelques instants de repos";
         public string SocialRelation { get; private set; } = "la paix du village";
+        public string SocialRainPreference { get; private set; } = "Je préfère rester au sec.";
+        public string SocialFavoriteAnimal { get; private set; } = "les chats";
         private readonly List<string> _socialKnownNpcNames = new();
         public bool HasStableVillageHome => IsVillager && HomeBuildingId > 0 && HomeBuildingId != TentHomeBuildingId;
         public bool IsHomeless => IsVillager && (HomeBuildingId < 0 || HomeBuildingId == TentHomeBuildingId);
@@ -877,7 +879,7 @@ namespace Soulfract
             "très observateur",
             "mélancolique",
             "assez curieux",
-            "travaillleur",
+            "travailleur",
             "serein"
         };
 
@@ -917,6 +919,22 @@ namespace Soulfract
             "les gens qui savent écouter sans se presser"
         };
 
+        private static readonly string[] _npcRainPreferences =
+        {
+            "J'adore la pluie ; elle rend les promenades plus tranquilles.",
+            "La pluie me plaît, surtout quand je peux l'écouter depuis un abri.",
+            "Je préfère les journées ensoleillées, mais une petite pluie ne me dérange pas.",
+            "Je n'aime pas trop la pluie : tout devient froid et boueux.",
+            "La pluie me rend mélancolique, même si j'aime bien son odeur après l'averse.",
+            "Je trouve les orages impressionnants, tant qu'ils ne durent pas toute la nuit."
+        };
+
+        private static readonly string[] _npcFavoriteAnimals =
+        {
+            "les chats", "les loups", "les renards", "les ratons laveurs",
+            "les chevaux", "les ours", "les cochons", "les poules"
+        };
+
         private static readonly string[] _npcIdleTalkLines =
         {
             "Je crois que le village est plus agréable quand il y a du monde autour.",
@@ -929,7 +947,7 @@ namespace Soulfract
             "Le matin, j'aime observer les gens avant de décider quoi leur dire."
         };
 
-        private void InitializeSocialProfile()
+        internal void InitializeSocialProfile()
         {
             if (!string.Equals(Species, "human", StringComparison.OrdinalIgnoreCase) || IsPlayer)
             {
@@ -940,12 +958,18 @@ namespace Soulfract
                 return;
             }
 
-            int seed = Math.Abs(NetId.GetHashCode());
-            var rng = new Random(seed ^ 0x5EED + (int)(WorldPos.X * 10f) + (int)(WorldPos.Y * 10f));
+            var rng = new Random(NetId.GetHashCode() ^ 0x5EED);
             SocialTrait = _npcCharacterTraits[rng.Next(_npcCharacterTraits.Length)];
             SocialHabit = _npcCharacterHabits[rng.Next(_npcCharacterHabits.Length)];
             SocialDesire = _npcCharacterDesires[rng.Next(_npcCharacterDesires.Length)];
             SocialRelation = _npcCharacterRelations[rng.Next(_npcCharacterRelations.Length)];
+            SocialRainPreference = _npcRainPreferences[rng.Next(_npcRainPreferences.Length)];
+            SocialFavoriteAnimal = _npcFavoriteAnimals[rng.Next(_npcFavoriteAnimals.Length)];
+        }
+
+        private static string PickSocialVariation(params string[] lines)
+        {
+            return lines[Random.Shared.Next(lines.Length)];
         }
 
         private IEnumerable<Entity> GetRelevantSocialContacts()
@@ -1009,10 +1033,16 @@ namespace Soulfract
 
             if (IsHomeless)
             {
-                return $"Je suis plutôt {SocialTrait}. En général, je {SocialHabit}, et j'essaie de garder un œil sur {knownNpc}. Ici, on finit par apprendre à se souvenir des visages qui restent près de nous.";
+                return PickSocialVariation(
+                    $"Je suis plutôt {SocialTrait}. En général, je {SocialHabit}. {SocialRainPreference} Et j'ai un faible pour {SocialFavoriteAnimal}. Ici, je garde aussi un œil sur {knownNpc}.",
+                    $"On me dit {SocialTrait}, et c'est vrai que j'ai l'habitude de {SocialHabit}. {SocialRainPreference} Au fait, mon animal préféré, c'est {SocialFavoriteAnimal}.",
+                    $"Je suis plutôt {SocialTrait} ; j'essaie de {SocialHabit} même quand les journées sont longues. {SocialRainPreference} J'aime bien {SocialFavoriteAnimal}, ça me rappelle les bons côtés du village.");
             }
 
-            return $"Je suis plutôt {SocialTrait}. En général, je {SocialHabit}, et je me souviens bien de {knownNpc}. On a déjà échangé quelques mots, et ça donne un vrai rythme à la journée.";
+            return PickSocialVariation(
+                $"Je suis plutôt {SocialTrait}. En général, je {SocialHabit}. {SocialRainPreference} Et j'ai un faible pour {SocialFavoriteAnimal}. Je me souviens bien de {knownNpc}, aussi.",
+                $"On me dit {SocialTrait}, et j'ai l'habitude de {SocialHabit}. {SocialRainPreference} Mon animal préféré, c'est {SocialFavoriteAnimal}. Ça fait déjà quelques petites choses à raconter, non ?",
+                $"Je ne sais pas si tu l'avais remarqué, mais je suis plutôt {SocialTrait}. J'aime bien {SocialFavoriteAnimal} et les journées où personne ne se presse. {SocialRainPreference}");
         }
 
         public string GetSocialReply(string topic)
@@ -1023,23 +1053,71 @@ namespace Soulfract
             {
                 return topic switch
                 {
-                    "village" => $"Le village est bien, mais j'y pense surtout comme un lieu qu'on observe depuis l'extérieur. Ce qui compte pour moi, c'est quand {knownNpc} me parle sans détour ; ça fait une vraie différence.",
-                    "self" => $"Je n'ai pas de maison stable pour me cacher derrière, alors j'apprends à tenir bon avec le peu que j'ai. Et {knownNpc} sait bien qu'on finit par se reconnaître au fil des jours.",
-                    "others" => $"Les gens qui traînent autour des abris ne parlent pas toujours fort, mais ils se souviennent des visages. {knownNpc} fait partie de ceux-là ; j'aime bien ça.",
-                    "wish" => $"J'ai envie de {SocialDesire}. Dès qu'on a un peu de sécurité, on recommence à se dire des choses sérieuses. Et je pense souvent à ce que {knownNpc} pourrait me raconter d'un toit stable.",
-                    "leave" => $"À la prochaine, alors. Je garde le souvenir de la façon dont {knownNpc} m'a écouté, et c'est déjà une bonne chose pour le lendemain.",
-                    _ => $"Oh, on parle de tout et de rien, alors. Ce qui me reste en tête, c'est surtout la manière dont {knownNpc} me regarde quand on se croise."
+                    "village" => PickSocialVariation(
+                        $"Le village est joli vu d'ici, surtout après la pluie. {SocialRainPreference} {knownNpc} m'en raconte parfois les petites histoires.",
+                        $"Je regarde souvent les lumières du village depuis les abris. {SocialRainPreference} Ça me donne l'impression d'en faire partie, même d'un peu loin.",
+                        $"Un jour, j'aimerais avoir un coin à moi là-bas. En attendant, je profite des bons moments et je laisse la météo faire son spectacle."),
+                    "self" => PickSocialVariation(
+                        $"Je suis plutôt {SocialTrait}. J'essaie de {SocialHabit}, même quand je n'ai pas grand-chose à moi.",
+                        $"Sans maison stable, on apprend vite ce qui compte vraiment. Moi, j'aime {SocialFavoriteAnimal} et les gens qui prennent le temps d'écouter.",
+                        $"Je ne suis pas toujours facile à cerner, mais {knownNpc} sait que je suis quelqu'un qui aime {SocialHabit}."),
+                    "others" => PickSocialVariation(
+                        $"Les animaux m'aident à oublier les soucis. J'ai un faible pour {SocialFavoriteAnimal} ; ils ont leur caractère, eux aussi.",
+                        $"Je me demande parfois quel animal choisirait de rester près de moi. Peut-être {SocialFavoriteAnimal} ? {knownNpc} dit que j'y pense trop.",
+                        $"Les gens du camp se souviennent des visages. Moi, je me souviens surtout de ceux qui aiment {SocialFavoriteAnimal}."),
+                    "wish" => PickSocialVariation(
+                        $"J'ai envie de {SocialDesire}. Ce serait plus facile avec un toit, mais on peut déjà rêver un peu.",
+                        $"Si je pouvais choisir, j'essaierais de {SocialHabit}, puis je prendrais le temps de {SocialDesire}.",
+                        $"Pour l'instant, mon souhait est simple : {SocialDesire}. Et peut-être revoir {knownNpc} demain."),
+                    "leave" => PickSocialVariation(
+                        $"Merci d'avoir pris le temps de discuter. {knownNpc} sera content d'apprendre que quelqu'un s'est arrêté me parler.",
+                        $"À la prochaine ! Ça fait du bien de parler d'autre chose que de chercher un abri.",
+                        $"Je vais garder cette conversation en tête. Reviens quand tu veux, je serai probablement dans le coin."),
+                    _ => PickSocialVariation(
+                        $"Oh, j'aime bien parler de tout et de rien. Par exemple, mon animal préféré, c'est {SocialFavoriteAnimal}.",
+                        $"Tu savais que {knownNpc} et moi, on n'est pas d'accord sur la pluie ? {SocialRainPreference}",
+                        $"Je pourrais te raconter des histoires toute la journée, mais je vais commencer par celle de {SocialFavoriteAnimal}.")
                 };
             }
 
             return topic switch
             {
-                "village" => $"Le village est bien, surtout quand on sait s'arrêter pour écouter. Ce qui me plaît, c'est quand {knownNpc} me raconte un détail du coin ; ça donne vraiment le rythme de la journée.",
-                "self" => $"J'y pense souvent, {knownNpc} m'a bien fait comprendre qu'on n'a pas besoin de parler de tout pour se sentir proche. C'est un peu comme ça que j'ai appris à prendre mon temps.",
-                "others" => $"Les gens ici ont chacun leur manière de se tenir. {knownNpc} a souvent une manière de parler qui me fait remarquer les petites choses, et c'est exactement ce qui donne du sens aux rencontres.",
-                "wish" => $"J'ai envie de {SocialDesire}. Parfois, je me dis que ce serait bien de reprendre une petite discussion avec {knownNpc}, juste pour rester connecté à ce qui compte.",
-                "leave" => $"À la prochaine, alors. Je garde en tête ce qu'on a partagé avec {knownNpc}, et j'espère qu'on se reverra encore sans trop se presser.",
-                _ => $"Oh, on parle de tout et de rien, alors. Je pense souvent à {knownNpc}, parce que ça aide à garder le village vivant dans sa tête."
+                "village" => PickSocialVariation(
+                    $"Le village a une drôle d'ambiance quand il pleut. {SocialRainPreference} Toi, tu préfères quel temps ?",
+                    $"J'aime bien observer les rues et les fenêtres. {SocialRainPreference} {knownNpc} prétend que je remarque toujours la météo avant tout le monde.",
+                    $"Le village paraît différent à chaque saison. Moi, je peux rester des heures à écouter la pluie ou le vent.",
+                    $"Je trouve que la météo donne son humeur au village. {SocialRainPreference}",
+                    $"Je me demande ce que {knownNpc} fait les jours de pluie. Moi, je trouve toujours quelque chose à observer."),
+                "self" => PickSocialVariation(
+                    $"Je suis plutôt {SocialTrait}, même si ça ne se voit pas toujours. J'aime {SocialHabit}.",
+                    $"Je crois que mon caractère vient surtout de mes petites habitudes : j'ai l'habitude de {SocialHabit}.",
+                    $"Si tu veux tout savoir, j'ai tendance à {SocialHabit}. C'est peut-être pour ça qu'on me trouve {SocialTrait}.",
+                    $"J'ai mes moments de calme et mes moments de curiosité. Mais au fond, je reste plutôt {SocialTrait}.",
+                    $"Les gens me voient comme quelqu'un de {SocialTrait}. {knownNpc}, lui, dit que je suis surtout quelqu'un qui aime {SocialHabit}."),
+                "others" => PickSocialVariation(
+                    $"Mon animal préféré, c'est {SocialFavoriteAnimal}. Ils ont une façon bien à eux de comprendre les gens.",
+                    $"J'ai toujours eu un faible pour {SocialFavoriteAnimal}. {knownNpc} comprend très bien pourquoi.",
+                    $"Si je pouvais passer la journée avec un animal, je choisirais {SocialFavoriteAnimal}. Et toi ?",
+                    $"Les animaux ont des caractères aussi différents que les habitants. J'aime particulièrement {SocialFavoriteAnimal}.",
+                    $"Je m'arrête souvent pour regarder les animaux. Surtout {SocialFavoriteAnimal} ; je ne m'en lasse pas."),
+                "wish" => PickSocialVariation(
+                    $"En ce moment, j'ai envie de {SocialDesire}. Rien d'extraordinaire, juste quelque chose qui me ferait du bien.",
+                    $"Mon petit rêve du moment ? {SocialDesire}. Et une conversation comme celle-ci, ça aide déjà.",
+                    $"J'aimerais {SocialDesire}. Peut-être que je trouverai une bonne occasion d'ici quelques jours.",
+                    $"Je souhaite surtout {SocialDesire}. Je sais, ce n'est pas très grandiose, mais c'est sincère.",
+                    $"Si j'avais une journée rien qu'à moi, je commencerais par {SocialDesire}. Tu ferais quoi, toi ?"),
+                "leave" => PickSocialVariation(
+                    $"Merci pour cette conversation. Je raconterai peut-être à {knownNpc} qu'on a parlé.",
+                    $"À la prochaine ! Ça m'a fait plaisir de discuter un peu, la journée passe mieux comme ça.",
+                    $"Je vais te laisser filer. Reviens quand tu veux, j'aurai sûrement une nouvelle histoire.",
+                    $"On devrait refaire ça un de ces jours. Les discussions simples sont souvent les meilleures.",
+                    $"Prends soin de toi ! Et si tu croises {knownNpc}, dis-lui que je lui dois encore une histoire."),
+                _ => PickSocialVariation(
+                    $"Je pourrais te parler de {SocialFavoriteAnimal} pendant des heures. {SocialRainPreference}",
+                    $"À propos, {knownNpc} et moi ne sommes pas d'accord sur la pluie. {SocialRainPreference}",
+                    $"J'ai toujours une histoire en tête, mais je ne sais jamais par laquelle commencer. Tu veux parler d'animaux ?",
+                    $"Les petites choses font les meilleures conversations : une averse, un animal curieux, ou un voisin bavard.",
+                    $"Je garde toujours un œil sur les détails. C'est comme ça qu'on finit par avoir quelque chose à raconter.")
             };
         }
 
@@ -1063,6 +1141,10 @@ namespace Soulfract
                 $"Je suis plutôt {SocialTrait}, mais certains jours j'aime juste écouter le village respirer.",
                 $"J'essaie de {SocialHabit}, même si ça n'a l'air de rien.",
                 $"J'ai envie de {SocialDesire}, sans grande histoire.",
+                $"{SocialRainPreference} Je crois que le temps influence l'humeur de tout le monde.",
+                $"Je pourrais passer des heures avec {SocialFavoriteAnimal}. Ils sont fascinants.",
+                $"Je me demande ce que {GetSocialKnownNpcName()} pense de {SocialFavoriteAnimal}.",
+                $"Même une petite averse peut rendre le village plus joli, tu ne trouves pas ?",
                 $"On finit par remarquer les petites habitudes des gens. C'est sans doute ce qui fait le charme d'ici.",
                 $"Parfois, le mieux c'est de parler de presque rien et de se sentir bien quand même.",
                 $"Le bon voisinage, c'est surtout savoir rester simple avec les autres.",
@@ -1500,6 +1582,15 @@ namespace Soulfract
         private Guid _targetGroundItemNetId = Guid.Empty;
         private VillageCenter? _targetVillageCenter;
         private float _villageCenterVisitCooldown;
+
+        //  Rythme de travail : un villageois qui a un métier travaille par "services" puis fait
+        // une pause (centre du village, banc, balade...) avant de retourner à son poste.
+        //   _workShiftTimer     : temps de travail restant avant la prochaine pause
+        //   _workBreakCooldown  : > 0 = en pause (la routine de métier est suspendue)
+        private float _workShiftTimer = 120f;
+        private float _workBreakCooldown = 0f;
+        private float _workplaceRetryCooldown = 0f;
+        private Vector2? _workApproachPos = null;
         //  Throttle du scan des objets au sol (pas besoin de le refaire à chaque frame).
         private float _forageScanTimer = 0f;
         //  Ramassage PASSIF (indépendant du système de priorités) : throttle à part, vérifié
@@ -1681,6 +1772,7 @@ namespace Soulfract
         private float _continuousFearTimer = 0f;
         private Vector2 _lastKnownPlayerPos;
         private float _sleepTimer = 0f;
+        private float _sleepWakeCooldown = 0f;
         private bool _isSleeping = false;
         private Vector2 _sleepVisualPosition = Vector2.Zero;
         //  Fallback nocturne si aucune maison ne propose de lit/chaise : le PNJ doit quand même
@@ -2648,8 +2740,49 @@ namespace Soulfract
 
         public void ApplyKnockback(Vector2 direction, float force)
         {
+            if (_isSleeping)
+                WakeFromSleep(8f);
+
             KnockbackVelocity = direction * force;
             IsKnockedBack = true;
+        }
+
+        public void ApplyPushImpulse(Vector2 impulse)
+        {
+            if (_isSleeping)
+                WakeFromSleep(8f);
+
+            KnockbackVelocity += impulse;
+            IsKnockedBack = true;
+        }
+
+        public void WakeFromInteraction()
+        {
+            if (_isSleeping)
+                WakeFromSleep(8f);
+        }
+
+        private void WakeFromSleep(float awakeDuration)
+        {
+            _isSleeping = false;
+            _sleepVisualPosition = Vector2.Zero;
+            _groundResting = false;
+            _sleepTimer = 0f;
+            _zzzTimer = 0f;
+            _sleepWakeCooldown = Math.Max(_sleepWakeCooldown, awakeDuration);
+            ReleaseCurrentGoalLock();
+            AnimState = "idle";
+
+            if (_restingInChair)
+            {
+                World.ReleaseBench(_reservedBench);
+                _reservedBench = null;
+                _restingInChair = false;
+            }
+
+            var speciesInfo = SpeciesData.GetSpeciesInfo(Species);
+            Speed = speciesInfo?.Speed ?? BaseSpeed;
+            Decide();
         }
 
         //  Décompte de l'icône d'alerte au-dessus de la tête, et émission différée du signal
@@ -2769,22 +2902,7 @@ namespace Soulfract
             PlayHurtSound(); //  Son de blessure {espèce}_hurtN.mp3 (aléatoire) à chaque coup reçu
 
             if (_isSleeping)
-            {
-                _isSleeping = false;
-                _sleepTimer = 0f;
-                _zzzTimer = 0f;
-                AnimState = "idle";
-                if (_restingInChair)
-                {
-                    World.ReleaseBench(_reservedBench);
-                    _reservedBench = null;
-                    _restingInChair = false;
-                }
-                var speciesInfo = SpeciesData.GetSpeciesInfo(Species);
-                if (speciesInfo != null)
-                    Speed = speciesInfo.Speed;
-                Decide();
-            }
+                WakeFromSleep(8f);
 
             //  Une entité qui vient de se prendre un coup considère toujours sa vie en danger :
             // ceci prend le pas sur n'importe quel autre objectif en cours (routine, nourriture,
@@ -3045,7 +3163,7 @@ namespace Soulfract
             if (_morningDeparturePending)
             {
                 _morningDeparturePending = false;
-                SetGoal(NpcAiState.WalkToTarget, PickVillagerRoutineTarget(), 20f);
+                SetGoal(NpcAiState.WalkToTarget, PickVillagerRoutineTarget(), RandomRange(6f, 12f));
                 return;
             }
 
@@ -3054,7 +3172,7 @@ namespace Soulfract
             // aléatoire "Idle" qui les laisse figés dans leur intérieur toute la journée.
             if (IsInsideAssignedHouse() && !IsTalking && CurrentTalkPartner == null)
             {
-                SetGoal(NpcAiState.WalkToTarget, PickVillagerRoutineTarget(), RandomRange(8f, 18f));
+                SetGoal(NpcAiState.WalkToTarget, PickVillagerRoutineTarget(), RandomRange(4f, 8f));
                 return;
             }
 
@@ -3065,11 +3183,11 @@ namespace Soulfract
             // villageois part vers une destination de routine ; plus rarement il va au centre du
             // village, s'assoit sur un banc, déambule sans but précis, ou ne fait rien.
             var choice = WeightedChoice(
-                (VillagerIdleChoice.VisitVillageCenter, _villageCenterVisitCooldown <= 0f ? 0.20f : 0f),
-                (VillagerIdleChoice.SitOnBench, 0.15f),
-                (VillagerIdleChoice.RoutineWalk, 0.45f),
+                (VillagerIdleChoice.VisitVillageCenter, _villageCenterVisitCooldown <= 0f ? 0.25f : 0f),
+                (VillagerIdleChoice.SitOnBench, 0.10f),
+                (VillagerIdleChoice.RoutineWalk, 0.40f),
                 (VillagerIdleChoice.Idle, 0.08f),
-                (VillagerIdleChoice.Wander, 0.12f));
+                (VillagerIdleChoice.Wander, 0.17f));
 
             switch (choice)
             {
@@ -3144,6 +3262,24 @@ namespace Soulfract
         // "reservoir sampling" (choisir un élément uniformément au hasard parmi un flux, sans
         // connaître sa taille à l'avance et sans construire de liste intermédiaire) : un seul
         // passage, aucune allocation, aucun tri.
+        //  Alterne travail et pause : renvoie true tant que le villageois est en pause. Quand le
+        // service de travail est écoulé, déclenche une nouvelle pause (pendant laquelle
+        // DecideVillagerIdle choisit centre du village / banc / balade...).
+        private bool IsOnWorkBreak()
+        {
+            if (_workBreakCooldown > 0f)
+                return true;
+
+            if (_workShiftTimer <= 0f)
+            {
+                _workBreakCooldown = RandomRange(40f, 90f);
+                _workShiftTimer = RandomRange(150f, 300f);
+                return true;
+            }
+
+            return false;
+        }
+
         private bool TryHandleVillagerProfessionRoutine()
         {
             if (!IsVillager || IsTalking || CurrentTalkPartner != null || TalkCooldown > 0f)
@@ -3151,6 +3287,10 @@ namespace Soulfract
 
             if (Profession == ProfessionType.Farmer)
             {
+                //  Le fermier prend lui aussi des pauses (sinon il ne quitte jamais son champ).
+                if (IsOnWorkBreak())
+                    return false;
+
                 if (WorkplacePosition == null || WorkZoneId < 0)
                     AssignWorkplace();
 
@@ -3167,6 +3307,46 @@ namespace Soulfract
                 }
 
                 return false;
+            }
+
+            //  Métiers à zone de travail (bûcheron, mineur, chasseur) : allaient auparavant JAMAIS
+            // à leur poste (seul le fermier était géré). Ils rejoignent maintenant leur emplacement,
+            // y restent un moment, puis font une pause avant de revenir.
+            if (Profession != ProfessionType.None && Profession != ProfessionType.Guard
+                && World.ProfessionZoneKind.ContainsKey(Profession))
+            {
+                if (IsOnWorkBreak())
+                    return false;
+
+                if (WorkplacePosition == null)
+                {
+                    if (_workplaceRetryCooldown > 0f)
+                        return false;
+                    _workplaceRetryCooldown = 30f; // évite de relancer la recherche à chaque Decide()
+                    AssignWorkplace();
+                }
+
+                if (WorkplacePosition.HasValue)
+                {
+                    if (!_workApproachPos.HasValue)
+                    {
+                        var destroyed = Program.GetDestroyedObjects();
+                        _workApproachPos = Pathfinder.IsWorldPositionWalkable(WorkplacePosition.Value, destroyed, Species)
+                            ? WorkplacePosition.Value
+                            : Pathfinder.FindNearestWalkablePosition(WorkplacePosition.Value, destroyed, Species, 4)
+                              ?? WorkplacePosition.Value;
+                    }
+
+                    // Déjà au poste : il "travaille" sur place un moment avant la prochaine décision.
+                    if (Vector2.DistanceSquared(WorldPos, _workApproachPos.Value) < 90f * 90f)
+                    {
+                        SetGoal(NpcAiState.Idle, WorldPos, RandomRange(12f, 30f), "idle");
+                        return true;
+                    }
+
+                    SetGoal(NpcAiState.WalkToTarget, _workApproachPos.Value, 45f);
+                    return true;
+                }
             }
 
             if (IsTrader && _villageCenterVisitCooldown <= 0f)
@@ -3218,6 +3398,8 @@ namespace Soulfract
                 if (!Pathfinder.IsWorldPositionWalkable(candidate, destroyed, Species))
                     continue;
                 if (World.IsCollidingEntity(candidate, destroyed, Species))
+                    continue;
+                if (IsSpotCrowded(candidate, 55f))
                     continue;
 
                 return candidate;
@@ -3567,11 +3749,56 @@ namespace Soulfract
             return false;
         }
 
+        //  Un villageois est "engagé" s'il est en pleine discussion : personne d'autre ne doit
+        // venir se joindre à lui (sinon on retrouve des attroupements).
+        private static bool IsEngagedInConversation(Entity e) =>
+            e.IsTalking || e.CurrentTalkPartner != null;
+
         private Vector2 PickVillagerRoutineTarget()
         {
-            const float socialRangeSq = 900f * 900f;
-            Vector2 anchor = HomePosition != Vector2.Zero ? HomePosition : WorldPos;
+            if (IsCaveTentResident)
+                return PickCaveTentRoutineTarget();
 
+            const int maxAttempts = 10;
+            const float crowdRadius = 80f;
+            const float socialChance = 0.15f;
+
+            Vector2 anchor = HomePosition != Vector2.Zero ? HomePosition : WorldPos;
+            HashSet<string> destroyed = Program.GetDestroyedObjects();
+
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                Vector2 candidate;
+                float a = (float)(Random.Shared.NextDouble() * Math.PI * 2.0);
+
+                // Rejoindre quelqu'un : rare, seulement sur les premiers essais, et jamais un PNJ
+                // déjà en conversation / chez lui / endormi.
+                if (attempt < 3 && Random.Shared.NextDouble() < socialChance && TryPickSocialAnchor(out var friendPos))
+                {
+                    float r = 90f + (float)(Random.Shared.NextDouble() * 80f); // à côté, pas dessus
+                    candidate = friendPos + new Vector2(MathF.Cos(a) * r, MathF.Sin(a) * r);
+                }
+                else
+                {
+                    float r = 140f + (float)(Random.Shared.NextDouble() * 320f);
+                    candidate = anchor + new Vector2(MathF.Cos(a) * r, MathF.Sin(a) * r);
+                }
+
+                if (Vector2.DistanceSquared(candidate, anchor) < 90f * 90f) continue;
+                if (!Pathfinder.IsWorldPositionWalkable(candidate, destroyed, Species)) continue;
+                if (IsSpotCrowded(candidate, crowdRadius)) continue;
+
+                return candidate;
+            }
+
+            // Repli : courte déambulation autour de la maison (jamais "rester planté").
+            return PickWanderDestination(anchor, 60f, 150f);
+        }
+
+        // Choisit un villageois dehors, éveillé et libre (jamais en conversation ni chez lui).
+        private bool TryPickSocialAnchor(out Vector2 pos)
+        {
+            const float socialRangeSq = 900f * 900f;
             Entity? picked = null;
             int seen = 0;
             var all = Program.entities;
@@ -3579,53 +3806,43 @@ namespace Soulfract
             {
                 var e = all[i];
                 if (ReferenceEquals(e, this) || !e.IsAlive || !e.IsVillager || e.IsTamed) continue;
-                if (e.HomePosition == Vector2.Zero) continue;
+                if (e.HomePosition == Vector2.Zero || e._isSleeping) continue;
+                if (IsEngagedInConversation(e)) continue;
                 if (Vector2.DistanceSquared(WorldPos, e.WorldPos) >= socialRangeSq) continue;
+                if (e.IsInsideAssignedHouse()) continue;
 
                 seen++;
-                // Reservoir sampling : chaque candidat rencontré a 1/seen chances de remplacer
-                // le précédent, ce qui garantit une sélection uniforme parmi tous les candidats
-                // vus jusqu'ici, sans jamais les stocker tous.
-                if (Random.Shared.Next(seen) == 0)
-                    picked = e;
+                if (Random.Shared.Next(seen) == 0) picked = e;
             }
 
-            if (picked != null && Random.Shared.NextDouble() < 0.9)
+            pos = picked?.WorldPos ?? Vector2.Zero;
+            return picked != null;
+        }
+
+        // Vrai si le point est déjà occupé / visé par un autre villageois, ou s'il est trop près
+        // d'une conversation en cours.
+        private bool IsSpotCrowded(Vector2 point, float radius)
+        {
+            float rSq = radius * radius;
+            float talkRadius = radius + 90f;
+            float talkRSq = talkRadius * talkRadius;
+            var all = Program.entities;
+            for (int i = 0; i < all.Count; i++)
             {
-                var targetNpc = picked;
-                Vector2 socialPoint = targetNpc.WorldPos + new Vector2(
-                    (float)((Random.Shared.NextDouble() - 0.5) * 90f),
-                    (float)((Random.Shared.NextDouble() - 0.5) * 70f)
-                );
+                var e = all[i];
+                if (ReferenceEquals(e, this) || !e.IsAlive || !e.IsVillager) continue;
 
-                if (Vector2.DistanceSquared(socialPoint, anchor) < (70f) * (70f))
-                {
-                    socialPoint = anchor + new Vector2(
-                        (float)(Random.Shared.NextDouble() * 140f + 80f),
-                        (float)((Random.Shared.NextDouble() - 0.5) * 120f)
-                    );
-                }
+                if (IsEngagedInConversation(e) && Vector2.DistanceSquared(point, e.WorldPos) < talkRSq)
+                    return true;
 
-                if (!IsCaveTentResident || HasCaveRouteTo(socialPoint))
-                    return socialPoint;
+                if (Vector2.DistanceSquared(point, e.WorldPos) < rSq)
+                    return true;
+
+                if ((e.AiState == NpcAiState.WalkToTarget || e.AiState == NpcAiState.GoToVillageCenter)
+                    && Vector2.DistanceSquared(point, e.AiTarget) < rSq)
+                    return true;
             }
-
-            if (IsCaveTentResident)
-                return PickCaveTentRoutineTarget();
-
-            float radius = 140f + (float)(Random.Shared.NextDouble() * 220f);
-            float angle = (float)(Random.Shared.NextDouble() * Math.PI * 2f);
-            Vector2 candidate = anchor + new Vector2(
-                MathF.Cos(angle) * radius,
-                MathF.Sin(angle) * radius
-            );
-
-            if (Vector2.DistanceSquared(candidate, anchor) < (90f) * (90f))
-            {
-                candidate = anchor + new Vector2(140f, 0f);
-            }
-
-            return candidate;
+            return false;
         }
 
         private bool HasCaveRouteTo(Vector2 destination)
@@ -5169,6 +5386,14 @@ namespace Soulfract
             if (_villageCenterVisitCooldown > 0f)
                 _villageCenterVisitCooldown = Math.Max(0f, _villageCenterVisitCooldown - dt);
 
+            if (_workBreakCooldown > 0f)
+                _workBreakCooldown = Math.Max(0f, _workBreakCooldown - dt);
+            else if (_workShiftTimer > 0f)
+                _workShiftTimer -= dt;
+
+            if (_workplaceRetryCooldown > 0f)
+                _workplaceRetryCooldown = Math.Max(0f, _workplaceRetryCooldown - dt);
+
             if (_chestDepositRetryCooldown > 0f)
                 _chestDepositRetryCooldown = Math.Max(0f, _chestDepositRetryCooldown - dt);
 
@@ -5906,6 +6131,8 @@ namespace Soulfract
         {
             if (AiTarget == WorldPos)
             {
+                if (AiState == NpcAiState.WalkToTarget)
+                    AiTimer = Math.Min(AiTimer, RandomRange(1f, 3f)); // pas de longue immobilité (timer de 20s hérité)
                 AiState = NpcAiState.Idle;
                 return;
             }
@@ -5928,6 +6155,8 @@ namespace Soulfract
 
                 if (Vector2.DistanceSquared(WorldPos, AiTarget) < arrivalRadius * arrivalRadius)
                 {
+                    if (AiState == NpcAiState.WalkToTarget)
+                        AiTimer = Math.Min(AiTimer, RandomRange(1f, 3f)); // pas de longue immobilité (timer de 20s hérité)
                     AiState = NpcAiState.Idle;
                     AiTarget = WorldPos;
                     AnimState = "idle";
@@ -8629,6 +8858,9 @@ namespace Soulfract
 
         private void UpdateSleepState(float darkness, float dt)
         {
+            if (!IsInPlayerDialogue)
+                _sleepWakeCooldown = Math.Max(0f, _sleepWakeCooldown - dt);
+
             bool isTentResident = IsCaveTentResident;
             if (HomeBuildingId == TentHomeBuildingId && _tentRestCooldown > 0f)
                 _tentRestCooldown = Math.Max(0f, _tentRestCooldown - dt);
@@ -8695,7 +8927,8 @@ namespace Soulfract
                 && (!hasHome || isInsideHome);
 
             bool canRestInTent = HomeBuildingId != TentHomeBuildingId || _tentRestCooldown <= 0f;
-            if (isNight && !IsPlayer && !IsTamed && Behavior != "hostile" && isHomeOrHomeless && canRestInTent)
+            if (isNight && !IsPlayer && !IsTamed && Behavior != "hostile" && isHomeOrHomeless
+                && canRestInTent && _sleepWakeCooldown <= 0f)
             {
                 if (!_isSleeping)
                 {

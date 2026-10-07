@@ -4557,11 +4557,11 @@ float stackY = baseY - (lvl - 1) * ts;
 				if (!entity.IsAlive) continue;
 				if (Program.MountedAnimal == entity) continue; // dessinée avec le joueur (voir plus bas), pour l'ordre de superposition
 				if (entity.IsMounted && entity.Rider != null) continue; // monture PNJ dessinée via le cavalier
-				if (!ShouldRenderEntity(entity.WorldPos)) continue;
-				if (!IsEntityNearScreen(entity.WorldPos))
+				Vector2 entityVisualPos = entity.VisualWorldPos;
+				if (!ShouldRenderEntity(entityVisualPos)) continue;
+				if (!IsEntityNearScreen(entityVisualPos))
 					continue;
 				{
-				Vector2 entityVisualPos = entity.VisualWorldPos;
 				int tileX = (int)(entityVisualPos.X / ts);
 				int tileY = (int)(entityVisualPos.Y / ts);
 				if (!Program.IsTileLit(tileX, tileY)) continue;

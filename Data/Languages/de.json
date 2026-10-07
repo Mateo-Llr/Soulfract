@@ -229,6 +229,8 @@
     "quest.log.none":  "Momentan keine aktiven Quests.",
     "quest.log.objective":  "Bringe {0}x {1} zu {2}",
     "quest.log.reward":  "Belohnung",
+    "quest.splash.completed":  "Quest abgeschlossen",
+    "quest.splash.new":  "Neue Quest",
     "quest.log.title":  "Questtagebuch",
     "quest.npc_title":  "Dorfbewohner",
     "quest.offer_line":  "Hey, könntest du {0}x {1} zu {2} bringen? Ich werde es dir vergelten.",

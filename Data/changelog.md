@@ -1246,6 +1246,15 @@
 - [ADDED] Mise à jour du lanceur directement depuis son bouton de vérification, sans bootstrapper pour les versions suivantes
 - [ADDED] Mises à jour différentielles du jeu avec vérification d'intégrité et suppression des fichiers obsolètes
 
+### 7 octobre
+
+- [FIXED] Quantités d'objets demandées par les quêtes limitées à la taille maximale de leur pile
+- [FIXED] Objets remis par les PNJ pour les quêtes ajoutés directement à l'inventaire lorsqu'il y a de la place
+- [ADDED] Splash text centré pour l'acceptation et la complétion des quêtes
+- [CHANGED] Apparition du splash de quête ralentie et décalée vers le bas, récompense affichée en petit texte gris
+- [FIXED] Les PNJ endormis se réveillent quand on leur parle ou qu'on les pousse ; leur rendu et leur position de ciblage suivent leur position visible
+- [CHANGED] Conversations des villageois enrichies de réponses variées et de préférences individuelles pour la pluie et les animaux, conservées après rechargement
+
 ---
 
 # Potentiels ajouts futurs
