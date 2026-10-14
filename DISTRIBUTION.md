@@ -16,15 +16,20 @@ Le lanceur s'ouvre sur une interface graphique : il affiche la version disponibl
 dernières entrées de `Data/changelog.md` avec une couleur par type de changement, l'état
 de la mise à jour, le titre graphique du jeu et un bouton **Jouer** centré en bas. Il
 vérifie les mises à jour au démarrage sans les installer et indique si une mise à jour est
-disponible. Le bouton **Vérifier les mises à jour** relance cette vérification ; le
-téléchargement et l'installation du jeu commencent uniquement au clic sur **Jouer**, puis
-le jeu démarre automatiquement. Si aucune préférence de langue n'est encore enregistrée,
-le jeu démarre en anglais.
+disponible. Le bouton **Vérifier les mises à jour** relance cette vérification et devient
+**Mettre à jour** si une nouvelle version du jeu est disponible. Un clic sur **Mettre à
+jour** ou **Jouer** télécharge et installe la mise à jour ; le jeu démarre automatiquement
+après l'installation. Si aucune préférence de langue n'est encore enregistrée, le jeu
+démarre en anglais.
 Les captures d'écran réalisées en jeu sont rangées dans `Screenshots/` à côté de
 l'installation et ne sont pas incluses dans les mises à jour.
 Au clic sur **Jouer**, le lanceur vérifie également s'il doit lui-même être mis à jour :
-après la toute première installation de cette fonction, les futures versions du lanceur
-s'installent sans lancer à nouveau le bootstrapper.
+le bouton **Mettre à jour** effectue aussi cette vérification. Après la toute première
+installation de cette fonction, les futures versions du lanceur s'installent sans lancer à
+nouveau le bootstrapper. Les utilisateurs d'une ancienne version doivent cliquer sur
+**Jouer** pour installer le lanceur à jour une première fois ; les versions encore plus
+anciennes qui ne disposent pas de l'auto-mise à jour doivent être démarrées avec le
+bootstrapper.
 
 ## Publier une version
 

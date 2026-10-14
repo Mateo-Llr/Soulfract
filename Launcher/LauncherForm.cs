@@ -53,6 +53,7 @@ internal sealed class LauncherForm : Form
     private GlassSidebarPanel _changelogPanel = new();
     private Button _changelogToggleButton = new();
     private bool _isWorking;
+    private bool _gameUpdateAvailable;
     private string? _latestVersion;
 
     public LauncherForm()
@@ -174,7 +175,7 @@ internal sealed class LauncherForm : Form
         _checkUpdatesButton = CreateButton("VÉRIFIER LES MISES À JOUR", ElevatedColor, PrimaryTextColor, 210, 46);
         _checkUpdatesButton.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold);
         _checkUpdatesButton.Anchor = AnchorStyles.None;
-        _checkUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync();
+        _checkUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync(installUpdate: _gameUpdateAvailable);
 
         var updateActions = new TableLayoutPanel
         {
@@ -313,7 +314,9 @@ internal sealed class LauncherForm : Form
 
             bool isGameUpToDate = hasInstalledGame
                 && string.Equals(installedVersion, _latestVersion, StringComparison.Ordinal);
-            _updateAvailableLabel.Visible = !isGameUpToDate;
+            _gameUpdateAvailable = !isGameUpToDate;
+            _checkUpdatesButton.Text = _gameUpdateAvailable ? "METTRE À JOUR" : "VÉRIFIER LES MISES À JOUR";
+            _updateAvailableLabel.Visible = _gameUpdateAvailable;
 
             if (!installUpdate)
             {
@@ -353,15 +356,7 @@ internal sealed class LauncherForm : Form
                 : hasInstalledGame
                     ? $"Téléchargement complet de la mise à jour {_latestVersion}..."
                     : $"Téléchargement de Soulfract {_latestVersion}...");
-            var progress = new Progress<(long Downloaded, long? Total)>(value =>
-            {
-                if (value.Total is > 0)
-                {
-                    _progressBar.Style = ProgressBarStyle.Continuous;
-                    _progressBar.Value = (int)Math.Clamp(value.Downloaded * 100 / value.Total.Value, 0, 100);
-                    UpdateStatus($"Téléchargement... {value.Downloaded / 1_048_576} / {value.Total.Value / 1_048_576} Mo");
-                }
-            });
+            IProgress<(long Downloaded, long? Total)> progress = CreateDownloadProgress("Téléchargement");
             await DownloadArchiveAsync(selectedArchive, archivePath, progress);
 
             UpdateStatus("Vérification de l'archive...");
@@ -400,6 +395,8 @@ internal sealed class LauncherForm : Form
             UpdateStatus($"Soulfract {_latestVersion} est prêt. Démarrage du jeu...");
             _folderButton.Enabled = true;
             SetIdleState(canPlay: true);
+            _gameUpdateAvailable = false;
+            _checkUpdatesButton.Text = "VÉRIFIER LES MISES À JOUR";
             _updateAvailableLabel.Visible = false;
             LaunchInstalledGame();
         }
@@ -499,8 +496,14 @@ internal sealed class LauncherForm : Form
 
         try
         {
-            await DownloadVerifiedReleaseAssetAsync(launcherAsset, stagedLauncherPath);
-            await DownloadVerifiedReleaseAssetAsync(updaterAsset, updaterPath);
+            await DownloadVerifiedReleaseAssetAsync(
+                launcherAsset,
+                stagedLauncherPath,
+                CreateDownloadProgress($"Mise à jour du lanceur vers {_latestVersion}"));
+            await DownloadVerifiedReleaseAssetAsync(
+                updaterAsset,
+                updaterPath,
+                CreateDownloadProgress($"Composant de mise à jour du lanceur {_latestVersion}"));
 
             var startInfo = new ProcessStartInfo
             {
@@ -559,7 +562,10 @@ internal sealed class LauncherForm : Form
         return null;
     }
 
-    private static async Task DownloadVerifiedReleaseAssetAsync(LauncherUpdateAsset asset, string destination)
+    private static async Task DownloadVerifiedReleaseAssetAsync(
+        LauncherUpdateAsset asset,
+        string destination,
+        IProgress<(long Downloaded, long? Total)> progress)
     {
         using HttpResponseMessage response = await HttpClient.GetAsync(
             asset.DownloadUrl,
@@ -568,7 +574,16 @@ internal sealed class LauncherForm : Form
 
         await using Stream input = await response.Content.ReadAsStreamAsync();
         await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
-        await input.CopyToAsync(output);
+        byte[] buffer = new byte[81920];
+        long downloaded = 0;
+        long? total = response.Content.Headers.ContentLength;
+        int bytesRead;
+        while ((bytesRead = await input.ReadAsync(buffer)) > 0)
+        {
+            await output.WriteAsync(buffer.AsMemory(0, bytesRead));
+            downloaded += bytesRead;
+            progress.Report((downloaded, total));
+        }
         await output.FlushAsync();
 
         if (output.Length < 1024 * 1024)
@@ -995,6 +1010,24 @@ internal sealed class LauncherForm : Form
         _progressBar.Style = ProgressBarStyle.Marquee;
     }
 
+    private IProgress<(long Downloaded, long? Total)> CreateDownloadProgress(string operation)
+    {
+        return new Progress<(long Downloaded, long? Total)>(value =>
+        {
+            if (value.Total is > 0)
+            {
+                _progressBar.Style = ProgressBarStyle.Continuous;
+                _progressBar.Value = (int)Math.Clamp(value.Downloaded * 100 / value.Total.Value, 0, 100);
+                UpdateStatus($"{operation}... {value.Downloaded / 1_048_576} / {value.Total.Value / 1_048_576} Mo");
+            }
+            else
+            {
+                _progressBar.Style = ProgressBarStyle.Marquee;
+                UpdateStatus($"{operation}... {value.Downloaded / 1_048_576} Mo téléchargés");
+            }
+        });
+    }
+
     private void SetIdleState(bool canPlay)
     {
         _progressBar.Visible = false;
@@ -1002,6 +1035,7 @@ internal sealed class LauncherForm : Form
         _progressBar.Value = 0;
         _playButton.Enabled = canPlay;
         _checkUpdatesButton.Enabled = true;
+        _checkUpdatesButton.Text = _gameUpdateAvailable ? "METTRE À JOUR" : "VÉRIFIER LES MISES À JOUR";
     }
 
     private void UpdateStatus(string text)

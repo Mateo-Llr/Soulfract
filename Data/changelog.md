@@ -1274,6 +1274,8 @@
 
 - [ADDED] Voix synthétiques procédurales pour les dialogues des PNJ, générées sans fichiers audio et synchronisées avec l'apparition du texte
 - [CHANGED] Timbres des voix des PNJ améliorés avec des harmoniques et des formants inspirés de la voix humaine
+- [FIXED] Le bouton de vérification devient « Mettre à jour » lorsqu'une mise à jour du jeu est disponible
+- [FIXED] Progression réelle du téléchargement affichée pour les mises à jour du jeu et du lanceur
 
 ---
 
