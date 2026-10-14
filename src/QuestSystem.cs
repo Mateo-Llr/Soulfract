@@ -804,6 +804,7 @@ namespace Soulfract
         private const float TYPEWRITER_CHARS_PER_SECOND = 45f;
         private const float TYPEWRITER_MIN_SECONDS = 0.7f;
         private static float _typewriterElapsed = 0f;
+        private static int _speechCharCursor = 0;
         private static bool _ignoreNextMousePress = false;
 
         private static Rectangle _acceptRect;
@@ -858,6 +859,8 @@ namespace Soulfract
         private static void ResetTypewriter()
         {
             _typewriterElapsed = 0f;
+            _speechCharCursor = 0;
+            ProceduralNpcVoice.Stop();
             _ignoreNextMousePress = true;
         }
 
@@ -997,14 +1000,48 @@ namespace Soulfract
         {
             if (string.IsNullOrEmpty(fullText)) return 0;
 
-            float baseDuration = fullText.Length / TYPEWRITER_CHARS_PER_SECOND;
-            float effectiveDuration = Math.Max(baseDuration, TYPEWRITER_MIN_SECONDS);
-            float progress = Math.Clamp(_typewriterElapsed / effectiveDuration, 0f, 1f);
-            int visible = (int)(progress * fullText.Length);
-            return Math.Clamp(visible, 0, fullText.Length);
+            float totalDuration = GetTypewriterDuration(fullText);
+            float rawDuration = GetRawTypewriterDuration(fullText);
+            float durationScale = totalDuration / rawDuration;
+            float elapsed = 0f;
+
+            for (int i = 0; i < fullText.Length; i++)
+            {
+                char previousCharacter = i == 0 ? '\0' : fullText[i - 1];
+                elapsed += GetCharacterDelay(previousCharacter) * durationScale;
+                if (_typewriterElapsed < elapsed)
+                    return i;
+            }
+
+            return fullText.Length;
         }
 
         private static bool IsTypewriterDone(string fullText) => GetVisibleCharCount(fullText) >= fullText.Length;
+
+        private static float GetTypewriterDuration(string text)
+            => Math.Max(GetRawTypewriterDuration(text), TYPEWRITER_MIN_SECONDS);
+
+        private static float GetRawTypewriterDuration(string text)
+        {
+            float duration = 0f;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char previousCharacter = i == 0 ? '\0' : text[i - 1];
+                duration += GetCharacterDelay(previousCharacter);
+            }
+            return duration;
+        }
+
+        private static float GetCharacterDelay(char character)
+        {
+            float punctuationMultiplier = character switch
+            {
+                ',' or ';' or ':' => 3f,
+                '.' or '?' or '!' or '…' => 6f,
+                _ => 1f
+            };
+            return punctuationMultiplier / TYPEWRITER_CHARS_PER_SECOND;
+        }
 
         // Affiche une bulle de choix : discuter de la quête / commercer / ne rien faire.
         // C'est l'écran qui s'ouvre en premier lorsqu'on appuie sur E sur un PNJ ayant
@@ -1167,6 +1204,7 @@ namespace Soulfract
         public static void Close()
         {
             IsOpen = false;
+            ProceduralNpcVoice.Stop();
             _acceptButtonPressed = false;
             _declineButtonPressed = false;
             //  On NE remet PAS _currentNpc à null ici : Program.cs a besoin de le lire
@@ -1193,6 +1231,9 @@ namespace Soulfract
             EnsureFriendshipBarTextureLoaded();
             EnsureSocialIconsLoaded();
             _typewriterElapsed += Raylib.GetFrameTime();
+            int visibleCharCount = GetVisibleCharCount(_bodyText);
+            if (_currentNpc != null)
+                ProceduralNpcVoice.Update(_currentNpc, _bodyText, visibleCharCount, ref _speechCharCursor);
             bool stillTyping = !IsTypewriterDone(_bodyText);
             bool mousePressed = Raylib.IsMouseButtonPressed(MouseButton.Left);
             bool mouseReleased = Raylib.IsMouseButtonReleased(MouseButton.Left);
@@ -1200,8 +1241,9 @@ namespace Soulfract
 
             if (mousePressed && stillTyping)
             {
-                float fullDuration = Math.Max(_bodyText.Length / TYPEWRITER_CHARS_PER_SECOND, TYPEWRITER_MIN_SECONDS);
-                _typewriterElapsed = fullDuration + 0.01f;
+                _typewriterElapsed = GetTypewriterDuration(_bodyText) + 0.01f;
+                _speechCharCursor = _bodyText.Length;
+                ProceduralNpcVoice.Stop();
                 stillTyping = false;
                 return null;
             }

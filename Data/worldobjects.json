@@ -1851,6 +1851,14 @@
         "x": 0,
         "y": 0
       },
+      "energyPorts": [
+        {
+          "type": "input",
+          "dx": 0,
+          "dy": 0,
+          "label": "Entrée câble"
+        }
+      ],
       "isLightSource": true,
       "lightRadius": 580,
       "lightColor": [

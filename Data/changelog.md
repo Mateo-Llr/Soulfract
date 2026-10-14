@@ -1255,6 +1255,26 @@
 - [FIXED] Les PNJ endormis se réveillent quand on leur parle ou qu'on les pousse ; leur rendu et leur position de ciblage suivent leur position visible
 - [CHANGED] Conversations des villageois enrichies de réponses variées et de préférences individuelles pour la pluie et les animaux, conservées après rechargement
 
+### 10 octobre
+
+- [FIXED] Câblage des lampes d'intérieur : les modèles de lampe acceptent maintenant une entrée électrique et s'éteignent lorsqu'un circuit relié n'est pas alimenté
+- [FIXED] Échange d'équipement au clic droit : l'objet remplacé retourne dans l'inventaire et ne tombe au sol qu'en cas de manque de place
+- [FIXED] Rendu au sol des items personnalisés, avec conservation des couleurs, métadonnées et variantes du manteau
+- [CHANGED] Aperçu du menu des items mis à jour immédiatement selon les options de personnalisation sélectionnées
+- [FIXED] Déclencheurs manquants des succès d'exploration, de combat, de collecte, de construction, de santé maximale et de teinture
+- [FIXED] Progression des succès conservée dans les sauvegardes, avec mémorisation des types d'objets distincts obtenus
+- [FIXED] Succès « Envoyer un explosif » attribué uniquement en lançant de la dynamite
+- [CHANGED] Munitions chargées et état de rechargement des armes à distance stockés dans les métadonnées des armes pour être conservés avec les sauvegardes
+- [FIXED] Invocation du Génie de la Lampe reliée à la clé `genie_lamp` plutôt qu'à un ancien ID numérique
+- [FIXED] Récompenses des boss et interactions d'objets reliées aux clés canoniques plutôt qu'à des IDs numériques obsolètes
+- [ADDED] Ajout du Cœur du Génie comme butin dédié du boss
+- [CHANGED] Teinte bleue du Génie de la Lampe conservée après le chargement des sauvegardes
+
+### 14 octobre
+
+- [ADDED] Voix synthétiques procédurales pour les dialogues des PNJ, générées sans fichiers audio et synchronisées avec l'apparition du texte
+- [CHANGED] Timbres des voix des PNJ améliorés avec des harmoniques et des formants inspirés de la voix humaine
+
 ---
 
 # Potentiels ajouts futurs

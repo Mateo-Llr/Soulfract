@@ -90,6 +90,8 @@ namespace Soulfract
 
     public class Entity
     {
+        public static readonly Color GenieBlueTint = new Color(45, 145, 235, 255);
+
         // ==================== CHAMPS PRINCIPAUX ====================
         public Vector2 WorldPos;
         public string Species;
@@ -314,6 +316,14 @@ namespace Soulfract
 
         // ==================== GENIE BOSS (Génie de la Lampe) ====================
         public bool IsGenie => IsBoss && string.Equals(Species, "Genie", StringComparison.OrdinalIgnoreCase);
+
+        public void EnsureGenieTint()
+        {
+            if (string.Equals(Species, "Genie", StringComparison.OrdinalIgnoreCase)
+                && !IsGenieIllusion
+                && !string.Equals(CustomName, "Illusion du Génie", StringComparison.OrdinalIgnoreCase))
+                Tint = GenieBlueTint;
+        }
         //  Marque les clones/illusions invoqués par le Génie en phase 1 : ils infligent des
         // dégâts réduits, n'ont qu'1 PV (une seule touche les dissipe) et ne comptent jamais
         // comme le "vrai" boss pour la barre de vie (IsBoss reste false sur les clones).
@@ -1900,6 +1910,7 @@ namespace Soulfract
                 HairColor = Color.Black;
             }
 
+            EnsureGenieTint();
             AssignRandomFeatures(colorPreset, RandomFeatureVariant, RandomFeatureColor, renderSpecies);
 
             _idleSoundSlug = BuildIdleSoundSlug(colorPreset);
@@ -8696,6 +8707,9 @@ namespace Soulfract
                 colorPreset = SpeciesData.PickColorPreset(renderSpecies, spawnBiome);
                 tint = GetRandomSkinColor(renderSpecies, colorPreset);
             }
+
+            if (string.Equals(species, "Genie", StringComparison.OrdinalIgnoreCase))
+                tint = GenieBlueTint;
 
             AssignRandomFeatures(colorPreset, randomFeatureVariant, randomFeatureColor, renderSpecies);
         }

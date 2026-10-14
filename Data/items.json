@@ -2565,6 +2565,14 @@
       "rarity": "rare"
     },
     {
+      "id": "genie_heart",
+      "type": "resource",
+      "textureName": "slime_core",
+      "stackSize": 99,
+      "value": 120,
+      "rarity": "legendary"
+    },
+    {
       "id": "slime_gel",
       "type": "resource",
       "stackSize": 99,

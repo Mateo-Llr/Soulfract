@@ -232,39 +232,69 @@ namespace Soulfract
 
 		static List<ArrowProjectile> _bullets = new List<ArrowProjectile>();
 
-		private static RangedWeaponReloadState GetOrCreateRangedWeaponState(int weaponId, int maxAmmoPerCharge)
+		private static RangedWeaponReloadState GetOrCreateRangedWeaponState(Item weapon, int maxAmmoPerCharge)
 		{
-			if (!_rangedWeaponReloadStates.TryGetValue(weaponId, out var state))
+			int maxAmmo = Math.Max(1, maxAmmoPerCharge);
+			string ammoValue = weapon.GetMetadataValue("loadedAmmo");
+			if (!int.TryParse(ammoValue, out int currentAmmo))
 			{
-				state = new RangedWeaponReloadState
-				{
-					CurrentAmmo = Math.Max(1, maxAmmoPerCharge),
-					ReloadAmmoId = 0,
-					ReloadAmount = 0,
-				};
-				_rangedWeaponReloadStates[weaponId] = state;
+				currentAmmo = maxAmmo;
+				weapon.SetMetadataValue("loadedAmmo", currentAmmo.ToString(System.Globalization.CultureInfo.InvariantCulture));
 			}
+
+			var state = new RangedWeaponReloadState
+			{
+				CurrentAmmo = Math.Clamp(currentAmmo, 0, maxAmmo),
+			};
+			if (state.CurrentAmmo != currentAmmo)
+				weapon.SetMetadataValue("loadedAmmo", state.CurrentAmmo.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+			string reloadAmmoKey = weapon.GetMetadataValue("reloadAmmo");
+			string reloadTimerValue = weapon.GetMetadataValue("reloadTimer");
+			string reloadAmountValue = weapon.GetMetadataValue("reloadAmount");
+			if (float.TryParse(reloadTimerValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float reloadTimer)
+				&& reloadTimer > 0f
+				&& int.TryParse(reloadAmountValue, out int reloadAmount)
+				&& reloadAmount > 0
+				&& GameData.TryGetItemByKey(reloadAmmoKey, out var reloadAmmo))
+			{
+				state.IsReloading = true;
+				state.ReloadTimer = reloadTimer;
+				state.ReloadAmmoId = reloadAmmo.ID;
+				state.ReloadAmount = Math.Min(maxAmmo, reloadAmount);
+			}
+			else if ((!string.IsNullOrEmpty(reloadTimerValue) && reloadTimerValue != "0")
+				|| !string.IsNullOrEmpty(reloadAmmoKey)
+				|| (!string.IsNullOrEmpty(reloadAmountValue) && reloadAmountValue != "0"))
+			{
+				SaveRangedWeaponState(weapon, state);
+			}
+
 			return state;
 		}
 
-		private static void StartRangedReload(int weaponId, int ammoId, int ammoAmountToReload, int maxAmmoPerCharge)
+		private static void SaveRangedWeaponState(Item weapon, RangedWeaponReloadState state)
+		{
+			weapon.SetMetadataValue("loadedAmmo", state.CurrentAmmo.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			weapon.SetMetadataValue("reloadTimer", state.IsReloading
+				? state.ReloadTimer.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				: "0");
+			weapon.SetMetadataValue("reloadAmmo", state.IsReloading ? GameData.GetItemKey(state.ReloadAmmoId) : "");
+			weapon.SetMetadataValue("reloadAmount", state.IsReloading
+				? state.ReloadAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				: "0");
+		}
+
+		private static void StartRangedReload(Item weapon, int ammoId, int ammoAmountToReload, int maxAmmoPerCharge)
 		{
 			if (ammoId <= 0 || ammoAmountToReload <= 0) return;
-			if (!_rangedWeaponReloadStates.TryGetValue(weaponId, out var state))
-			{
-				state = new RangedWeaponReloadState
-				{
-					CurrentAmmo = Math.Max(1, maxAmmoPerCharge),
-					ReloadAmmoId = 0,
-					ReloadAmount = 0,
-				};
-			}
+			var state = GetOrCreateRangedWeaponState(weapon, maxAmmoPerCharge);
 
 			state.IsReloading = true;
 			state.ReloadTimer = RANGED_RELOAD_DURATION;
 			state.ReloadAmmoId = ammoId;
 			state.ReloadAmount = Math.Min(Math.Max(1, maxAmmoPerCharge), ammoAmountToReload);
-			_rangedWeaponReloadStates[weaponId] = state;
+			SaveRangedWeaponState(weapon, state);
 		}
 
 		static List<ThrowableProjectile> _throwables = new List<ThrowableProjectile>();
@@ -303,7 +333,7 @@ namespace Soulfract
 			return _localPlayersCache;
 		}
 
-		//  Le seau (id 63) a désormais 10 charges de liquide, comme un petit réservoir : il
+		// Le seau a 10 charges de liquide, comme un petit réservoir : il
 		// peut contenir de l'eau OU du lait (jamais les deux à la fois), avec un niveau qui
 		// se vide/se remplit progressivement. Le format canonique est "type;doses=N"
 		// (ex: "water;doses=7", "milk;doses=10"), comme pour les potions. Les anciens

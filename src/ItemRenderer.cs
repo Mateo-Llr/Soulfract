@@ -902,13 +902,24 @@ namespace Soulfract
         /// ses couleurs d'origine (blanc), au lieu d'être recolorée par itemData.Color (qui n'est
         /// qu'une couleur de repli pour le cas où aucune texture n'existe du tout).
         /// </param>
-        public static void DrawItemRotated(ItemData itemData, Vector2 center, float size, float rotation, Color? customTint = null, string? metadata = null)
+        public static void DrawItemRotated(ItemData itemData, Vector2 center, float size, float rotation, Color? customTint = null, string? metadata = null, List<Color?>? customColors = null)
         {
             Rectangle dest = new Rectangle(center.X, center.Y, size, size);
             Vector2 origin = new Vector2(size / 2f, size / 2f);
+            var rotatedItem = new Item(itemData.Name, 1, itemData.Color, itemData.Icon);
+            rotatedItem.RestoreMetadataFromSave(metadata);
+            if (customColors != null && customColors.Count > 0)
+            {
+                rotatedItem.CustomColors = new List<Color?>(customColors);
+                rotatedItem.SyncColorsToMetadata();
+            }
+            else if (customTint.HasValue)
+            {
+                rotatedItem.SetLayerColor(0, customTint.Value);
+            }
             // Couleur de dernier recours (rectangle de repli si aucune texture n'existe) :
             // la vraie teinte de l'item si elle existe, sinon la couleur générique de l'item.
-            Color fallbackColor = customTint ?? itemData.Color;
+            Color fallbackColor = rotatedItem.GetLayerColor(0);
 
             if (string.IsNullOrEmpty(itemData.TextureName))
             {
@@ -917,15 +928,17 @@ namespace Soulfract
             }
 
             string textureBaseName = itemData.TextureName;
+            if (string.Equals(textureBaseName, "coat", StringComparison.OrdinalIgnoreCase)
+                && DrawCoatVariantRotated(rotatedItem, dest, origin, rotation))
+                return;
+
             bool isBottleLike = IsBottleLikeTexture(textureBaseName);
             if (isBottleLike)
             {
-                var groundItem = new Item(itemData.Name, 1, itemData.Color, itemData.Icon, customTint);
-                groundItem.Metadata = metadata ?? "";
-                if (DrawBottle(groundItem, itemData, dest, origin, rotation, customTint ?? Color.White))
+                if (DrawBottle(rotatedItem, itemData, dest, origin, rotation, Color.White))
                 {
                     if (rotation == 0f)
-                        DrawLiquidContainerBar(groundItem, new Rectangle(
+                        DrawLiquidContainerBar(rotatedItem, new Rectangle(
                             dest.X - origin.X, dest.Y - origin.Y, dest.Width, dest.Height));
                     return;
                 }
@@ -969,12 +982,10 @@ namespace Soulfract
                 Color layerColor;
                 if (isDyeable)
                 {
-                    var metadataItem = new Item(itemData.Name, 1, Color.White, itemData.Icon);
-                    metadataItem.Metadata = metadata ?? "";
-                    layerColor = metadataItem.GetLayerColor(layer - 1);
+                    layerColor = rotatedItem.GetLayerColor(layer - 1);
                 }
                 else
-                    layerColor = layer == 1 && customTint.HasValue ? customTint.Value : Color.White;
+                    layerColor = layer == 1 ? rotatedItem.GetLayerColor(0) : Color.White;
 
                 Raylib.DrawTexturePro(layerTex,
                     new Rectangle(0, 0, layerTex.Width, layerTex.Height),
@@ -983,10 +994,40 @@ namespace Soulfract
 
             if (isBucket)
             {
-                var groundItem = new Item(itemData.Name, 1, itemData.Color, itemData.Icon, customTint);
-                groundItem.Metadata = metadata ?? "";
-                DrawLiquidContainerOverlay(groundItem, dest, origin, rotation);
+                DrawLiquidContainerOverlay(rotatedItem, dest, origin, rotation);
             }
+        }
+
+        private static bool DrawCoatVariantRotated(Item item, Rectangle dest, Vector2 origin, float rotation)
+        {
+            string bodyStyle = item.GetMetadataValue("opening", item.GetMeta("opening", "closed")).ToLowerInvariant();
+            if (bodyStyle != "open" && bodyStyle != "lace_up" && bodyStyle != "closed")
+                bodyStyle = "closed";
+
+            string sleeveStyle = item.GetMetadataValue("sleeves", item.GetMeta("sleeves", "short")).ToLowerInvariant();
+            if (sleeveStyle != "short" && sleeveStyle != "long" && sleeveStyle != "none")
+                sleeveStyle = "short";
+
+            Texture2D body = LoadTexture($"assets/items/coat_1_body_{bodyStyle}.png");
+            Texture2D sleeves = sleeveStyle == "none"
+                ? new Texture2D()
+                : LoadTexture($"assets/items/coat_1_sleeves_{sleeveStyle}.png");
+            if (body.Id == 0 && sleeves.Id == 0)
+                return false;
+
+            Color coatColor = item.GetLayerColor(0);
+            if (body.Id != 0)
+                DrawTextureLayerRotated(body, dest, origin, rotation, coatColor);
+            if (sleeves.Id != 0)
+                DrawTextureLayerRotated(sleeves, dest, origin, rotation, coatColor);
+            return true;
+        }
+
+        private static void DrawTextureLayerRotated(Texture2D texture, Rectangle dest, Vector2 origin, float rotation, Color tint)
+        {
+            Raylib.DrawTexturePro(texture,
+                new Rectangle(0, 0, texture.Width, texture.Height),
+                dest, origin, rotation, tint);
         }
 
         private static void DrawSingleTextureRotated(Texture2D tex, Rectangle dest, Vector2 origin, float rotation, Color tint)

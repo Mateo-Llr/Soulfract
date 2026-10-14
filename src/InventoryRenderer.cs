@@ -2437,7 +2437,7 @@ namespace Soulfract
 
                 slot.Clear();
                 foreach (var displaced in unequipped)
-                    Program.AddItemToInventory(displaced, 1);
+                    ReturnDisplacedEquipment(displaced);
 
                 eq.LoadEquipmentTextures();
                 Program.PlayEquipSound();
@@ -2450,12 +2450,9 @@ namespace Soulfract
             EquipmentSlot targetSlot = itemData.EquipSlot;
 
             Item? currentEquipped = eq.GetItemInSlot(targetSlot, 0);
+            Item? removedItem = null;
             if (currentEquipped != null)
-            {
-                Item? removed = eq.UnEquipItem(targetSlot, 0);
-                if (removed != null)
-                    Program.AddItemToInventory(removed, 1);
-            }
+                removedItem = eq.UnEquipItem(targetSlot, 0);
 
             int slotIndex = -1;
             for (int i = 0; i < itemData.EquipMax; i++)
@@ -2469,26 +2466,61 @@ namespace Soulfract
 
             if (slotIndex == -1)
             {
-                if (itemData.EquipMax == 1)
+                if (itemData.EquipMax == 1 && removedItem == null)
                 {
-                    var removed = eq.UnEquipItem(targetSlot, 0);
-                    if (removed != null)
-                        Program.AddItemToInventory(removed, 1);
+                    removedItem = eq.UnEquipItem(targetSlot, 0);
                     slotIndex = 0;
                 }
                 else
                 {
+                    if (removedItem != null)
+                        eq.EquipItem(removedItem, targetSlot, 0);
                     return false;
                 }
             }
 
             if (!eq.EquipItem(slot.Item, targetSlot, slotIndex))
+            {
+                if (removedItem != null)
+                    eq.EquipItem(removedItem, targetSlot, 0);
                 return false;
+            }
 
             slot.Clear();
+            if (removedItem != null)
+                ReturnDisplacedEquipment(removedItem);
             eq.LoadEquipmentTextures();
             Program.PlayEquipSound();
             return true;
+        }
+
+        private static void ReturnDisplacedEquipment(Item item)
+        {
+            int count = Math.Max(1, item.Count);
+            int remaining = Program.AddItemToInventory(item, count);
+            if (remaining <= 0)
+                return;
+
+            int itemId = Program.GetItemId(item.Name);
+            if (itemId <= 0)
+            {
+                Console.Error.WriteLine($"Impossible de restituer l'équipement remplacé : item introuvable « {item.Name} ».");
+                Program.AddNotification(new Notification($" Item remplacé introuvable : {item.Name}", Color.Red, 2f));
+                return;
+            }
+
+            Program.DropCustomItemOnGround(
+                Program.GetPlayerPosition(),
+                itemId,
+                remaining,
+                item.CustomColors,
+                null,
+                0f,
+                item.Metadata,
+                item.Meta,
+                item.Container,
+                item.Backpack,
+                pickupCooldown: 0f);
         }
 
         private static void TransferToContainer(int idx)

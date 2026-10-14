@@ -449,22 +449,24 @@ namespace Soulfract
         {
             if (_selectedIndex < 0 || _selectedIndex >= _items.Count) return;
             var itemData = _items[_selectedIndex];
-            var item = new Item(itemData.Name, _quantity, itemData.Color, itemData.Icon);
+            var item = CreateConfiguredItem(itemData, _quantity);
 
+            int remaining = Program.AddItemToInventory(item, _quantity);
+            if (remaining > 0)
+                Program.AddNotification(new Notification($" Inventaire plein ! {remaining} non ajoutés.", Color.Red, 1.5f));
+        }
+
+        private static Item CreateConfiguredItem(ItemData itemData, int count)
+        {
+            var item = new Item(itemData.Name, count, itemData.Color, itemData.Icon);
             if (itemData.IsRune)
-            {
                 item.Metadata = new RuneData { Type = _selectedRuneType, Value = _selectedRuneValue }.ToMetadata();
-            }
-
             if (IsCoat(itemData))
             {
                 item.SetMetadataValue("sleeves", _selectedCoatSleeves);
                 item.SetMetadataValue("opening", _selectedCoatOpening);
             }
-
-            int remaining = Program.AddItemToInventory(item, _quantity);
-            if (remaining > 0)
-                Program.AddNotification(new Notification($" Inventaire plein ! {remaining} non ajoutés.", Color.Red, 1.5f));
+            return item;
         }
 
         public static void Draw()
@@ -630,7 +632,7 @@ namespace Soulfract
                 int iconX = detailX + 20;
                 int iconY = detailY + 20;
                 Raylib.DrawRectangleRounded(new Rectangle(iconX, iconY, iconSize, iconSize), 0.1f, 6, new Color(50, 53, 60, 255));
-                var tempItem = new Item(selected.Name, 1, selected.GetColor(), selected.Icon);
+                var tempItem = CreateConfiguredItem(selected, 1);
                 ItemRenderer.DrawItem(tempItem, iconX + 4, iconY + 4, iconSize - 8);
 
                 // Nom et ID

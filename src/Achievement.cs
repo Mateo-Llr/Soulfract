@@ -1,6 +1,7 @@
 // Achievement.cs
 using System.Numerics;
 using System.Linq;
+using System.Collections.Generic;
 using Raylib_cs;
 
 namespace Soulfract
@@ -114,6 +115,7 @@ namespace Soulfract
     {
         private static Dictionary<AchievementType, Achievement> _achievements = new();
         private static List<AchievementNotification> _notificationQueue = new();
+        private static readonly HashSet<string> _obtainedItemTypes = new(StringComparer.OrdinalIgnoreCase);
         private static Texture2D _defaultIcon;
         private static Texture2D _achievementBg;
         private static bool _texturesLoaded = false;
@@ -228,6 +230,15 @@ namespace Soulfract
             {
                 UnlockAchievement(achievement);
             }
+        }
+
+        public static void RecordItemTypeObtained(string itemName)
+        {
+            if (string.IsNullOrWhiteSpace(itemName) || IsUnlocked(AchievementType.ObtainItem))
+                return;
+
+            if (_obtainedItemTypes.Add(itemName.Trim()))
+                Progress(AchievementType.ObtainItem);
         }
         
         public static void UnlockAchievement(AchievementType type)
@@ -566,13 +577,16 @@ namespace Soulfract
             data.Achievements.Clear();
             foreach (var a in _achievements.Values)
             {
-                if (a.IsUnlocked)
+                if (a.IsUnlocked || a.CurrentValue > 0)
                 {
                     data.Achievements.Add(new AchievementSaveData
                     {
                         Type = (int)a.Type,
                         CurrentValue = a.CurrentValue,
-                        IsUnlocked = a.IsUnlocked
+                        IsUnlocked = a.IsUnlocked,
+                        ObtainedItemTypes = a.Type == AchievementType.ObtainItem
+                            ? _obtainedItemTypes.ToList()
+                            : new List<string>()
                     });
                 }
             }
@@ -580,13 +594,23 @@ namespace Soulfract
 
         public static void Load(GameSaveData data)
         {
+            Reset();
             foreach (var saved in data.Achievements)
             {
                 var type = (AchievementType)saved.Type;
                 if (_achievements.TryGetValue(type, out var achievement))
                 {
+                    if (type == AchievementType.ObtainItem && saved.ObtainedItemTypes != null)
+                    {
+                        _obtainedItemTypes.UnionWith(saved.ObtainedItemTypes
+                            .Where(itemName => !string.IsNullOrWhiteSpace(itemName))
+                            .Select(itemName => itemName.Trim()));
+                    }
+
                     achievement.CurrentValue = saved.CurrentValue;
-                    achievement.IsUnlocked = saved.IsUnlocked;
+                    if (type == AchievementType.ObtainItem)
+                        achievement.CurrentValue = Math.Max(achievement.CurrentValue, _obtainedItemTypes.Count);
+                    achievement.IsUnlocked = saved.IsUnlocked || achievement.CurrentValue >= achievement.TargetValue;
                 }
             }
         }
@@ -598,6 +622,7 @@ namespace Soulfract
                 achievement.CurrentValue = 0;
                 achievement.IsUnlocked = false;
             }
+            _obtainedItemTypes.Clear();
             _notificationQueue.Clear();
         }
     }
@@ -607,5 +632,6 @@ namespace Soulfract
         public int Type { get; set; }
         public int CurrentValue { get; set; }
         public bool IsUnlocked { get; set; }
+        public List<string> ObtainedItemTypes { get; set; } = new();
     }
 }

@@ -540,6 +540,7 @@ void main()
 			finally
 			{
 				FontManager.UnloadFont();
+				ProceduralNpcVoice.Unload();
 				Raylib.CloseAudioDevice();
 
 				//  MULTIJOUEUR : se déconnecter proprement avant de quitter
@@ -1371,7 +1372,7 @@ void main()
 				Item? heldInstrument = equipment.MainHand;
 				if (heldInstrument != null && GameData.ItemDatabase.TryGetValue(GetItemId(heldInstrument.Name), out var data) && data.IsInstrument)
 				{
-					if (GetItemId(heldInstrument.Name) == 9000)
+					if (GetItemId(heldInstrument.Name) == GameData.GetItemId("flute"))
 					{
 						UseSandlandFlute(heldInstrument);
 						_rightClickConsumed = true;
@@ -1483,7 +1484,7 @@ void main()
 				if (!tamed && !NetworkManager.IsClient)
 				{
 					Item? heldItemForMilk = equipment.MainHand;
-					if (heldItemForMilk != null && GetItemId(heldItemForMilk.Name) == 63)
+					if (heldItemForMilk != null && GetItemId(heldItemForMilk.Name) == GameData.GetItemId("bucket"))
 					{
 						ParseBucketContent(heldItemForMilk.Metadata, out string milkBucketType, out int milkBucketCharges);
 						bool bucketCanTakeMilk = milkBucketType == "empty" || (milkBucketType == "milk" && milkBucketCharges < BUCKET_MAX_CHARGES);
@@ -1505,7 +1506,7 @@ void main()
 				if (!tamed && !milked)
 				{
 					Item? heldItem = equipment.MainHand;
-					if (heldItem != null && GetItemId(heldItem.Name) == 163)
+					if (heldItem != null && GetItemId(heldItem.Name) == GameData.GetItemId("rock"))
 					{
 						BreakRock(heldItem, inputPosition);
 						_rightClickConsumed = true;
@@ -1636,11 +1637,11 @@ void main()
 						}
 					}
 			
-			//  Invocation du boss "Génie de la Lampe" (clic droit avec la Lampe merveilleuse, item 272)
+			// Invocation du boss "Génie de la Lampe" (clic droit avec la lampe genie_lamp)
 			if (Raylib.IsMouseButtonPressed(MouseButton.Right) && !_rightClickConsumed && PlayerCurrentCar == null && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen && !QuestDialogUI.IsOpen)
 			{
 				Item? heldLamp = equipment.MainHand;
-				if (heldLamp != null && GetItemId(heldLamp.Name) == 272)
+				if (heldLamp != null && GetItemId(heldLamp.Name) == GameData.GetItemId("genie_lamp"))
 				{
 					if (CurrentBoss != null && CurrentBoss.IsAlive)
 					{
@@ -3275,6 +3276,8 @@ void main()
 					PlayAchievementSound();
 				}
 			}
+			if (GetEffectivePlayerMaxHP() >= 20 && !AchievementManager.IsUnlocked(AchievementType.MaxHealth))
+				AchievementManager.UnlockAchievement(AchievementType.MaxHealth);
 			
 			// La plongée sous-marine est désactivée.
 			World.IsUnderwater = false;
@@ -3302,7 +3305,7 @@ void main()
 			if (heldItem != null)
 			{
 				int heldId = GetItemId(heldItem.Name);
-				if (heldId == 7)
+				if (heldId == GameData.GetItemId("torch"))
 				{
 					if (SpeciesData.Skeletons.TryGetValue("human", out var skeleton))
 					{
@@ -3411,10 +3414,10 @@ void main()
 			if (PlayerCurrentCar == null && !ChatSystem.IsOpen)
 			{
 				Item? heldThrowable = InventoryRenderer.GetHotbarItem(hotbarSlot);
-				
-				bool holdingThrowable = heldThrowable != null && 
-					GameData.ItemDatabase.TryGetValue(GetItemId(heldThrowable.Name), out var throwData) &&
-					throwData.IsThrowable;
+				ItemData throwData = default;
+				bool holdingThrowable = heldThrowable != null
+					&& GameData.ItemDatabase.TryGetValue(GetItemId(heldThrowable.Name), out throwData)
+					&& throwData.IsThrowable;
 				
 				if (holdingThrowable && _throwCooldown <= 0f && !mouseOverUI)
 				{
@@ -3427,7 +3430,8 @@ void main()
 						{
 							dir = Vector2.Normalize(dir);
 							_throwables.Add(new ThrowableProjectile(playerAimOrigin, mouseWorldPos, 1f, GetItemId(heldThrowable.Name)));
-							AchievementManager.Progress(AchievementType.ThrowExplosive, 1);
+							if (string.Equals(throwData.Key, "dynamite", StringComparison.OrdinalIgnoreCase))
+								AchievementManager.Progress(AchievementType.ThrowExplosive, 1);
 							RemoveItemFromInventory(heldThrowable.Name, 1);
 							_throwCooldown = 0.5f;
 						}
@@ -3618,7 +3622,7 @@ void main()
 				{
 					int ammoId = rangedAmmoIds.Count > 0 ? rangedAmmoIds[0] : 0;
 					int maxAmmoPerCharge = Math.Max(1, weaponData.MaxAmmoPerCharge);
-					var weaponState = GetOrCreateRangedWeaponState(heldWeaponId, maxAmmoPerCharge);
+					var weaponState = GetOrCreateRangedWeaponState(heldWeapon!, maxAmmoPerCharge);
 
 					if (weaponState.IsReloading)
 					{
@@ -3638,14 +3642,14 @@ void main()
 							weaponState.ReloadAmmoId = 0;
 							weaponState.ReloadAmount = 0;
 						}
-						_rangedWeaponReloadStates[heldWeaponId] = weaponState;
+						SaveRangedWeaponState(heldWeapon!, weaponState);
 					}
 					else if (weaponState.CurrentAmmo <= 0 && !mouseOverUI && ammoId > 0 && (Raylib.IsMouseButtonPressed(MouseButton.Left) || Raylib.IsMouseButtonPressed(MouseButton.Right)))
 					{
 						int availableAmmoCount = GetItemCountInInventory(ammoId);
 						if (availableAmmoCount > 0)
 						{
-							StartRangedReload(heldWeaponId, ammoId, availableAmmoCount, maxAmmoPerCharge);
+							StartRangedReload(heldWeapon!, ammoId, availableAmmoCount, maxAmmoPerCharge);
 						}
 						else
 						{
@@ -3683,7 +3687,7 @@ void main()
 						if (ammoId > 0)
 						{
 							weaponState.CurrentAmmo--;
-							_rangedWeaponReloadStates[heldWeaponId] = weaponState;
+							SaveRangedWeaponState(heldWeapon!, weaponState);
 							Vector2 shootDir = GetShootDirection(playerPos, camera);
 							Vector2 spawnPos = GetPlayerAimOrigin(playerPos) + shootDir * 45f;
 							// Le type de projectile (balle ou flèche) doit dépendre de la munition
@@ -3832,16 +3836,6 @@ void main()
 								AddNotification(new Notification(" Connexion annulée.", new Color(255, 200, 100, 255), 1.5f));
 							}
 						}
-						else if (objectId == 408 && !_isConnectingWire) // Ampoule électrique - démarrer la connexion
-						{
-							// Commencer la connexion
-							_isConnectingWire = true;
-							_wireStartTile = (tileX, tileY);
-							_wireStartDynamo = null;
-							_wireStartBattery = null;
-							
-							AddNotification(new Notification(" Mode connexion activé. Cliquez sur une batterie pour connecter l'ampoule.", new Color(100, 200, 255, 255), 2.5f));
-						}
 						else if (World.GetGateTypeForObjectId(objectId) is GateType gateTypeHere) // Porte logique / interrupteur / plaque / délai
 						{
 							if (gateTypeHere == GateType.SWITCH && Raylib.IsKeyDown(KeyboardKey.LeftShift))
@@ -3927,9 +3921,8 @@ void main()
 								AddNotification(new Notification(" Connexion annulée.", new Color(255, 200, 100, 255), 1.5f));
 							}
 						}
-						else if (objectId == 408 && _isConnectingWire && _wireStartTile != (-1, -1)) // Ampoule électrique - CIBLAGE
+						else if (_isConnectingWire && _wireStartTile != (-1, -1) && World.HasInputPort(objectId))
 						{
-							//  MULTIJOUEUR : même logique unifiée que pour une batterie cible.
 							if (NetworkManager.IsClient)
 							{
 								NetworkManager.RequestEnergyAction("ConnectWire", _wireStartTile.x, _wireStartTile.y, tileX, tileY);
@@ -3940,7 +3933,7 @@ void main()
 								string result = World.ConnectEnergyWire(_wireStartTile.x, _wireStartTile.y, tileX, tileY);
 								if (result == "ok")
 								{
-									AddNotification(new Notification($" Ampoule connectée !", new Color(100, 255, 100, 255), 2f));
+									AddNotification(new Notification(" Appareil connecté !", new Color(100, 255, 100, 255), 2f));
 									if (NetworkManager.IsHost) NetworkManager.BroadcastEnergySnapshot();
 								}
 								else if (result == "already_exists")
@@ -3953,32 +3946,7 @@ void main()
 							_wireStartTile = (-1, -1);
 							_wireStartDynamo = null;
 							_wireStartBattery = null;
-						}
-						else if (objectId == 405 && _isConnectingWire && _wireStartTile != (-1, -1)) // Chargeur de batterie - CIBLAGE (entrée de câble)
-						{
-							if (NetworkManager.IsClient)
-							{
-								NetworkManager.RequestEnergyAction("ConnectWire", _wireStartTile.x, _wireStartTile.y, tileX, tileY);
-								AddNotification(new Notification(" Connexion en cours...", new Color(100, 200, 255, 255), 1.5f));
-							}
-							else
-							{
-								string result = World.ConnectEnergyWire(_wireStartTile.x, _wireStartTile.y, tileX, tileY);
-								if (result == "ok")
-								{
-									AddNotification(new Notification($" Chargeur connecté !", new Color(100, 255, 100, 255), 2f));
-									if (NetworkManager.IsHost) NetworkManager.BroadcastEnergySnapshot();
-								}
-								else if (result == "already_exists")
-									AddNotification(new Notification(" Connexion déjà existante !", new Color(255, 200, 100, 255), 1.5f));
-								else
-									AddNotification(new Notification(" Connexion impossible : port incompatible.", new Color(255, 100, 100, 255), 1.5f));
-							}
-
-							_isConnectingWire = false;
-							_wireStartTile = (-1, -1);
-							_wireStartDynamo = null;
-							_wireStartBattery = null;
+							_wireStartGate = null;
 						}
 						else if (objectId == 405 && !_isConnectingWire) // Chargeur de batterie - poser/retirer la batterie portable
 						{
@@ -4695,6 +4663,13 @@ void main()
 			PerfStats.StartSection(PerfStats.Section.ChunkStreaming);
 			World.UpdateActiveChunks(playerPos, currentTime, entities);
 			PerfStats.EndSection(PerfStats.Section.ChunkStreaming);
+			Vector2 villageDiscoveryPosition = playerPos;
+			if (!AchievementManager.IsUnlocked(AchievementType.FindVillage)
+				&& World.VillageCenters.Any(center =>
+					Vector2.DistanceSquared(villageDiscoveryPosition, World.GetVillageCenterWorldPosition(center)) <= 600f * 600f))
+			{
+				AchievementManager.UnlockAchievement(AchievementType.FindVillage);
+			}
 			int heldItemId = (heldItem != null) ? GetItemId(heldItem.Name) : 0;
 			
 			UpdateArmorCompanions(dt);
@@ -4715,19 +4690,24 @@ void main()
 				var e = entities[i];
 				if (!e.IsAlive)
 				{
+					if (!e.IsBoss && !e.IsTamed
+						&& string.Equals(e.Behavior, "hostile", StringComparison.OrdinalIgnoreCase))
+					{
+						AchievementManager.Progress(AchievementType.KillEnemies);
+					}
 					if (e.IsBoss && string.Equals(e.Species, "Khamsin", StringComparison.OrdinalIgnoreCase))
 					{
-						GiveItemToPlayer(193, 1, e.WorldPos);
+						GiveItemToPlayer(GameData.GetItemId("khamsin_heart"), 1, e.WorldPos);
 						AddNotification(new Notification(" Coeur de Khamsin récupéré !", new Color(255, 120, 120, 255), 3f));
 					}
 					if (e.IsBoss && string.Equals(e.Species, "Genie", StringComparison.OrdinalIgnoreCase))
 					{
-						GiveItemToPlayer(273, 3, e.WorldPos);
+						GiveItemToPlayer(GameData.GetItemId("genie_heart"), 3, e.WorldPos);
 						//  Loot garanti : une pierre runique Solaire OU Givrée (tirage aléatoire),
 						// les deux runes de puissance du Génie de la Lampe.
 						var genieRuneType = Random.Shared.Next(2) == 0 ? RuneType.Solar : RuneType.Frost;
 						var genieRune = new RuneData { Type = genieRuneType, Value = 15f };
-						DropCustomItemOnGround(e.WorldPos, 250, 1, null, null, 0f, genieRune.ToMetadata());
+						DropCustomItemOnGround(e.WorldPos, GameData.GetItemId("runic_stone"), 1, null, null, 0f, genieRune.ToMetadata());
 						Entity.SpawnGenieSmoke(e.WorldPos, 2f);
 						Program.ApplyScreenShake(6f, 0.3f);
 						string genieRuneLabel = genieRuneType == RuneType.Solar ? "Solaire" : "Givrée";
@@ -4829,7 +4809,7 @@ void main()
 					if (now >= _pendingFluteRemovals[i])
 					{
 						// Retirer 1 flute de l'inventaire si présente
-						if (RemoveItemFromInventoryById(9000, 1))
+						if (RemoveItemFromInventoryById(GameData.GetItemId("flute"), 1))
 							AddNotification(new Notification("La flûte s'est brisée.", new Color(200, 150, 100, 255), 2f));
 						_pendingFluteRemovals.RemoveAt(i);
 					}
@@ -5784,6 +5764,9 @@ void main()
 						&& WorldTileRegistry.GetTile(wallTorchId)?.WallMountable == true;
 					if (hasWallTorch) tileData = WorldTileRegistry.GetTile(wallTorchId);
 					if (tileData?.IsLightSource != true) continue;
+					if (objId == 408) continue; // Les ampoules électriques sont dessinées selon leur état alimenté ci-dessous.
+					if (World.HasInputPort(objId) && !World.IsPoweredOrUnwiredLight(x, y))
+						continue;
 					float lightY = y * ts + ts / 2f;
 					if (hasWallTorch)
 					{
@@ -5950,9 +5933,9 @@ void main()
 					Item? heldWaterItem = equipment.MainHand;
 					bool isWaterContainer = heldWaterItem != null && GetWaterCapacityForItem(heldWaterItem) > 0;
 
-					//  SEAU (id 63) : contenant à 10 charges (eau OU lait, jamais les deux à la
-					// fois), distinct de la gourde/arrosoir qui a son propre compteur de charges.
-					if (heldWaterItem != null && GetItemId(heldWaterItem.Name) == 63)
+					// Seau : contenant à 10 charges (eau ou lait, jamais les deux à la fois),
+					// distinct de la gourde/arrosoir qui a son propre compteur de charges.
+					if (heldWaterItem != null && GetItemId(heldWaterItem.Name) == GameData.GetItemId("bucket"))
 					{
 						ParseBucketContent(heldWaterItem.Metadata, out string oceanBucketType, out int oceanBucketCharges);
 						float distToWaterBucket = Vector2.Distance(playerPos, new Vector2(waterTileX * ts + ts / 2f, waterTileY * ts + ts / 2f));
@@ -6290,7 +6273,7 @@ void main()
             if (objectId == 116)
             {
                 Item? heldItemLocal = equipment.MainHand;
-                if (heldItemLocal != null && GetItemId(heldItemLocal.Name) == 63)
+                if (heldItemLocal != null && GetItemId(heldItemLocal.Name) == GameData.GetItemId("bucket"))
                 {
                     ParseBucketContent(heldItemLocal.Metadata, out string rainBucketType, out int rainBucketCharges);
                     if (rainBucketType == "milk")
@@ -6709,7 +6692,7 @@ void main()
             {
                 Item? heldWellItem = equipment.MainHand;
 
-                if (heldWellItem != null && GetItemId(heldWellItem.Name) == 63)
+                if (heldWellItem != null && GetItemId(heldWellItem.Name) == GameData.GetItemId("bucket"))
                 {
                     ParseBucketContent(heldWellItem.Metadata, out string wellBucketType, out int wellBucketCharges);
                     if (wellBucketType == "milk")
@@ -11435,7 +11418,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			if (heldItem != null)
 			{
 				int heldId = GetItemId(heldItem.Name);
-				if (heldId == 5000) // Filet à papillons : pas de zone d'attaque, capture directe
+				if (heldId == GameData.GetItemId("butterfly_net")) // Pas de zone d'attaque : capture directe
 				{
 					return;
 				}
@@ -12118,6 +12101,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				string collectKey = $"{bestTileX}_{bestTileY}";
 				if (!destroyedObjects.Contains(collectKey))
 				{
+					AchievementManager.Progress(AchievementType.GatherResources);
 					foreach (var (id, qty) in WorldTileRegistry.GetDrops(tileId))
 					{
 						Program.GiveItemToPlayer(id, qty, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
@@ -12177,6 +12161,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			AddFloatingDamage(objectWorldPos, damageAmount, isEnemy: true);
 			if (hp.Current <= 0)
 			{
+				AchievementManager.Progress(AchievementType.GatherResources);
 				if (tileId == 86)
 				{
 					const string flowerMetaKey = "potted_flower";
@@ -12616,6 +12601,8 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				}
 
 				World.AddPlacedObject(tileX, tileY, _carriedFurniture.PlaceableId);
+				if (carriedTileData.IsFurniture)
+					AchievementManager.Progress(AchievementType.PlaceFurniture);
 
 				var tileDef = WorldTileRegistry.GetTile(_carriedFurniture.PlaceableId);
 				if (tileDef != null && tileDef.Variation > 1)
@@ -12764,9 +12751,17 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			// Mise à jour des toits si on place un mur ou une porte
 			if (itemData.PlaceableId == 8 || itemData.PlaceableId == 84)
 			{
+				var existingHouseIds = World.Houses.Keys.ToHashSet();
 				World.UpdateRoofsAt(tileX, tileY);
 				World.RefreshAllHouses();
+				if (World.Houses.Keys.Any(buildingId => !existingHouseIds.Contains(buildingId)))
+				{
+					AchievementManager.UnlockAchievement(AchievementType.BuildHouse);
+				}
 			}
+
+			if (tileDefPlaced?.IsFurniture == true)
+				AchievementManager.Progress(AchievementType.PlaceFurniture);
 			
 			// Initialisation des conteneurs
 			if (tileDefPlaced != null && tileDefPlaced.IsContainer == true)
@@ -13004,6 +12999,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
             if (addedCount > 0)
             {
                 MarkItemAsPreviouslyOwned(item.Name);
+                AchievementManager.RecordItemTypeObtained(item.Name);
                 if (CraftingUI.IsOpen)
                     CraftingUI.RefreshRecipeList();
                 if (!silent)

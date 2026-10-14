@@ -137,13 +137,12 @@ namespace Soulfract
                 string localizedName = Localization.GetLocalizedItemName(itemKey, runtimeItemId);
                 string localizedDescription = Localization.GetLocalizedItemDescription(itemKey, runtimeItemId);
 
-                // L'ID de l'item (nom canonique, ex: "coat") est la base de texture fiable.
-                // On garde un fallback legacy vers textureName seulement si l'item l'a explicitement
-                // redéfini, mais sans le privilégier.
-                string textureName = !string.IsNullOrWhiteSpace(itemKey)
-                    ? itemKey
-                    : (!string.IsNullOrWhiteSpace(item.textureName)
-                        ? NormalizeItemKey(item.textureName)
+                // L'ID canonique sert de texture par défaut; textureName permet de réutiliser
+                // explicitement le sprite d'un autre item.
+                string textureName = !string.IsNullOrWhiteSpace(item.textureName)
+                    ? NormalizeItemKey(item.textureName)
+                    : (!string.IsNullOrWhiteSpace(itemKey)
+                        ? itemKey
                         : (string.IsNullOrWhiteSpace(item.name) ? "unknown" : NormalizeItemKey(item.name)));
                 if (string.IsNullOrEmpty(textureName))
                 {

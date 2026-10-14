@@ -36,32 +36,33 @@ namespace Soulfract
         {
             _recipeItems.Clear();
             
-            //  TOUS LES ITEMS UTILISENT L'ID 212
+            int recipeScrollItemId = GameData.GetItemId("recipe_scroll");
+
             // Recettes du chaudron
-            RegisterRecipe(212, 1001, "Recette de potion de soin", "Mélangez des fleurs rouges et des champignons.", 63, "cauldron");
-            RegisterRecipe(212, 1002, "Recette de colorant mystérieux", "Associez des fleurs rouge, blanche et un champignon.", 60, "workbench");
-            RegisterRecipe(212, 1003, "Recette de breuvage étrange", "Une combinaison secrète de plantes.", 186, "cauldron");
-            RegisterRecipe(212, 1013, "Recette de la potion de force", "Champignons infusés avec un rubis broyé.", 103, "cauldron");
-            RegisterRecipe(212, 1014, "Recette de la potion de résistance", "Pierre et onyx en poudre.", 104, "cauldron");
-            RegisterRecipe(212, 1015, "Recette de la potion de lumière", "Fleurs blanches et éclat de topaze.", 105, "cauldron");
-            RegisterRecipe(212, 1016, "Recette de la potion de résistance à la chaleur", "Rose des sables et gemme orange.", 106, "cauldron");
-            RegisterRecipe(212, 1017, "Recette de la potion de résistance au froid", "Champignon glacé et saphir.", 107, "cauldron");
-            RegisterRecipe(212, 1018, "Recette de la potion d'invisibilité", "Un secret que peu osent préparer.", 108, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1001, "Recette de potion de soin", "Mélangez des fleurs rouges et des champignons.", 63, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1002, "Recette de colorant mystérieux", "Associez des fleurs rouge, blanche et un champignon.", 60, "workbench");
+            RegisterRecipe(recipeScrollItemId, 1003, "Recette de breuvage étrange", "Une combinaison secrète de plantes.", 186, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1013, "Recette de la potion de force", "Champignons infusés avec un rubis broyé.", 103, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1014, "Recette de la potion de résistance", "Pierre et onyx en poudre.", 104, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1015, "Recette de la potion de lumière", "Fleurs blanches et éclat de topaze.", 105, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1016, "Recette de la potion de résistance à la chaleur", "Rose des sables et gemme orange.", 106, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1017, "Recette de la potion de résistance au froid", "Champignon glacé et saphir.", 107, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1018, "Recette de la potion d'invisibilité", "Un secret que peu osent préparer.", 108, "cauldron");
             
             // Recettes d'établi
-            RegisterRecipe(212, 1004, "Recette de l'épée en fer", "Forgez une épée avec des lingots de fer.", 18, "workbench");
-            RegisterRecipe(212, 1005, "Recette de la machine à vapeur", "Assemblez des pièces métalliques complexes.", 401, "workbench");
-            RegisterRecipe(212, 1006, "Recette de la dynamite", "Composition explosive.", 64, "workbench");
+            RegisterRecipe(recipeScrollItemId, 1004, "Recette de l'épée en fer", "Forgez une épée avec des lingots de fer.", 18, "workbench");
+            RegisterRecipe(recipeScrollItemId, 1005, "Recette de la machine à vapeur", "Assemblez des pièces métalliques complexes.", 401, "workbench");
+            RegisterRecipe(recipeScrollItemId, 1006, "Recette de la dynamite", "Composition explosive.", 64, "workbench");
             
             // Recettes d'enclume
-            RegisterRecipe(212, 1007, "Recette de la baguette magique", "Un savoir arcanique ancien.", 400, "anvil");
-            RegisterRecipe(212, 1008, "Recette du casque de croisé", "Un secret de forge ancestral.", 134, "anvil");
-            RegisterRecipe(212, 1009, "Recette du plastron de croisé", "Forge avancée.", 135, "anvil");
-            RegisterRecipe(212, 1010, "Recette des jambières de croisé", "Protection des jambes.", 136, "anvil");
+            RegisterRecipe(recipeScrollItemId, 1007, "Recette de la baguette magique", "Un savoir arcanique ancien.", 400, "anvil");
+            RegisterRecipe(recipeScrollItemId, 1008, "Recette du casque de croisé", "Un secret de forge ancestral.", 134, "anvil");
+            RegisterRecipe(recipeScrollItemId, 1009, "Recette du plastron de croisé", "Forge avancée.", 135, "anvil");
+            RegisterRecipe(recipeScrollItemId, 1010, "Recette des jambières de croisé", "Protection des jambes.", 136, "anvil");
             
             // Recettes supplémentaires
-            RegisterRecipe(212, 1011, "Recette de l'épée en pierre", "Arme tranchante.", 17, "workbench");
-            RegisterRecipe(212, 1012, "Recette de l'épée en bois", "Arme basique.", 16, "workbench");
+            RegisterRecipe(recipeScrollItemId, 1011, "Recette de l'épée en pierre", "Arme tranchante.", 17, "workbench");
+            RegisterRecipe(recipeScrollItemId, 1012, "Recette de l'épée en bois", "Arme basique.", 16, "workbench");
         }
         
         private static void RegisterRecipe(int itemId, int recipeId, string displayName, string description, int targetRecipeId, string requiresStation)

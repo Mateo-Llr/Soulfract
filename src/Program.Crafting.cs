@@ -87,8 +87,7 @@ namespace Soulfract
 			
 			int itemId = GetItemId(item.Name);
 			
-			//  Vérifier si c'est bien l'item 212 (Recette)
-			if (itemId != 212)
+			if (itemId != GameData.GetItemId("recipe_scroll"))
 				return false;
 			
 			if (!RecipeSystem.IsRecipeItem(itemId))

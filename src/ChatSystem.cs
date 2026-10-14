@@ -578,7 +578,7 @@ namespace Soulfract
                 return;
             }
 
-            if (GameData.ItemDatabase.TryGetValue(212, out var itemData))
+            if (GameData.ItemDatabase.TryGetValue(GameData.GetItemId("recipe_scroll"), out var itemData))
             {
                 int remaining = quantity;
                 int maxStack = itemData.StackSize;
@@ -603,7 +603,7 @@ namespace Soulfract
             }
             else
             {
-                AddMessage(new ChatMessage($" Item Recette (ID 212) introuvable", COLOR_MESSAGE_ERROR, true));
+                AddMessage(new ChatMessage(" Item Recette introuvable", COLOR_MESSAGE_ERROR, true));
             }
         }
 
@@ -624,7 +624,7 @@ namespace Soulfract
         {
             AddMessage(new ChatMessage("--- COMMANDES DISPONIBLES ---", COLOR_MESSAGE_COMMAND, true));
             AddMessage(new ChatMessage("/give <ID> [qty] - Ajoute un item", COLOR_MESSAGE_COMMAND, true));
-            AddMessage(new ChatMessage("/give 212[recipe=100] 1 - Donne une recette spécifique", COLOR_MESSAGE_COMMAND, true));
+            AddMessage(new ChatMessage("/give recipe_scroll[recipe=100] 1 - Donne une recette spécifique", COLOR_MESSAGE_COMMAND, true));
             AddMessage(new ChatMessage("/clear - Vide l'inventaire", COLOR_MESSAGE_COMMAND, true));
             AddMessage(new ChatMessage("/heal - Soigne le joueur", COLOR_MESSAGE_COMMAND, true));
             AddMessage(new ChatMessage("/tp <x> <y> - Téléportation", COLOR_MESSAGE_COMMAND, true));

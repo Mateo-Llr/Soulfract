@@ -359,6 +359,7 @@ namespace Soulfract
                     {
                         int itemLayers = data.DyeLayers;
                         _dyeSlot.Item.SetLayerColor(_selectedLayer, _selectedColor);
+                        AchievementManager.UnlockAchievement(AchievementType.DyeItem);
                         string layerText = itemLayers > 1 ? $" (couche {_selectedLayer + 1})" : "";
                         Program.AddNotification(new Notification($"Teinture appliquée à {_dyeSlot.Item.Name}{layerText}", new Color(100, 255, 100, 255), 1.5f));
                     }

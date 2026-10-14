@@ -308,7 +308,7 @@ namespace Soulfract
 				return;
 			}
 
-			ItemRenderer.DrawItemRotated(tag.ItemData, tag.DrawPos, size, tag.Angle, tag.CustomColor, tag.Metadata);
+			ItemRenderer.DrawItemRotated(tag.ItemData, tag.DrawPos, size, tag.Angle, tag.CustomColor, tag.Metadata, tag.GroundItem.CustomColors);
 		}
 
 		public static void DrawCarRenderTag(CarRenderTag tag)

@@ -1954,6 +1954,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					entity.WantsToJoinGuild = entityData.WantsToJoinGuild;
 					entity.OwnerName = string.IsNullOrEmpty(entityData.OwnerName) ? null : entityData.OwnerName;
 					entity.CustomName = string.IsNullOrEmpty(entityData.CustomName) ? null : entityData.CustomName;
+					entity.EnsureGenieTint();
 					entity.HomePosition = new Vector2(entityData.HomePosX, entityData.HomePosY);
 					//  CORRECTIF : HomeBuildingId n'était jamais restauré à la sauvegarde/chargement
 					// (seule HomePosition l'était), alors qu'il reste à sa valeur par défaut -1 posée
@@ -3315,7 +3316,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					continue;
 				const float itemSize = 28f;
 				Color itemColor = gi.CustomColor.HasValue ? gi.CustomColor.Value : itemData.Color;
-				bool isLootbag = gi.ItemId == Program.GetItemId("Sac en osier") || !string.IsNullOrWhiteSpace(gi.LootbagPayload);
+				bool isLootbag = gi.ItemId == GameData.GetItemId("basket_wicker") || !string.IsNullOrWhiteSpace(gi.LootbagPayload);
 				float shadowWidth = isLootbag && Program.LootbagTexture.Id != 0
 					? ItemRenderer.GetTextureAlphaWidth(Program.LootbagTexture, "lootbag") * itemSize
 					: ItemRenderer.GetItemAlphaWidth(itemData) * itemSize;
@@ -3350,7 +3351,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						: (Color?)null;
 					Color netItemColor = netCustomColor ?? netItemData.Color;
 					const float itemSize = 28f;
-					bool isLootbag = ngi.ItemId == Program.GetItemId("Sac en osier");
+					bool isLootbag = ngi.ItemId == GameData.GetItemId("basket_wicker");
 					float shadowWidth = isLootbag && Program.LootbagTexture.Id != 0
 						? ItemRenderer.GetTextureAlphaWidth(Program.LootbagTexture, "lootbag") * itemSize
 						: ItemRenderer.GetItemAlphaWidth(netItemData) * itemSize;
@@ -3379,7 +3380,10 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 							{
 								//  Dessine TOUTES les couches de l'item, pas seulement la première.
 								// Teinte uniquement si l'item a réellement été teint (netCustomColor).
-								ItemRenderer.DrawItemRotated(netItemData, drawPos, size, 0, netCustomColor, ngi.Metadata);
+								var netCustomColors = ngi.Colors?.Select(color => color != null
+									? (Color?)new Color(color.R, color.G, color.B, color.A)
+									: null).ToList();
+								ItemRenderer.DrawItemRotated(netItemData, drawPos, size, 0, netCustomColor, ngi.Metadata, netCustomColors);
 							}
 
 						}

@@ -204,6 +204,7 @@ namespace Soulfract
                 : (Guid?)null;
             entity.IsRidingMount = entityData.IsRidingMount;
             entity.CustomName = string.IsNullOrEmpty(entityData.CustomName) ? null : entityData.CustomName;
+            entity.EnsureGenieTint();
             entity.HomePosition = new Vector2(entityData.HomePosX, entityData.HomePosY);
             entity.HomeBuildingId = entityData.HomeBuildingId;
             //  BUGFIX (rechargement de sauvegarde) : à la construction ci-dessus, HomePosition
@@ -2759,6 +2760,7 @@ namespace Soulfract
                         : (Guid?)null;
                     entity.IsRidingMount = entityData.IsRidingMount;
                     entity.CustomName = string.IsNullOrEmpty(entityData.CustomName) ? null : entityData.CustomName;
+                    entity.EnsureGenieTint();
                     entity.HomePosition = new Vector2(entityData.HomePosX, entityData.HomePosY);
                     entity.HomeBuildingId = entityData.HomeBuildingId;
                     //  BUGFIX (rechargement de sauvegarde) : voir le commentaire jumeau dans

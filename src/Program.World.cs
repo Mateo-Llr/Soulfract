@@ -418,8 +418,6 @@ namespace Soulfract
 			public int ReloadAmount;
 		}
 
-		private static readonly Dictionary<int, RangedWeaponReloadState> _rangedWeaponReloadStates = new();
-
 		static string _currentSaveName = "";
 
 		static float _autoSaveTimer = 0f;

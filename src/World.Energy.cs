@@ -151,6 +151,12 @@ namespace Soulfract
 			return false;
 		}
 
+		public static bool HasIncomingEnergyConnection(int x, int y) =>
+			EnergyConnections.Any(connection => connection.X2 == x && connection.Y2 == y);
+
+		public static bool IsPoweredOrUnwiredLight(int x, int y) =>
+			!HasIncomingEnergyConnection(x, y) || IsPositionPowered(x, y);
+
 		//  Compte, pour la tuile (x,y) d'une porte logique, combien de fils entrants elle a
 		// (connectés = toute connexion dont X2,Y2 pointe vers cette tuile) et combien d'entre
 		// eux sont actuellement alimentés.

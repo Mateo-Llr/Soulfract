@@ -834,6 +834,8 @@
     "item.description.obsidian":  "Une roche volcanique tranchante.",
     "item.name.genie_lamp":  "Lampe de Génie",
     "item.description.genie_lamp":  "Une lampe magique qui brille d\u0027une lueur mystique.",
+    "item.name.genie_heart":  "Cœur du Génie",
+    "item.description.genie_heart":  "Le cœur magique du Génie de la Lampe.",
     "item.name.slime_gel":  "Gelée de slime",
     "item.description.slime_gel":  "Un fragment de magie doré, encore chaud, arraché au Génie de la Lampe.",
     "item.name.slime_core":  "Noyau de slime",

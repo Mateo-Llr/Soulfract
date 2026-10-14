@@ -166,11 +166,7 @@ namespace Soulfract
 				return false;
 
 			maxAmmo = Math.Max(1, weaponData.MaxAmmoPerCharge);
-			if (!_rangedWeaponReloadStates.TryGetValue(heldId, out var state))
-			{
-				state = new RangedWeaponReloadState { CurrentAmmo = maxAmmo, ReloadAmmoId = 0, ReloadAmount = 0 };
-				_rangedWeaponReloadStates[heldId] = state;
-			}
+			var state = GetOrCreateRangedWeaponState(heldItem, maxAmmo);
 			currentAmmo = state.CurrentAmmo;
 			return true;
 		}
@@ -348,8 +344,8 @@ namespace Soulfract
 			Raylib.PlaySound(_itemPickupSound);
 		}
 
-		//  Système unifié de contenant de liquide : gourde/arrosoir (id 230, toujours de
-		// l'eau, 6 charges) ET seau (id 63, eau OU lait, 10 charges) sont tous deux traités
+		// Système unifié de contenant de liquide : gourde/arrosoir (toujours de l'eau,
+		// 6 charges) et seau (eau ou lait, 10 charges) sont tous deux traités
 		// via ces deux fonctions, pour n'avoir qu'un seul code d'arrosage et qu'un seul code
 		// de consommation/boisson, quel que soit l'objet réellement tenu en main.
 		public static bool TryGetLiquidContainer(Item? heldItem, out string liquidType, out int charges, out int maxCharges)
@@ -373,7 +369,7 @@ namespace Soulfract
 			}
 
 			int id = GetItemId(heldItem.Name);
-			if (id == 63) // Seau
+			if (id == GameData.GetItemId("bucket")) // Seau
 			{
 				ParseBucketContent(heldItem.Metadata, out liquidType, out charges);
 				maxCharges = BUCKET_MAX_CHARGES;
@@ -403,7 +399,7 @@ namespace Soulfract
 			if (item == null) return false;
 
 			int id = GetItemId(item.Name);
-			if (id == 63 || GetWaterCapacityForItem(item) > 0)
+			if (id == GameData.GetItemId("bucket") || GetWaterCapacityForItem(item) > 0)
 				return true;
 
 			return GameData.TryGetItemByName(item.Name, out var itemData)
@@ -415,7 +411,7 @@ namespace Soulfract
 			if (!IsLiquidContainer(item)) return false;
 
 			int id = GetItemId(item!.Name);
-			if (id == 63)
+			if (id == GameData.GetItemId("bucket"))
 			{
 				if (ItemRenderer.IsPotionMetadata(item.Metadata))
 					return false;
@@ -443,7 +439,7 @@ namespace Soulfract
 			}
 
 			int id = GetItemId(heldItem.Name);
-			if (id == 63)
+			if (id == GameData.GetItemId("bucket"))
 			{
 				heldItem.Metadata = FormatBucketContent(liquidType, newCharges);
 			}
@@ -493,7 +489,7 @@ namespace Soulfract
 			if (item == null) return 0;
 
 			int id = GetItemId(item.Name);
-			if (id == 63)
+			if (id == GameData.GetItemId("bucket"))
 				return BUCKET_MAX_CHARGES;
 
 			if (GameData.TryGetItemByName(item.Name, out var itemData) && itemData.WaterCapacity > 0)
@@ -508,7 +504,7 @@ namespace Soulfract
 		public static void EmptyBottleItem(Item heldItem)
 		{
 			int id = GetItemId(heldItem.Name);
-			if (id == 63)
+			if (id == GameData.GetItemId("bucket"))
 			{
 				heldItem.Metadata = FormatBucketContent("empty", 0);
 			}
@@ -696,7 +692,7 @@ namespace Soulfract
 			if (victory)
 			{
 				SpawnEyeBossExplosionParticles(_eyeBossCenter);
-				Program.GiveItemToPlayer(242, 1, _eyeBossCenter); // Récompense de victoire du boss de l'oeil
+				Program.GiveItemToPlayer(GameData.GetItemId("gem_eyeball"), 1, _eyeBossCenter); // Récompense de victoire du boss de l'oeil
 				AddNotification(new Notification(" L'oeil s'est éteint... vous récupérez une Gemme-oeil !", new Color(190, 100, 230, 255), 4f));
 				if (_eyeBossTile.x != -1)
 					World.AddPlacedObject(_eyeBossTile.x, _eyeBossTile.y, 117); // le socle redevient vide
@@ -2143,8 +2139,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 		public static void SpawnAuthoritativePlayerLootbag(string payload, Vector2 worldPos)
 		{
 			if (string.IsNullOrWhiteSpace(payload)) return;
-			int itemId = GetItemId("Sac en osier");
-			if (itemId == 0) itemId = 211;
+			int itemId = GameData.GetItemId("basket_wicker");
 			SpawnAuthoritativeGroundItem(itemId, 1, worldPos, null, null, 0f);
 			var bag = GroundItems.LastOrDefault();
 			if (bag != null)
@@ -2415,7 +2410,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			if (equipment.MainHand == null) return false;
 			
 			int heldId = GetItemId(equipment.MainHand.Name);
-			if (heldId != 5000) return false; // Vérifier si c'est un filet
+			if (heldId != GameData.GetItemId("butterfly_net")) return false; // Vérifier si c'est un filet
 			
 			Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 			int ts = Program.TileSize;
@@ -2767,6 +2762,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			if (addedCount > 0)
 			{
 				MarkItemAsPreviouslyOwned(data.Name);
+				AchievementManager.RecordItemTypeObtained(data.Name);
 				if (CraftingUI.IsOpen)
 					CraftingUI.RefreshRecipeList();
 			}
