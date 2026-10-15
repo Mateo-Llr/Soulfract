@@ -1345,20 +1345,6 @@ namespace Soulfract
 			return false;
 		}
 
-		private static void SelectItemInHotbar(int itemId)
-		{
-			var itemData = GameData.ItemDatabase[itemId];
-			for (int i = 0; i < 10 && i < InventoryRenderer.InventorySlots.Count; i++)
-			{
-				var slot = InventoryRenderer.InventorySlots[i];
-				if (!slot.IsEmpty && slot.Item != null && slot.Item.Name == itemData.Name)
-				{
-					Program.hotbarSlot = i;
-					break;
-				}
-			}
-		}
-
 		public static void DamagePlayer(int amount, string? sourceName = null, DeathCause cause = DeathCause.Generic)
 		{
 			if (amount <= 0) return;

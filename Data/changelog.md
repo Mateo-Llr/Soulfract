@@ -1276,6 +1276,25 @@
 - [CHANGED] Timbres des voix des PNJ améliorés avec des harmoniques et des formants inspirés de la voix humaine
 - [FIXED] Le bouton de vérification devient « Mettre à jour » lorsqu'une mise à jour du jeu est disponible
 - [FIXED] Progression réelle du téléchargement affichée pour les mises à jour du jeu et du lanceur
+- [FIXED] Les PNJ éloignés alternent leurs mises à jour d'IA au lieu que les mêmes restent figés
+- [FIXED] Les poursuites sans chemin cessent l'animation de course et respectent le délai avant le prochain calcul de chemin
+- [FIXED] L'état d'occupation d'une maison reste cohérent lorsqu'un de ses habitants déménage
+- [FIXED] Les PNJ rentrent et se déplacent dans toute leur maison avec des destinations intérieures réparties entre habitants
+- [FIXED] Les PNJ endormis restent visibles dans leur maison, même lorsque leur position de lit déborde de sa tuile
+- [FIXED] Les collisions entre entités ne réveillent plus immédiatement les PNJ endormis
+- [FIXED] Les PNJ ne réinitialisent plus leur chemin à chaque image pendant une tentative de discussion et reprennent un état cohérent lorsqu'ils parlent
+- [FIXED] Les zones de travail des fermiers sont conservées au rechargement et les anciennes zones sont récupérées depuis les terres cultivées
+- [FIXED] Les fermiers choisissent les cases de culture du centre vers les bords au lieu de former une rangée
+- [FIXED] Les créatures qui fuient suivent leur chemin pour contourner les obstacles, avec un objectif de fuite stable
+- [CLEANUP] Suppression des champs, états et blocs privés d'IA d'entité sans aucune référence active
+- [CLEANUP] Suppression de champs privés de rendu, réseau et interface remplacés ou sans aucune référence
+- [CLEANUP] Retrait d'anciens tags de rendu jamais construits et de leurs méthodes vides
+- [CLEANUP] Suppression d'anciens helpers privés sans appel, dont des chemins de rendu remplacés
+- [CLEANUP] Suppression d'une ancienne réécriture de carte entière laissée désactivée et jamais intégrée
+- [CLEANUP] Retrait d'états d'IA et d'un état d'interface déclarés mais jamais utilisés
+- [CLEANUP] Suppression de constantes et couleurs privées sans aucune référence active
+- [CLEANUP] Retrait d'anciens rendus HUD/inventaire/artisanat et helpers qui n'étaient plus appelés
+- [CLEANUP] Suppression de helpers publics obsolètes ou sans appelant (barre de charge, visée, inventaire legacy, description de profession)
 
 ---
 

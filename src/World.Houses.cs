@@ -127,18 +127,6 @@ namespace Soulfract
 			return true;
 		}
 
-		private static int GetWallHeightInPixels(int x, int y)
-		{
-			int wallId = GetObjectIdAt(x, y);
-			if (wallId != 0 && IsWall(wallId))
-			{
-				var wallTileData = WorldTileRegistry.GetTile(wallId);
-				if (wallTileData?.Size != null && wallTileData.Size.Height > 1)
-					return wallTileData.Size.Height * Program.TileSize;
-			}
-			return Program.TileSize;
-		}
-
 		private static int GetRoofHeightFromWall(int x, int y)
 		{
 			int bestHeightTiles = 1;
@@ -819,8 +807,8 @@ namespace Soulfract
 					entity.HomeBuildingId == buildingId && entity.HomePosition != Vector2.Zero);
 				if (resident != null)
 				{
-					int homeTileX = (int)(resident.HomePosition.X / Program.TileSize);
-					int homeTileY = (int)(resident.HomePosition.Y / Program.TileSize);
+					int homeTileX = (int)Math.Floor(resident.HomePosition.X / Program.TileSize);
+					int homeTileY = (int)Math.Floor(resident.HomePosition.Y / Program.TileSize);
 					int homeChunkX = homeTileX / CHUNK_SIZE;
 					int homeChunkY = homeTileY / CHUNK_SIZE;
 					if (homeTileX < 0) homeChunkX = (homeTileX - CHUNK_SIZE + 1) / CHUNK_SIZE;
@@ -836,6 +824,26 @@ namespace Soulfract
 			}
 
 			if (!Houses.TryGetValue(buildingId, out var house))
+				return null;
+
+			// Une maison peut traverser une frontière de chunk. S'assurer que toute son
+			// emprise est chargée avant de conclure qu'elle ne contient pas de coffre :
+			// sinon le scan ci-dessous pourrait créer un coffre par défaut alors qu'un
+			// coffre existant se trouve dans la partie momentanément déchargée.
+			int minChunkX = (int)Math.Floor(house.Bounds.X / CHUNK_SIZE);
+			int minChunkY = (int)Math.Floor(house.Bounds.Y / CHUNK_SIZE);
+			int maxChunkX = (int)Math.Floor((house.Bounds.X + house.Bounds.Width - 1) / CHUNK_SIZE);
+			int maxChunkY = (int)Math.Floor((house.Bounds.Y + house.Bounds.Height - 1) / CHUNK_SIZE);
+			for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
+			{
+				for (int chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
+				{
+					LoadOrGenerateChunk(chunkX, chunkY, Program.GetGameTime(), Program.GetEntities());
+				}
+			}
+
+			// Le chargement peut reconstruire les maisons et remplacer HouseData.
+			if (!Houses.TryGetValue(buildingId, out house))
 				return null;
 
 			//  CORRECTIF : StorageChestPos était renvoyé tel quel dès qu'il avait une valeur,
@@ -855,8 +863,8 @@ namespace Soulfract
 			// tel quel (pas de rescan inutile à chaque appel).
 			if (house.StorageChestPos.HasValue)
 			{
-				int cachedTx = (int)(house.StorageChestPos.Value.X / Program.TileSize);
-				int cachedTy = (int)(house.StorageChestPos.Value.Y / Program.TileSize);
+				int cachedTx = (int)Math.Floor(house.StorageChestPos.Value.X / Program.TileSize);
+				int cachedTy = (int)Math.Floor(house.StorageChestPos.Value.Y / Program.TileSize);
 				var cachedChunk = GetChunkAt(cachedTx, cachedTy);
 				if (cachedChunk == null)
 				{
@@ -891,80 +899,31 @@ namespace Soulfract
 			int bw = (int)house.Bounds.Width;
 			int bh = (int)house.Bounds.Height;
 
-			//  IMPORTANT : deux passes plutôt qu'une. Une maison meublée contient souvent
-			// PLUSIEURS objets "conteneur" (étagère, tonneau, caisse...) en plus du vrai
-			// coffre — tous partagent IsContainer=true dans worldobjects.json. Un simple
-			// "premier trouvé" scannait la maison ligne par ligne et pouvait très bien
-			// tomber sur un tonneau près de la porte avant d'atteindre le coffre : le PNJ
-			// y déposait alors ses objets sans que ça n'apparaisse jamais dans LE coffre
-			// que le joueur ouvre et surveille, qui restait donc vide en permanence. On
-			// cherche donc d'abord spécifiquement un vrai coffre (nom "coffre"/"chest", ou
-			// même ID que celui créé par défaut) dans toute la maison, et on ne se rabat
-			// sur n'importe quel conteneur que si aucun vrai coffre n'existe.
-			(int x, int y)? fallbackAnyContainer = null;
-
-			for (int pass = 0; pass < 2; pass++)
+			// Ne pas traiter une étagère, un aquarium, un tonneau, une caisse ou une boîte
+			// comme le coffre de la maison : ils partagent IsContainer, mais le joueur ne
+			// retrouverait pas les dépôts dans le coffre attendu. S'il n'y a pas de vrai
+			// coffre, le coffre de secours sera créé juste après.
+			for (int tx = bx; tx < bx + bw; tx++)
 			{
-				bool requireRealChest = pass == 0;
-
-				for (int tx = bx; tx < bx + bw; tx++)
+				for (int ty = by; ty < by + bh; ty++)
 				{
-					for (int ty = by; ty < by + bh; ty++)
-					{
-						var chunk = GetChunkAt(tx, ty);
-						if (chunk == null) continue;
-
-						//  IMPORTANT : un coffre posé par le joueur n'a PAS de
-						// ContainerInventoryData tant qu'il n'a jamais été ouvert au moins
-						// une fois (voir Program_Core.cs, l'interaction "CONTENEURS", qui
-						// crée les données à la volée au premier clic). On détecte donc la
-						// tuile-objet elle-même plutôt que de se fier uniquement aux
-						// données déjà créées, pour que le PNJ trouve le VRAI coffre posé
-						// même si personne ne l'a encore ouvert.
-						if (!chunk.Objects.TryGetValue((tx, ty), out int objectId) || objectId == 0)
-							continue;
-						var tileData = WorldTileRegistry.GetTile(objectId);
-						if (tileData?.IsContainer != true)
-							continue;
-
-						bool isRealChest = IsRealChestTile(objectId, tileData);
-						if (requireRealChest && !isRealChest)
-						{
-							if (!fallbackAnyContainer.HasValue)
-								fallbackAnyContainer = (tx, ty);
-							continue;
-						}
-
-						EnsureHouseChestContainer(chunk, tx, ty, tileData);
-
-						var pos = new Vector2(tx * Program.TileSize + Program.TileSize / 2f,
-											   ty * Program.TileSize + Program.TileSize / 2f);
-						house.StorageChestPos = pos;
-						return pos;
-					}
-				}
-
-				// Pas de vrai coffre trouvé lors de la 1ère passe : si un conteneur
-				// quelconque a été repéré au passage, on l'utilise plutôt que de créer un
-				// coffre par défaut supplémentaire.
-				if (requireRealChest && fallbackAnyContainer.HasValue)
-				{
-					var (tx, ty) = fallbackAnyContainer.Value;
 					var chunk = GetChunkAt(tx, ty);
-					if (chunk != null)
-					{
-						if (chunk.Objects.TryGetValue((tx, ty), out int objectId))
-						{
-							var tileData = WorldTileRegistry.GetTile(objectId);
-							if (tileData?.IsContainer == true)
-								EnsureHouseChestContainer(chunk, tx, ty, tileData);
-						}
+					if (chunk == null) continue;
 
-						var pos = new Vector2(tx * Program.TileSize + Program.TileSize / 2f,
-											   ty * Program.TileSize + Program.TileSize / 2f);
-						house.StorageChestPos = pos;
-						return pos;
-					}
+					// Un coffre posé par le joueur n'a pas nécessairement d'inventaire
+					// initialisé. Détecter la tuile elle-même puis créer ses données si besoin.
+					if (!chunk.Objects.TryGetValue((tx, ty), out int objectId) || objectId == 0)
+						continue;
+					var tileData = WorldTileRegistry.GetTile(objectId);
+					if (tileData?.IsContainer != true || !IsRealChestTile(objectId, tileData))
+						continue;
+
+					EnsureHouseChestContainer(chunk, tx, ty, tileData);
+
+					var pos = new Vector2(tx * Program.TileSize + Program.TileSize / 2f,
+										   ty * Program.TileSize + Program.TileSize / 2f);
+					house.StorageChestPos = pos;
+					return pos;
 				}
 			}
 
@@ -1001,7 +960,8 @@ namespace Soulfract
 					var resident = Program.GetEntities().FirstOrDefault(entity =>
 						entity.HomeBuildingId == buildingId && entity.HomePosition != Vector2.Zero);
 					var fallbackTile = resident != null
-						? ((int)(resident.HomePosition.X / Program.TileSize), (int)(resident.HomePosition.Y / Program.TileSize))
+						? ((int)Math.Floor(resident.HomePosition.X / Program.TileSize),
+						   (int)Math.Floor(resident.HomePosition.Y / Program.TileSize))
 						: tiles[0];
 					doorX = fallbackTile.Item1;
 					doorY = fallbackTile.Item2;
@@ -1089,7 +1049,8 @@ namespace Soulfract
 			foreach (var e in Program.entities)
 			{
 				if (e.HomeBuildingId != buildingId || e.HomePosition == Vector2.Zero) continue;
-				occupiedHomeTiles.Add(((int)(e.HomePosition.X / Program.TileSize), (int)(e.HomePosition.Y / Program.TileSize)));
+				occupiedHomeTiles.Add(((int)Math.Floor(e.HomePosition.X / Program.TileSize),
+					(int)Math.Floor(e.HomePosition.Y / Program.TileSize)));
 			}
 
 			//  CORRECTIF : un HouseInteriorSpot "libre" ne l'est qu'au sens du champ Occupied
@@ -1214,102 +1175,104 @@ namespace Soulfract
 		public static Vector2? GetHouseChestApproachPosition(int buildingId, Entity? requester = null)
 		{
 			var chestPos = GetOrFindHouseChest(buildingId);
-			if (!chestPos.HasValue)
+			if (!chestPos.HasValue || !Houses.TryGetValue(buildingId, out var house))
 				return null;
 
-			int cx = (int)(chestPos.Value.X / Program.TileSize);
-			int cy = (int)(chestPos.Value.Y / Program.TileSize);
+			int cx = (int)Math.Floor(chestPos.Value.X / Program.TileSize);
+			int cy = (int)Math.Floor(chestPos.Value.Y / Program.TileSize);
 
-			//  IMPORTANT : la recherche ci-dessous ne doit JAMAIS pouvoir désigner une case
-			// hors de la maison. Avant ce correctif, l'anneau de recherche s'élargissait
-			// jusqu'à 8 tuiles sans la moindre vérification des limites (house.Bounds) : si
-			// le coffre est coincé contre un mur ou entouré de meubles côté intérieur (donc
-			// aucune case libre proche à l'intérieur), la recherche continuait tout
-			// naturellement À TRAVERS le mur et finissait par renvoyer une case praticable
-			// de la RUE. Le PNJ recevait alors une cible fixe, hors de la maison, pour
-			// laquelle aucun chemin A* n'existe (le mur bloque le passage direct) : il
-			// restait planté sur place indéfiniment, avec la ligne rouge de debug pointant
-			// toujours vers ce même point extérieur.
-			//
-			// On privilégie donc d'abord les cases intérieures DÉJÀ validées de cette maison
-			// (HouseInteriorSpots, la même liste que celle utilisée pour les lits/sièges,
-			// garantie à l'intérieur et pathfindable), en prenant la plus proche du coffre
-			// et libre de collision. Seulement si cette liste est vide/absente, on retombe
-			// sur la recherche par anneau, mais strictement bornée à house.Bounds.
-			if (HouseInteriorSpots.TryGetValue(buildingId, out var interiorSpots) && interiorSpots.Count > 0)
+			var candidateTiles = new HashSet<(int x, int y)>();
+
+			// HouseInteriorSpots.Occupied signifie que la place est réservée comme
+			// logement, pas que le PNJ ne peut pas y marcher pour rejoindre le coffre.
+			// Reconstituer les tuiles réellement enfermées par les murs. Bounds seul
+			// inclut aussi la rue et pouvait donc fournir une cible de l'autre côté d'un mur.
+			var enclosedTiles = new List<(int x, int y)>();
+			bool hasDetectedInterior = TryFindHouseBoundsForTile(house.DoorX, house.DoorY,
+				out int wallMinX, out int wallMaxX, out int wallMinY, out int wallMaxY,
+				out int detectedDoorX, out int detectedDoorY, out _)
+				&& TryGetEnclosedRoofTiles(wallMinX, wallMaxX, wallMinY, wallMaxY,
+					detectedDoorX, detectedDoorY, out enclosedTiles);
+			if (hasDetectedInterior)
 			{
-				var best = interiorSpots
-					.Where(s => !s.Occupied)
-					.Where(s => s.Tile.x != cx || s.Tile.y != cy)
-					.Where(s =>
-					{
-						var chunk = GetChunkAt(s.Tile.x, s.Tile.y);
-						if (chunk == null) return false;
-						if (chunk.Objects.TryGetValue(s.Tile, out int objectId) && objectId != 0) return false;
-						var ground = WorldTileRegistry.GetTile(GetGroundTileIdAt(s.Tile.x, s.Tile.y));
-						return ground?.Walkable == true;
-					})
-					.Where(s => !Program.entities.Any(e => !ReferenceEquals(e, requester) && e.IsAlive
-							&& Vector2.DistanceSquared(e.WorldPos, s.WorldPos) < 35f * 35f))
-					.OrderBy(s => Vector2.DistanceSquared(s.WorldPos, chestPos.Value))
-					.FirstOrDefault();
-
-				if (best != null)
-					return best.WorldPos;
+				foreach (var tile in enclosedTiles)
+				{
+					if (!IsWall(GetObjectIdAt(tile.x, tile.y)))
+						candidateTiles.Add(tile);
+				}
+			}
+			else if (HouseInteriorSpots.TryGetValue(buildingId, out var interiorSpots))
+			{
+				// Anciennes maisons ou périmètre incomplet : conserver leur liste de cases
+				// intérieures connue, même si le flood-fill ne peut pas la reconstituer.
+				foreach (var spot in interiorSpots)
+					candidateTiles.Add(spot.Tile);
 			}
 
-			if (!Houses.TryGetValue(buildingId, out var boundsHouse))
-				return null;
-			int minTx = (int)boundsHouse.Bounds.X;
-			int minTy = (int)boundsHouse.Bounds.Y;
-			int maxTx = minTx + (int)boundsHouse.Bounds.Width - 1;
-			int maxTy = minTy + (int)boundsHouse.Bounds.Height - 1;
-
-			// Cherche d'abord les cases proches, puis élargit progressivement la recherche,
-			// SANS jamais sortir des limites de la maison (voir commentaire ci-dessus).
-			for (int radius = 1; radius <= 8; radius++)
+			// Repli pour les anciennes maisons sans intérieur détectable : rester borné à
+			// Bounds, plutôt que d'étendre la recherche jusque dans la rue.
+			if (candidateTiles.Count == 0)
 			{
-				for (int dx = -radius; dx <= radius; dx++)
+				int minTx = (int)house.Bounds.X;
+				int minTy = (int)house.Bounds.Y;
+				int maxTx = minTx + (int)house.Bounds.Width - 1;
+				int maxTy = minTy + (int)house.Bounds.Height - 1;
+				for (int radius = 1; radius <= 8; radius++)
 				{
-					for (int dy = -radius; dy <= radius; dy++)
+					for (int dx = -radius; dx <= radius; dx++)
 					{
-						if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != radius) continue;
-
-						int tx = cx + dx;
-						int ty = cy + dy;
-
-						//  Ne jamais désigner une case hors des limites de la maison : c'est
-						// précisément ce qui produisait une cible fixe dans la rue.
-						if (tx < minTx || tx > maxTx || ty < minTy || ty > maxTy)
-							continue;
-
-						var chunk = GetChunkAt(tx, ty);
-						if (chunk == null) continue;
-
-						if (chunk.Objects.TryGetValue((tx, ty), out int objectId) && objectId != 0)
+						for (int dy = -radius; dy <= radius; dy++)
 						{
-							var objTileData = WorldTileRegistry.GetTile(objectId);
-							if (objTileData == null || !objTileData.Walkable)
-								continue;
+							if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != radius) continue;
+							int tx = cx + dx;
+							int ty = cy + dy;
+							if (tx >= minTx && tx <= maxTx && ty >= minTy && ty <= maxTy)
+								candidateTiles.Add((tx, ty));
 						}
-
-						int groundId = GetGroundTileIdAt(tx, ty);
-						var groundTileData = WorldTileRegistry.GetTile(groundId);
-						if (groundTileData == null || !groundTileData.Walkable)
-							continue;
-
-						Vector2 approachPos = new Vector2(
-							tx * Program.TileSize + Program.TileSize / 2f,
-							ty * Program.TileSize + Program.TileSize / 2f - Program.FeetOffsetY);
-						// Le coffre possède une vraie hitbox : une case seulement marquée
-						// "walkable" peut malgré tout être trop proche pour la hitbox du PNJ.
-						if (Program.entities.Any(e => !ReferenceEquals(e, requester) && e.IsAlive
-								&& Vector2.DistanceSquared(e.WorldPos, approachPos) < 35f * 35f))
-							continue;
-
-						return approachPos;
 					}
 				}
+			}
+
+			var destroyed = Program.GetDestroyedObjects();
+			string species = requester?.Species ?? "human";
+			foreach (var (tx, ty) in candidateTiles
+				.Where(tile => tile.x != cx || tile.y != cy)
+				.OrderBy(tile => Vector2.DistanceSquared(
+					new Vector2(tile.x * Program.TileSize + Program.TileSize / 2f,
+						tile.y * Program.TileSize + Program.TileSize / 2f - Program.FeetOffsetY),
+					chestPos.Value)))
+			{
+				var chunk = GetChunkAt(tx, ty);
+				if (chunk == null) continue;
+				if (chunk.Objects.TryGetValue((tx, ty), out int objectId) && objectId != 0)
+					continue;
+
+				Vector2 approachPos = new Vector2(
+					tx * Program.TileSize + Program.TileSize / 2f,
+					ty * Program.TileSize + Program.TileSize / 2f - Program.FeetOffsetY);
+				if (!Pathfinder.IsWorldPositionWalkable(approachPos, destroyed, species)
+					|| IsCollidingEntity(approachPos, destroyed, species))
+					continue;
+
+				// Éviter de choisir une case déjà occupée par un autre PNJ. Le contrôle
+				// porte sur leur position réelle, pas sur la réservation de leur lit.
+				if (Program.entities.Any(entity => !ReferenceEquals(entity, requester) && entity.IsAlive
+					&& Vector2.DistanceSquared(entity.WorldPos, approachPos) < 35f * 35f))
+					continue;
+
+				// Ne retenir qu'une case que le pathfinder peut effectivement rejoindre.
+				// Une maison peut avoir plusieurs pièces séparées par des murs intérieurs :
+				// être praticable et dans les bounds ne suffit pas à garantir un trajet.
+				if (requester != null)
+				{
+					int requesterTileX = (int)Math.Floor(requester.WorldPos.X / Program.TileSize);
+					int requesterTileY = (int)Math.Floor((requester.WorldPos.Y + Program.FeetOffsetY) / Program.TileSize);
+					if ((requesterTileX != tx || requesterTileY != ty)
+						&& Pathfinder.FindPath(requester.WorldPos, approachPos, destroyed, 12, species).Count == 0)
+						continue;
+				}
+
+				return approachPos;
 			}
 
 			return null;
@@ -1323,8 +1286,8 @@ namespace Soulfract
 			var chestPos = GetOrFindHouseChest(buildingId);
 			if (!chestPos.HasValue) return false;
 
-			int tx = (int)(chestPos.Value.X / Program.TileSize);
-			int ty = (int)(chestPos.Value.Y / Program.TileSize);
+			int tx = (int)Math.Floor(chestPos.Value.X / Program.TileSize);
+			int ty = (int)Math.Floor(chestPos.Value.Y / Program.TileSize);
 			var container = GetChunkAt(tx, ty)?.GetContainerAt(tx, ty);
 			if (container == null) return false;
 
@@ -1342,8 +1305,8 @@ namespace Soulfract
 			var chestPos = GetOrFindHouseChest(buildingId);
 			if (!chestPos.HasValue) return;
 
-			int tx = (int)(chestPos.Value.X / Program.TileSize);
-			int ty = (int)(chestPos.Value.Y / Program.TileSize);
+			int tx = (int)Math.Floor(chestPos.Value.X / Program.TileSize);
+			int ty = (int)Math.Floor(chestPos.Value.Y / Program.TileSize);
 			var container = GetChunkAt(tx, ty)?.GetContainerAt(tx, ty);
 			if (container == null) return;
 
@@ -1354,6 +1317,88 @@ namespace Soulfract
 			npc.Hunger = 0f;
 			slot.Count -= 1;
 			if (slot.Count <= 0) { slot.Item = null; slot.Count = 0; }
+		}
+
+		public static int GetHouseChestItemCount(int buildingId, int itemId)
+		{
+			var chestPos = GetOrFindHouseChest(buildingId);
+			if (!chestPos.HasValue) return 0;
+
+			int tx = (int)Math.Floor(chestPos.Value.X / Program.TileSize);
+			int ty = (int)Math.Floor(chestPos.Value.Y / Program.TileSize);
+			var container = GetChunkAt(tx, ty)?.GetContainerAt(tx, ty);
+			return container?.Slots.Sum(slot =>
+				!slot.IsEmpty && slot.Item != null && slot.Count > 0
+				&& GameData.GetItemId(slot.Item.Name) == itemId
+					? slot.Count
+					: 0) ?? 0;
+		}
+
+		public static bool TryWithdrawHouseChestItems(
+			int buildingId,
+			Entity npc,
+			IReadOnlyDictionary<int, int> requiredItems)
+		{
+			if (requiredItems.Count == 0 || requiredItems.Any(item => item.Key <= 0 || item.Value <= 0))
+				return false;
+
+			var chestPos = GetOrFindHouseChest(buildingId);
+			if (!chestPos.HasValue) return false;
+
+			int tx = (int)Math.Floor(chestPos.Value.X / Program.TileSize);
+			int ty = (int)Math.Floor(chestPos.Value.Y / Program.TileSize);
+			var container = GetChunkAt(tx, ty)?.GetContainerAt(tx, ty);
+			if (container == null)
+				return false;
+
+			var itemNames = new Dictionary<int, string>();
+			foreach (var (itemId, quantity) in requiredItems)
+			{
+				if (!GameData.ItemDatabase.TryGetValue(itemId, out var itemData))
+					return false;
+				itemNames[itemId] = itemData.Name;
+
+				int available = container.Slots.Sum(slot =>
+					!slot.IsEmpty && slot.Item != null && slot.Count > 0
+					&& GameData.GetItemId(slot.Item.Name) == itemId
+						? slot.Count
+						: 0);
+				if (available < quantity)
+					return false;
+			}
+
+			int emptyInventorySlots = npc.Inventory.Slots.Count(slot => slot.IsEmpty);
+			int newInventoryStacks = requiredItems.Keys.Count(itemId =>
+				!npc.Inventory.Slots.Any(slot => !slot.IsEmpty && slot.Item != null
+					&& GameData.GetItemId(slot.Item.Name) == itemId));
+			if (newInventoryStacks > emptyInventorySlots)
+				return false;
+
+			foreach (var (itemId, quantity) in requiredItems)
+			{
+				int remaining = quantity;
+				foreach (var slot in container.Slots)
+				{
+					if (remaining <= 0)
+						break;
+					if (slot.IsEmpty || slot.Item == null
+						|| GameData.GetItemId(slot.Item.Name) != itemId)
+						continue;
+
+					int withdrawn = Math.Min(remaining, slot.Count);
+					int stored = StackItemIntoContainer(npc.Inventory, slot.Item, withdrawn);
+					if (stored != withdrawn)
+						throw new InvalidOperationException(
+							$"Impossible de transférer {itemNames[itemId]} du coffre de la maison {buildingId} vers le PNJ {npc.NetId}.");
+
+					slot.Count -= withdrawn;
+					remaining -= withdrawn;
+					if (slot.Count <= 0)
+						slot.Clear();
+				}
+			}
+
+			return true;
 		}
 
 		/// <summary>
@@ -1391,8 +1436,8 @@ namespace Soulfract
 				return 0;
 			}
 
-			int tx = (int)(chestPos.Value.X / Program.TileSize);
-			int ty = (int)(chestPos.Value.Y / Program.TileSize);
+			int tx = (int)Math.Floor(chestPos.Value.X / Program.TileSize);
+			int ty = (int)Math.Floor(chestPos.Value.Y / Program.TileSize);
 			if (logDetails)
 				Console.WriteLine($"[NPC-CHEST] RESOLVE npc={npc.NetId} home={buildingId} chestPos={chestPos.Value} tile={tx}_{ty}");
 
@@ -1446,8 +1491,8 @@ namespace Soulfract
 			var chestPos = GetOrFindHouseChest(buildingId);
 			if (!chestPos.HasValue) return null;
 
-			int tx = (int)(chestPos.Value.X / Program.TileSize);
-			int ty = (int)(chestPos.Value.Y / Program.TileSize);
+			int tx = (int)Math.Floor(chestPos.Value.X / Program.TileSize);
+			int ty = (int)Math.Floor(chestPos.Value.Y / Program.TileSize);
 			var container = GetChunkAt(tx, ty)?.GetContainerAt(tx, ty);
 			var slot = container?.Slots.FirstOrDefault(candidate =>
 				!candidate.IsEmpty && candidate.Item != null && candidate.Item.Name == itemName);
@@ -2054,7 +2099,7 @@ namespace Soulfract
 			{
 				spot.Occupied = false;
 				if (Houses.TryGetValue(buildingId, out var house))
-					house.IsOccupied = false;
+					house.IsOccupied = spots.All(s => s.Occupied);
 			}
 		}
 
@@ -2512,6 +2557,21 @@ namespace Soulfract
 			int tileX = (int)MathF.Floor(worldPos.X / ts);
 			int tileY = (int)MathF.Floor(worldPos.Y / ts);
 			int buildingId = GetBuildingIdForPosition(worldPos, tileX, tileY, ts);
+
+			return _isPlayerIndoors
+				? _currentIndoorGroupIds.Contains(buildingId)
+				: buildingId == 0;
+		}
+
+		public static bool ShouldRenderEntity(Entity entity)
+		{
+			int ts = Program.TileSize;
+			Vector2 worldPos = entity.VisualWorldPos;
+			int tileX = (int)MathF.Floor(worldPos.X / ts);
+			int tileY = (int)MathF.Floor(worldPos.Y / ts);
+			int buildingId = entity.IsSleeping && entity.HomeBuildingId > 0
+				? entity.HomeBuildingId
+				: GetBuildingIdForPosition(worldPos, tileX, tileY, ts);
 
 			return _isPlayerIndoors
 				? _currentIndoorGroupIds.Contains(buildingId)

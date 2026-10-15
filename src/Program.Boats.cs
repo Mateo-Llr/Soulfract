@@ -43,8 +43,9 @@ namespace Soulfract
             // tous les chunks du chargement initial sont en mémoire (donc que les toits sont
             // scannables), et avant que les PNJ ne reprennent leur mise à jour normale.
             World.RefreshAllHouses();
+			World.RebuildFieldWorkZonesFromTerrain();
 
-            //  Le crabe compagnon (set d'armure "Crabe") est réinvoqué ici plutôt que dans
+            //  Le crabe compagnon (set d'armure « Crabe ») est réinvoqué ici plutôt que dans
             // BeginLoadGame : tous les chunks autour du joueur sont maintenant chargés, donc
             // SpawnCrabCompanion() peut s'accrocher à un chunk réel (voir World.GetChunkAt) au
             // lieu d'apparaître sur un terrain pas encore généré.
@@ -54,6 +55,7 @@ namespace Soulfract
 			// OwnedMount -> remonter les montures PNJ si IsRidingMount était vrai dans la
 			// sauvegarde (SaveSystem.RestoreEntityFromSave remplit OwnedMountNetId/IsRidingMount).
 			SaveSystem.ResolveOwnedMountReferences(entities);
+			World.RebuildWorkSlotOccupancy(entities);
 
             if (_loadingSaveData != null)
             {
@@ -313,14 +315,5 @@ namespace Soulfract
 			FontManager.DrawText($"{_currentSailAngle:F0}°", (int)screenPos.X - 20, (int)(screenPos.Y - radius - 20), 14, Color.White);
 		}
 
-		private static bool IsAdjacent(Boat boat, int relX, int relY)
-		{
-			foreach (var (dx, dy) in new[] { (1,0), (-1,0), (0,1), (0,-1) })
-			{
-				if (boat.Tiles.ContainsKey((relX + dx, relY + dy)))
-					return true;
-			}
-			return false;
-		}
     }
 }

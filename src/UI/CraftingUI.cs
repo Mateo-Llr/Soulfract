@@ -1123,28 +1123,6 @@ namespace Soulfract
                 TAB_HEIGHT);
             }
 
-        private static Rectangle DrawCraftCheckbox(float x, float y, bool isChecked, string label, Vector2 mousePos)
-        {
-            int boxSize = 14;
-            int textWidth = FontManager.MeasureText(label, 11);
-            Rectangle hitbox = new Rectangle(x, y, boxSize + 8 + textWidth, boxSize);
-            bool hover = Raylib.CheckCollisionPointRec(mousePos, hitbox);
-
-            Rectangle box = new Rectangle(x, y, boxSize, boxSize);
-            Color boxColor = hover ? new Color(65, 72, 82, 255) : new Color(42, 46, 52, 230);
-            Raylib.DrawRectangleRounded(box, 0.2f, 6, boxColor);
-            Raylib.DrawRectangleRoundedLines(box, 0.2f, 6, 1, new Color(120, 110, 90, 180));
-
-            if (isChecked)
-            {
-                Rectangle fill = new Rectangle(x + 3, y + 3, boxSize - 6, boxSize - 6);
-                Raylib.DrawRectangleRounded(fill, 0.2f, 4, new Color(210, 180, 100, 255));
-            }
-
-            FontManager.DrawText(label, (int)x + boxSize + 8, (int)y - 1, 11, Color.White);
-            return hitbox;
-        }
-
         public static int GetWindowX() => (int)(_windowPosByPlayer.TryGetValue(0, out var pos) ? pos.X : 300);
         public static int GetWindowY() => (int)(_windowPosByPlayer.TryGetValue(0, out var pos) ? pos.Y : 150);
         public static int GetWindowWidth() => WINDOW_WIDTH;

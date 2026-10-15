@@ -1113,8 +1113,6 @@ namespace Soulfract
         private static readonly (string sp, string fb, float w)[] MIX_LIBRARY =
             { ("bat", "bat", 50), ("spider", "spider", 30), ("skeleton", "skeleton", 20) };
 
-        private static readonly HashSet<string> CORE_SPECIES = new() { "bat", "spider", "skeleton" };
-
         private static Entity? CreateMonster(int tileX, int tileY, string species, string fallback, float difficulty, bool elite)
         {
             int ts = Program.TileSize;

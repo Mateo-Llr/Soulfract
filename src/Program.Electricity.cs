@@ -323,55 +323,6 @@ namespace Soulfract
 			}
 		}
 
-		private static void DrawEnergyConnections(Camera2D camera)
-		{
-			int ts = TileSize;
-			foreach (var conn in World.EnergyConnections)
-			{
-				Vector2 p1 = new Vector2(conn.X1 * ts + ts / 2f, conn.Y1 * ts + ts / 2f);
-				Vector2 p2 = new Vector2(conn.X2 * ts + ts / 2f, conn.Y2 * ts + ts / 2f);
-				
-				// Ajuster pour la hauteur du terrain
-				p1.Y -= World.GetHeightAt(conn.X1, conn.Y1) * ts / 4f;
-				p2.Y -= World.GetHeightAt(conn.X2, conn.Y2) * ts / 4f;
-				
-				// Effet de pulsation électrique
-				float pulse = 0.5f + 0.5f * MathF.Sin((float)Raylib.GetTime() * 8f);
-				Color wireColor = new Color((byte)255, (byte)(200 * pulse), (byte)(50 * pulse), (byte)220);
-				
-				Raylib.DrawLineEx(p1, p2, 3, wireColor);
-				
-				// Dessiner une petite "étincelle" au milieu
-				Vector2 mid = (p1 + p2) / 2;
-				Raylib.DrawCircle((int)mid.X, (int)mid.Y, 3, new Color(255, 200, 100, 180));
-			}
-			
-			// Ligne de connexion en cours (mode placement)
-			if (_isConnectingWire && _wireStartTile != (-1, -1))
-			{
-				Vector2 startPos = new Vector2(_wireStartTile.x * ts + ts / 2f, _wireStartTile.y * ts + ts / 2f);
-				startPos.Y -= World.GetHeightAt(_wireStartTile.x, _wireStartTile.y) * ts / 4f;
-				
-				Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
-				Vector2 endPos = mouseWorld;
-				
-				// Dessiner la ligne pointillée
-				float dashLength = 15f;
-				float totalLength = Vector2.Distance(startPos, endPos);
-				Vector2 dir = (endPos - startPos) / totalLength;
-				
-				for (float d = 0; d < totalLength; d += dashLength)
-				{
-					Vector2 p = startPos + dir * d;
-					Raylib.DrawCircle((int)p.X, (int)p.Y, 3, new Color(100, 200, 255, 200));
-				}
-				
-				// Afficher un indicateur à la souris
-				Raylib.DrawCircle((int)mouseWorld.X, (int)mouseWorld.Y, 10, new Color(100, 200, 255, 150));
-				Raylib.DrawCircleLines((int)mouseWorld.X, (int)mouseWorld.Y, 10, new Color(100, 200, 255, 255));
-			}
-		}
-
 		/// <summary>
 		/// Met à jour tous les systèmes d'énergie (machine à vapeur, dynamo, batteries, ampoules)
 		/// </summary>

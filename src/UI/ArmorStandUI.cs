@@ -266,15 +266,6 @@ namespace Soulfract
             return null;
         }
 
-        private static void AddHitRect((EquipmentSlot? slot, BodyZone? zone) key, Rectangle rect)
-        {
-            if (rect.Width <= 0 || rect.Height <= 0) return;
-            if (HitRects.TryGetValue(key, out var previous))
-                HitRects[key] = Combine(previous, rect);
-            else
-                HitRects[key] = rect;
-        }
-
         private static Rectangle Combine(Rectangle first, Rectangle second)
         {
             float left = Math.Min(first.X, second.X);

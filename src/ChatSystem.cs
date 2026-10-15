@@ -11,7 +11,6 @@ namespace Soulfract
         private const float PANEL_FADE_SPEED = 5f;
         private static string _inputText = "";
         private static List<ChatMessage> _messages = new List<ChatMessage>();
-        private static float _messageLifetime = 10f; // seulement pour l'affichage flottant, mais l'historique reste
         private static int _maxMessages = 200; // limite de l'historique
 
         // Paramètres de l'interface
@@ -1171,57 +1170,6 @@ namespace Soulfract
         private static Color WithOpacity(Color color, float opacity)
         {
             return new Color(color.R, color.G, color.B, (byte)Math.Clamp(color.A * opacity, 0f, 255f));
-        }
-
-        private static void DrawFloatingMessages(float currentTime)
-        {
-            int messageY = (int)HudRenderer.GetClassicHotbarBounds().Y - 12;
-            Vector2 mousePos = Raylib.GetMousePosition();
-            const int maxVisibleLines = 5;
-            int renderedLines = 0;
-
-            // Zone de survol : englobe la zone où s'affichent les messages flottants.
-            // Si la souris est dessus, on "gèle" le compte à rebours de disparition
-            // pour laisser le temps de lire/répondre.
-            Rectangle hoverZone = new Rectangle(8, messageY - maxVisibleLines * LINE_HEIGHT - 6, 420, maxVisibleLines * LINE_HEIGHT + 16);
-            bool isHovering = Raylib.CheckCollisionPointRec(mousePos, hoverZone);
-            float dt = Raylib.GetFrameTime();
-
-            for (int i = _messages.Count - 1; i >= 0 && renderedLines < maxVisibleLines; i--)
-            {
-                var msg = _messages[i];
-                float age = currentTime - msg.StartTime;
-                if (age < 0f || age > _messageLifetime)
-                    continue;
-
-                // Reset du timer : tant que la souris survole le tchat, on repousse
-                // l'heure de départ du message pour empêcher le fondu de progresser.
-                if (isHovering)
-                {
-                    msg.StartTime += dt;
-                    age = currentTime - msg.StartTime;
-                }
-
-                // Petit fondu d'entrée pour éviter un "pop" trop brutal
-                float fadeIn = Math.Clamp(age / 0.15f, 0f, 1f);
-                // Fondu de sortie sur la dernière seconde de vie du message
-                float fadeOut = Math.Clamp(1f - (age / (_messageLifetime - 1f)), 0f, 1f);
-                float alpha = Math.Min(fadeIn, fadeOut);
-
-                Color color = new Color(msg.Color.R, msg.Color.G, msg.Color.B, (byte)(alpha * 255));
-                var lines = WrapMessage(msg.Text, 400);
-                for (int lineIndex = lines.Count - 1; lineIndex >= 0 && renderedLines < maxVisibleLines; lineIndex--)
-                {
-                    string line = lines[lineIndex];
-                    int lineWidth = FontManager.MeasureText(line, FONT_SIZE);
-                    Raylib.DrawRectangleRounded(new Rectangle(7, messageY - 2, lineWidth + 14, LINE_HEIGHT + 4),
-                        0.25f, 6, new Color(12, 16, 24, (int)Math.Clamp(alpha * 145f, 0f, 145f)));
-                    FontManager.DrawText(line, 14, messageY, FONT_SIZE, color);
-                    messageY -= LINE_HEIGHT;
-                    renderedLines++;
-                }
-                messageY -= 3;
-            }
         }
 
         public static void AddNotificationMessage(string message, Color color)

@@ -3088,17 +3088,6 @@ namespace Soulfract
                 _availableAnimNamesCache.Remove(speciesName.ToLowerInvariant());
         }
         
-        public static float GetArmRotationForAiming(float headAngle, float facing, string armPart)
-        {
-            if (armPart == "rarmtop")
-            {
-                float aimAngle = headAngle * 1.2f;
-                aimAngle = Math.Clamp(aimAngle, -70f, 70f);
-                return aimAngle;
-            }
-            return 0f;
-        }
-        
         public static Texture2D GetHeldItemTexture(Item? heldItem, bool isFurniture = false, int? placeableId = null)
         {
             if (heldItem == null && !isFurniture) return default;

@@ -88,6 +88,26 @@ namespace Soulfract
         public Vector2 WorldPos;
         public bool Occupied;
     }
+
+    public class WorkZoneSaveData
+    {
+        public int Id { get; set; }
+        public WorkZoneKind Kind { get; set; }
+        public float AnchorX { get; set; }
+        public float AnchorY { get; set; }
+        public float Radius { get; set; }
+        public int MaxWorkers { get; set; }
+        public int TilledTileCount { get; set; }
+        public int MaxTilledTiles { get; set; }
+        public List<WorkSlotSaveData> Slots { get; set; } = new();
+    }
+
+    public class WorkSlotSaveData
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public bool Occupied { get; set; }
+    }
 	
 	// Interface pour uniformiser les conteneurs (panier, sac à dos)
 	public interface IContainerInventory
@@ -406,25 +426,13 @@ namespace Soulfract
 		}
 	}
     
-    // État du panneau d'artisanat
-    public enum CraftPanelState
-    {
-        Collapsed,   // Replié (seulement l'icône dépasse)
-        Expanded     // Déplié (affichage complet)
-    }
-	
 public enum RenderItemKind
 {
-	None,
 	External,
 	GroundItem,
-	WorldEntity,
-	Player,
 	Car,
 	Wire,
 	Projectile,
-	WorldObject,
-	Icon,
 }
 
 public struct RenderItem
@@ -462,14 +470,6 @@ public struct RenderItem
 				if (Tag is GroundItemRenderTag groundTag)
 					World.DrawGroundItemTag(groundTag);
 				break;
-			case RenderItemKind.WorldEntity:
-				if (Tag is WorldEntityRenderTag entityTag)
-					World.DrawWorldEntityTag(entityTag);
-				break;
-			case RenderItemKind.Player:
-				if (Tag is PlayerRenderTag playerTag)
-					World.DrawPlayerRenderTag(playerTag);
-				break;
 			case RenderItemKind.Car:
 				if (Tag is CarRenderTag carTag)
 					World.DrawCarRenderTag(carTag);
@@ -481,14 +481,6 @@ public struct RenderItem
 			case RenderItemKind.Projectile:
 				if (Tag is ProjectileRenderTag projectileTag)
 					World.DrawProjectileRenderTag(projectileTag);
-				break;
-			case RenderItemKind.WorldObject:
-				if (Tag is WorldObjectRenderTag objectTag)
-					World.DrawWorldObjectRenderTag(objectTag);
-				break;
-			case RenderItemKind.Icon:
-				if (Tag is IconRenderTag iconTag)
-					World.DrawIconRenderTag(iconTag);
 				break;
 		}
 	}
@@ -520,65 +512,6 @@ public readonly struct GroundItemRenderTag
 		ItemSize = itemSize;
 		Metadata = metadata;
 		CustomColor = customColor;
-	}
-}
-
-public readonly struct WorldEntityRenderTag
-{
-	public readonly Entity Entity;
-	public readonly float YOffset;
-	public readonly Vector2 TraderIconPos;
-	public readonly bool IsTraderIcon;
-	public readonly bool ShowStart;
-	public readonly bool ShowFinish;
-	public readonly bool ShowGuildIcon;
-	public readonly bool ShowAlertIcon;
-	public readonly bool IsInterestedInFood;
-	public readonly bool IsQuestionMark;
-	public readonly bool IsWorm;
-	public readonly Vector2 IconWorldPos;
-	public readonly float VisualOffsetY;
-	public readonly float EntityYOffset;
-	public readonly float? CurrentHPRatio;
-	public readonly float? TopY;
-	public readonly float? WarningY;
-	public WorldEntityRenderTag(Entity entity, float yOffset, Vector2 traderIconPos, bool isTraderIcon, bool showStart, bool showFinish, bool showGuildIcon, bool showAlertIcon, bool isInterestedInFood, bool isQuestionMark, bool isWorm, Vector2 iconWorldPos, float visualOffsetY, float entityYOffset, float? currentHPRatio, float? topY, float? warningY)
-	{
-		Entity = entity; YOffset = yOffset; TraderIconPos = traderIconPos; IsTraderIcon = isTraderIcon; ShowStart = showStart; ShowFinish = showFinish; ShowGuildIcon = showGuildIcon; ShowAlertIcon = showAlertIcon; IsInterestedInFood = isInterestedInFood; IsQuestionMark = isQuestionMark; IsWorm = isWorm; IconWorldPos = iconWorldPos; VisualOffsetY = visualOffsetY; EntityYOffset = entityYOffset; CurrentHPRatio = currentHPRatio; TopY = topY; WarningY = warningY;
-	}
-}
-
-public readonly struct PlayerRenderTag
-{
-	public readonly Entity? MountedAnimal;
-	public readonly Vector2 ActualDrawPos;
-	public readonly Vector2 PlayerPos;
-	public readonly string SpeciesToDraw;
-	public readonly Texture2D MorphHairBase;
-	public readonly Texture2D MorphHairOverlay;
-	public readonly Color MorphHairColor;
-	public readonly Texture2D MorphEyes;
-	public readonly Texture2D MorphMouth;
-	public readonly Equipment? MorphEquipment;
-	public readonly Color MorphTint;
-	public readonly Texture2D UnderwearTex;
-	public readonly Texture2D HeldItemTex;
-	public readonly Item? HeldItem;
-	public readonly int PlayerFrame;
-	public readonly int PlayerAnim;
-	public readonly float PlayerProg;
-	public readonly float Facing;
-	public readonly bool IsCarryingCreature;
-	public readonly bool IsCarrying;
-	public readonly bool IsFurniture;
-	public readonly bool IsBow;
-	public readonly bool IsPlayerInWater;
-	public readonly string? CarriedSpeciesKey;
-	public readonly Entity? CarriedCreatureRef;
-	public readonly bool IsSitting;
-	public PlayerRenderTag(Entity? mountedAnimal, Vector2 actualDrawPos, Vector2 playerPos, string speciesToDraw, Texture2D morphHairBase, Texture2D morphHairOverlay, Color morphHairColor, Texture2D morphEyes, Texture2D morphMouth, Equipment? morphEquipment, Color morphTint, Texture2D underwearTex, Texture2D heldItemTex, Item? heldItem, int playerFrame, int playerAnim, float playerProg, float facing, bool isCarryingCreature, bool isCarrying, bool isFurniture, bool isBow, bool isPlayerInWater, string? carriedSpeciesKey, Entity? carriedCreatureRef, bool isSitting)
-	{
-		MountedAnimal = mountedAnimal; ActualDrawPos = actualDrawPos; PlayerPos = playerPos; SpeciesToDraw = speciesToDraw; MorphHairBase = morphHairBase; MorphHairOverlay = morphHairOverlay; MorphHairColor = morphHairColor; MorphEyes = morphEyes; MorphMouth = morphMouth; MorphEquipment = morphEquipment; MorphTint = morphTint; UnderwearTex = underwearTex; HeldItemTex = heldItemTex; HeldItem = heldItem; PlayerFrame = playerFrame; PlayerAnim = playerAnim; PlayerProg = playerProg; Facing = facing; IsCarryingCreature = isCarryingCreature; IsCarrying = isCarrying; IsFurniture = isFurniture; IsBow = isBow; IsPlayerInWater = isPlayerInWater; CarriedSpeciesKey = carriedSpeciesKey; CarriedCreatureRef = carriedCreatureRef; IsSitting = isSitting;
 	}
 }
 
@@ -616,46 +549,6 @@ public readonly struct ProjectileRenderTag
 	}
 }
 
-public readonly struct WorldObjectRenderTag
-{
-	public readonly int X;
-	public readonly int Y;
-	public readonly float DrawX;
-	public readonly float DrawY;
-	public readonly int DrawW;
-	public readonly int DrawH;
-	public readonly int ObjectId;
-	public readonly int OverlayId;
-	public readonly Texture2D Texture;
-	public readonly Texture2D MissingTexture;
-	public readonly bool IsTile;
-	public readonly int BasedTile;
-	public readonly float SortY;
-	public WorldObjectRenderTag(int x, int y, float drawX, float drawY, int drawW, int drawH, int objectId, int overlayId, Texture2D texture, Texture2D missingTexture, bool isTile, int basedTile, float sortY)
-	{
-		X = x; Y = y; DrawX = drawX; DrawY = drawY; DrawW = drawW; DrawH = drawH; ObjectId = objectId; OverlayId = overlayId; Texture = texture; MissingTexture = missingTexture; IsTile = isTile; BasedTile = basedTile; SortY = sortY;
-	}
-}
-
-public readonly struct IconRenderTag
-{
-	public readonly Vector2 BasePos;
-	public readonly List<Texture2D> Textures;
-	public readonly float IconSize;
-	public readonly float YOffsetIcon;
-	public readonly float Step;
-	public readonly int Count;
-	public readonly Texture2D AlertTexture;
-	public readonly float Pulse;
-	public readonly bool IsAlertIcon;
-	public readonly bool IsQuestionIcon;
-	public readonly float YOffset;
-	public IconRenderTag(Vector2 basePos, List<Texture2D> textures, float iconSize, float yOffsetIcon, float step, int count, Texture2D alertTexture, float pulse, bool isAlertIcon, bool isQuestionIcon, float yOffset)
-	{
-		BasePos = basePos; Textures = textures; IconSize = iconSize; YOffsetIcon = yOffsetIcon; Step = step; Count = count; AlertTexture = alertTexture; Pulse = pulse; IsAlertIcon = isAlertIcon; IsQuestionIcon = isQuestionIcon; YOffset = yOffset;
-	}
-}
-	
 	public class Guild
 	{
 		public string Name { get; set; } = "Guilde";
@@ -2994,7 +2887,7 @@ public readonly struct IconRenderTag
 	}
 }
 
-    // ─── CLASSE POUR LA COMPATIBILITÉ AVEC L'ANCIEN Renderer ─────────────────────
+    // ─── Ancien Renderer conservé pour ses panneaux de débogage ──────────────────
     public static class Renderer
     {
 		private static bool _mainDebugExpanded = true;
@@ -3026,158 +2919,6 @@ public readonly struct IconRenderTag
 			}
 			return false;
 		}
-
-        public static void DrawPlayerHUD(int hp, int maxHp, Equipment equip)
-        {
-            int sw = Raylib.GetScreenWidth();
-            int sh = Raylib.GetScreenHeight();
-            int barW = 200, barH = 18;
-            int bx = 14, by = sh - 90;
-            Raylib.DrawRectangle(bx - 2, by - 2, barW + 4, barH + 4, new Color(20, 20, 20, 200));
-            Raylib.DrawRectangle(bx, by, barW, barH, new Color(80, 20, 20, 255));
-            int fill = (int)(barW * (float)hp / maxHp);
-            Raylib.DrawRectangle(bx, by, fill, barH, new Color(200, 40, 40, 255));
-            Raylib.DrawRectangleLines(bx, by, barW, barH, new Color(120, 120, 120, 200));
-            Raylib.DrawText($" {hp}/{maxHp}", bx + 6, by + 2, 14, Color.White);
-            int ax = 14, ay = sh - 68;
-            Raylib.DrawText($" ATK: {equip.TotalAttack}   DEF: {equip.TotalArmor}", ax, ay, 14, new Color(220, 220, 180, 255));
-            if (equip.MainHand != null)
-                Raylib.DrawText($" {equip.MainHand.Name}", ax, ay + 18, 13, Color.Gold);
-        }
-
-        public static void DrawHotbar(List<Item> inventory, int selectedSlot)
-        {
-            const int slots = 8;
-            const int slotSize = 50;
-            const int padding = 4;
-            int sw = Raylib.GetScreenWidth();
-            int sh = Raylib.GetScreenHeight();
-            int totalW = slots * (slotSize + padding) - padding;
-            int startX = (sw - totalW) / 2;
-            int barY = sh - slotSize - 12;
-            Raylib.DrawRectangle(startX - 6, barY - 6, totalW + 12, slotSize + 12, new Color(20, 20, 20, 180));
-            Raylib.DrawRectangleLines(startX - 6, barY - 6, totalW + 12, slotSize + 12, new Color(80, 80, 80, 200));
-            for (int i = 0; i < slots; i++)
-            {
-                int sx = startX + i * (slotSize + padding);
-                bool sel = i == selectedSlot;
-                Raylib.DrawRectangle(sx, barY, slotSize, slotSize,
-                    sel ? new Color(80, 80, 50, 220) : new Color(40, 40, 40, 200));
-                Raylib.DrawRectangleLines(sx, barY, slotSize, slotSize,
-                    sel ? Color.Gold : new Color(70, 70, 70, 200));
-                if (i < inventory.Count)
-                {
-                    var item = inventory[i];
-					ItemRenderer.DrawItem(item,
-						new Rectangle(sx + UIManager.ScaleInt(7), barY + UIManager.ScaleInt(7), UIManager.ScaleInt(36), UIManager.ScaleInt(36)));
-                    Raylib.DrawText(item.Count.ToString(), sx + slotSize - 14, barY + slotSize - 16, 12, Color.White);
-                }
-                Raylib.DrawText((i + 1 <= 9 ? (i + 1).ToString() : "0"), sx + 3, barY + 3, 11, new Color(160, 160, 160, 200));
-            }
-        }
-
-        public static void DrawInventoryAndCraft(
-            List<Item> inventory, Equipment equip,
-            int craftTab, ref int craftSelected,
-            bool nearWorkbench, bool nearFurnace,
-            string activeStation)
-        {
-            int sw = Raylib.GetScreenWidth();
-            int sh = Raylib.GetScreenHeight();
-            Raylib.DrawRectangle(0, 0, sw, sh, new Color(0, 0, 0, 140));
-            int panelW = 720, panelH = 460;
-            int px = (sw - panelW) / 2;
-            int py = (sh - panelH) / 2;
-            Raylib.DrawRectangle(px, py, panelW, panelH, new Color(28, 28, 35, 255));
-            Raylib.DrawRectangleLines(px, py, panelW, panelH, new Color(90, 90, 110, 255));
-            int colLeft = px + 10;
-            Raylib.DrawText("INVENTAIRE", colLeft, py + 10, 16, Color.Gold);
-            for (int i = 0; i < inventory.Count; i++)
-            {
-                int iy = py + 35 + i * 42;
-                if (iy + 42 > py + panelH - 30) break;
-                var itm = inventory[i];
-                Raylib.DrawRectangle(colLeft, iy, 220, 38, new Color(40, 40, 50, 255));
-                Raylib.DrawRectangleLines(colLeft, iy, 220, 38, new Color(60, 60, 70, 255));
-				ItemRenderer.DrawItem(itm,
-					new Rectangle(colLeft + UIManager.ScaleInt(5), iy + UIManager.ScaleInt(3), UIManager.ScaleInt(32), UIManager.ScaleInt(32)));
-                Raylib.DrawText($"{itm.Name}", colLeft + 45, iy + 5, 16, Color.White);
-                Raylib.DrawText($"x{itm.Count}", colLeft + 45, iy + 22, 13, new Color(180, 180, 180, 255));
-            }
-            if (inventory.Count == 0)
-                Raylib.DrawText("Inventaire vide", colLeft + 10, py + 50, 16, Color.Gray);
-            int eqX = colLeft + 230;
-            Raylib.DrawText("ÉQUIPEMENT", eqX, py + 10, 16, Color.Gold);
-            DrawEquipSlot(eqX, py + 35, "Tête", equip.Head);
-            DrawEquipSlot(eqX, py + 80, "Corps", equip.Body);
-            DrawEquipSlot(eqX, py + 125, "Jambes", equip.Legs);
-            DrawEquipSlot(eqX, py + 185, "Main", equip.MainHand);
-            DrawEquipSlot(eqX, py + 230, "Bouclier", equip.OffHand);
-            Raylib.DrawLine(px + 390, py + 5, px + 390, py + panelH - 5, new Color(70, 70, 90, 255));
-            int colRight = px + 400;
-            string stationLabel = activeStation switch
-            {
-                "etabli" => "ÉTABLI",
-                "fourneau" => "FOURNEAU",
-                _ => "ARTISANAT (basique)"
-            };
-            Raylib.DrawText(stationLabel, colRight, py + 10, 16, Color.Gold);
-            var recipes = GameData.Recipes.Where(r =>
-                r.RequiresStation == activeStation ||
-                (activeStation == "etabli" && r.RequiresStation == "") ||
-                (activeStation == "" && r.RequiresStation == "")
-            ).ToList();
-            for (int i = 0; i < recipes.Count; i++)
-            {
-                int ry = py + 35 + i * 52;
-                if (ry + 52 > py + panelH - 30) break;
-                var rec = recipes[i];
-                bool can = CanCraft(inventory, rec);
-                bool hov = i == craftSelected;
-                Color bg = hov ? new Color(55, 55, 30, 255) : new Color(38, 38, 48, 255);
-                Color bdr = can ? (hov ? Color.Gold : new Color(100, 160, 60, 255)) : new Color(70, 50, 50, 255);
-                Raylib.DrawRectangle(colRight, ry, 300, 48, bg);
-                Raylib.DrawRectangleLines(colRight, ry, 300, 48, bdr);
-                if (GameData.ItemDatabase.TryGetValue(rec.ResultId, out var res))
-                {
-                    Color nc = can ? Color.White : new Color(130, 130, 130, 255);
-					var resultItem = new Item(res.Name, 1, res.Color, res.Icon);
-					ItemRenderer.DrawItem(resultItem,
-						new Rectangle(colRight + UIManager.ScaleInt(5), ry + UIManager.ScaleInt(8), UIManager.ScaleInt(30), UIManager.ScaleInt(30)), nc);
-                    Raylib.DrawText($"{rec.ResultName} x{rec.ResultCount}", colRight + 42, ry + 6, 16, nc);
-                    string ingStr = string.Join("  ", rec.Ingredients.Select(ing =>
-                    {
-                        if (GameData.ItemDatabase.TryGetValue(ing.id, out var d))
-                        {
-                            var it = inventory.Find(x => x.Name == d.Name);
-                            int have = it?.Count ?? 0;
-                            return $"{d.Name}:{have}/{ing.qty}";
-                        }
-                        return "";
-                    }));
-                    Raylib.DrawText(ingStr, colRight + 42, ry + 27, 12,
-                        can ? new Color(160, 220, 120, 255) : new Color(200, 100, 100, 255));
-                }
-                if (hov && can)
-                    Raylib.DrawText("[ENTRÉE]", colRight + 235, ry + 8, 13, Color.Yellow);
-            }
-            Raylib.DrawText("[↑↓] Naviguer  [Entrée] Fabriquer  [I] Fermer",
-                px + 10, py + panelH - 22, 13, new Color(140, 140, 160, 255));
-        }
-
-        static void DrawEquipSlot(int x, int y, string label, Item? item)
-        {
-            Raylib.DrawRectangle(x, y, 150, 36, new Color(40, 40, 55, 255));
-            Raylib.DrawRectangleLines(x, y, 150, 36, new Color(70, 70, 90, 255));
-            Raylib.DrawText(label + ":", x + 4, y + 4, 12, new Color(160, 160, 180, 255));
-            if (item != null)
-            {
-				ItemRenderer.DrawItem(item, new Rectangle(x + UIManager.ScaleInt(55), y + UIManager.ScaleInt(4), UIManager.ScaleInt(28), UIManager.ScaleInt(28)));
-                Raylib.DrawText(item.Name, x + 88, y + 10, 12, Color.White);
-            }
-            else
-                Raylib.DrawText("—", x + 55, y + 10, 14, Color.DarkGray);
-        }
 
         public static void UpdateAndDrawNotifications(List<Notification> notifs, float dt)
 		{
@@ -3551,23 +3292,6 @@ public readonly struct IconRenderTag
             y += dy;
         }
 
-        public static bool CanCraft(List<Item> inv, CraftRecipe rec)
-        {
-            foreach (var (id, qty) in rec.Ingredients)
-            {
-                if (!GameData.ItemDatabase.TryGetValue(id, out var d)) return false;
-                var it = inv.Find(x => x.Name == d.Name);
-                if (it == null || it.Count < qty) return false;
-            }
-            return true;
-        }
-
-        public static Vector2 RotateVec(Vector2 v, float angle)
-        {
-            float r = angle * MathF.PI / 180f;
-            return new Vector2(v.X * MathF.Cos(r) - v.Y * MathF.Sin(r),
-                               v.X * MathF.Sin(r) + v.Y * MathF.Cos(r));
-        }
     }
 	
 	// Classe pour les dégâts flottants

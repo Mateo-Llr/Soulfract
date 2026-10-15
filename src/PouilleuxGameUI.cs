@@ -2165,12 +2165,6 @@ namespace Soulfract
             }
         }
 
-        private static void RemovePairs(Participant hand)
-        {
-            for (int rank = 0; rank < 16; rank++)
-                RemovePair(hand, rank);
-        }
-
         private static Rectangle GetNpcDeckRect(int index)
         {
             int width = Raylib.GetScreenWidth();
@@ -2769,37 +2763,6 @@ namespace Soulfract
         {
             int recipientIndex = cardIndex % (_participants.Count + 1);
             return recipientIndex == 0 ? _player : _participants[recipientIndex - 1];
-        }
-
-        private static void DrawLandedDealCards()
-        {
-            int[] counts = new int[_participants.Count + 1];
-            for (int i = 0; i < _dealtCardCount; i++)
-                counts[(_participants.IndexOf(GetDealRecipient(i)) + 1) % (_participants.Count + 1)]++;
-
-            for (int recipientIndex = 0; recipientIndex < counts.Length; recipientIndex++)
-            {
-                int count = counts[recipientIndex];
-                Participant recipient = recipientIndex == 0 ? _player : _participants[recipientIndex - 1];
-                for (int cardIndex = 0; cardIndex < count; cardIndex++)
-                {
-                    Vector2 center;
-                    float angle;
-                    if (recipientIndex == 0)
-                    {
-                        center = GetPlayerCardCenter(cardIndex, count);
-                        angle = (cardIndex - (count - 1) / 2f) * 7f;
-                    }
-                    else
-                    {
-                        GetNpcCardLayout(recipientIndex - 1, count, cardIndex, out center, out angle, out _);
-                    }
-                    float cardScale = recipientIndex == 0
-                        ? CARD_TEXTURE_SCALE
-                        : GetNpcCardTextureScale(recipientIndex - 1);
-                    DrawCardBack(center, _cardBase.Width * cardScale, _cardBase.Height * cardScale, angle, false, cardScale);
-                }
-            }
         }
 
         private static void FinishDealing()

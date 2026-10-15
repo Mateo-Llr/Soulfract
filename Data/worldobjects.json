@@ -3714,6 +3714,10 @@
         "width": 1,
         "height": 2
       },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
       "drops": [
         {
           "id": "sunflower",

@@ -14,6 +14,8 @@ namespace Soulfract
     public static partial class Program
     {
 
+		private static readonly Dictionary<Guid, List<Entity>> _npcPetGroupBuffer = new();
+
 		public static void AddSpellProjectile(SpellProjectile p) => _spellProjectiles.Add(p);
 
 		public static List<SpellProjectile> GetSpellProjectiles() => _spellProjectiles;

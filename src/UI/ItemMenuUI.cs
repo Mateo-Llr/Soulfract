@@ -940,21 +940,6 @@ namespace Soulfract
             };
         }
 
-        private static string GetCategoryTabLabel(string category)
-        {
-            return category switch
-            {
-                "Tout" => "T",
-                "Outils" => "O",
-                "Armes" => "A",
-                "Armures" => "R",
-                "Nourriture" => "N",
-                "Ressources" => "R",
-                "Posables" => "P",
-                _ => "?"
-            };
-        }
-
         private static List<ItemData> GetFilteredItems()
         {
             var filtered = _items

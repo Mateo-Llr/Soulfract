@@ -1079,6 +1079,7 @@ namespace Soulfract
             }
             
             data.FarmlandMoisture = World.GetFarmlandMoistureData();
+			data.WorkZones = World.GetWorkZoneSaveData();
             
             data.Dynamos.Clear();
             foreach (var kv in World.Dynamos)
@@ -1441,7 +1442,9 @@ namespace Soulfract
             
             string json = File.ReadAllText(savePath);
             var data = JsonSerializer.Deserialize<GameSaveData>(json, ReadOptions) ?? new GameSaveData();
-            
+
+			World.RestoreWorkZones(data.WorkZones);
+
             AchievementManager.Load(data);
             World.LoadExploredTiles(data.ExploredTiles ?? new HashSet<string>());
             QuestManager.RestorePersistedQuests((data.Quests ?? new List<QuestSaveData>())
@@ -3226,6 +3229,7 @@ namespace Soulfract
 		public List<int> PreviouslyOwnedItemIds { get; set; } = new();
         public Dictionary<string, int> LastCropStages { get; set; } = new();
         public Dictionary<string, float> FarmlandMoisture { get; set; } = new();
+        public List<WorkZoneSaveData> WorkZones { get; set; } = new();
         
         public int PlayerSkinColorR { get; set; } = 255;
         public int PlayerSkinColorG { get; set; } = 235;

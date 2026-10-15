@@ -13,8 +13,6 @@ namespace Soulfract
 
 		public const int UNLOAD_DISTANCE = 5;
 
-		private static Random _random = new Random();
-
 		// ─── VENT (oscillation de la flore : arbres, buissons, fleurs...) ─────────────
 		//  Direction globale du vent, en degrés (0 = vers la droite). Peut évoluer
 		// lentement dans le temps pour donner un vent qui "tourne" légèrement.
@@ -88,8 +86,6 @@ namespace Soulfract
 			return sway.direction * TreeHitSwayAmplitude * envelope;
 		}
 
-		private static Dictionary<(int x, int y), int> _tileVariationCache = new();
-
 		private static Dictionary<(int x, int y), int> _tileAnimationStartCache = new();
 
 		private static Dictionary<(int x, int y), int> _heightCache = new();
@@ -140,8 +136,6 @@ namespace Soulfract
 
 		// Suivi des paires entrée/sortie de grottes
         private static Dictionary<(int surfaceX, int surfaceY), (int caveX, int caveY)> _caveEntryPairs = new();
-
-		private static Random _cavePairRandom = new Random();
 
 		private static bool _isInDungeon = false;
 
@@ -210,7 +204,6 @@ namespace Soulfract
 			public int LastUsedFrame = 0;
 		}
 
-		private const int TerrainChunkCacheLimit = 32;
 		private static readonly Dictionary<(int chunkX, int chunkY), TerrainChunkRenderCache> _terrainChunkRenderCaches = new();
 
 		private static void ClearTerrainChunkRenderCaches()
@@ -346,11 +339,6 @@ namespace Soulfract
 
 			Raylib.DrawCircle((int)tag.Position.X, (int)tag.Position.Y, (int)tag.Size, tag.Color);
 		}
-
-		public static void DrawWorldEntityTag(WorldEntityRenderTag tag) { }
-		public static void DrawPlayerRenderTag(PlayerRenderTag tag) { }
-		public static void DrawWorldObjectRenderTag(WorldObjectRenderTag tag) { }
-		public static void DrawIconRenderTag(IconRenderTag tag) { }
 
 		private static Dictionary<(int x, int y), int> _seaFloorHeights = new();
 
@@ -510,22 +498,6 @@ namespace Soulfract
         // ─────────────────────────────────────────────────────────────────────────
         public const int MAX_HEIGHT_LEVELS = 60;
 
-		private const float MOUNTAIN_FACTOR = 2.5f;
-
-		private static float GetHeightNoise(float x, float y)
-		{
-			float large = PerlinNoise.Noise(x * 0.0005f, y * 0.0005f);   // 0.0015 → 0.0005
-			float medium = PerlinNoise.Noise(x * 0.002f, y * 0.002f);     // 0.006 → 0.002
-			float small = PerlinNoise.Noise(x * 0.008f, y * 0.008f);      // 0.025 → 0.008
-			float detail = PerlinNoise.Noise(x * 0.026f, y * 0.026f) * 0.25f; // 0.08 → 0.026
-			float h = large * 0.55f + medium * 0.25f + small * 0.15f + detail * 0.05f;
-			h = (h + 1f) / 2f;
-			h = MathF.Pow(h, 1.5f);
-			if (h > 0.55f) h = 0.55f + (h - 0.55f) * 3.0f;
-			h = Math.Clamp(h, 0f, 1f);
-			return h;
-		}
-
 		private static float GetCaveNoise(float x, float y)
         {
             float h = PerlinNoise.Noise(x * 0.012f, y * 0.012f);
@@ -555,8 +527,162 @@ namespace Soulfract
 		// essaie de marcher directement sur une tuile bloquée par la collision de l'objet.
 		public static Dictionary<int, VillageWorkZone> WorkZones = new();
 		private static int _nextWorkZoneId = 1;
+		private static bool _fieldWorkZonesReconstructed;
 		public static List<VillageCenter> VillageCenters { get; } = new();
 		private static bool _villageCentersReconstructed;
+
+		public static List<WorkZoneSaveData> GetWorkZoneSaveData()
+		{
+			return WorkZones.Values.Select(zone => new WorkZoneSaveData
+			{
+				Id = zone.Id,
+				Kind = zone.Kind,
+				AnchorX = zone.AnchorPos.X,
+				AnchorY = zone.AnchorPos.Y,
+				Radius = zone.Radius,
+				MaxWorkers = zone.MaxWorkers,
+				TilledTileCount = zone.TilledTileCount,
+				MaxTilledTiles = zone.MaxTilledTiles,
+				Slots = zone.Slots.Select(slot => new WorkSlotSaveData
+				{
+					X = slot.WorldPos.X,
+					Y = slot.WorldPos.Y,
+					Occupied = slot.Occupied
+				}).ToList()
+			}).ToList();
+		}
+
+		public static void RestoreWorkZones(IEnumerable<WorkZoneSaveData>? savedZones)
+		{
+			WorkZones.Clear();
+			_nextWorkZoneId = 1;
+			_fieldWorkZonesReconstructed = false;
+			if (savedZones == null)
+				return;
+
+			foreach (var savedZone in savedZones)
+			{
+				if (savedZone.Id < 0 || !Enum.IsDefined(savedZone.Kind))
+					continue;
+
+				var zone = new VillageWorkZone
+				{
+					Id = savedZone.Id,
+					Kind = savedZone.Kind,
+					AnchorPos = new Vector2(savedZone.AnchorX, savedZone.AnchorY),
+					Radius = Math.Max(0f, savedZone.Radius),
+					MaxWorkers = Math.Max(1, savedZone.MaxWorkers),
+					TilledTileCount = Math.Max(0, savedZone.TilledTileCount),
+					MaxTilledTiles = savedZone.Kind == WorkZoneKind.Field
+						? Math.Max(48, Math.Max(savedZone.TilledTileCount, savedZone.MaxTilledTiles))
+						: Math.Max(0, savedZone.MaxTilledTiles),
+					Slots = savedZone.Slots?.Select(slot => new WorkSlot
+					{
+						WorldPos = new Vector2(slot.X, slot.Y),
+						Occupied = false
+					}).ToList() ?? new List<WorkSlot>()
+				};
+				WorkZones[zone.Id] = zone;
+				_nextWorkZoneId = Math.Max(_nextWorkZoneId, zone.Id + 1);
+			}
+		}
+
+		public static void RebuildFieldWorkZonesFromTerrain()
+		{
+			if (_fieldWorkZonesReconstructed)
+				return;
+			_fieldWorkZonesReconstructed = true;
+
+			var farmTiles = new HashSet<(int x, int y)>();
+			foreach (var (_, _, chunk) in GetAllSurfaceChunks())
+			{
+				foreach (var tile in chunk.GroundOverrides)
+				{
+					if (tile.Value == 27 || tile.Value == 29)
+						farmTiles.Add(tile.Key);
+				}
+
+				foreach (var tile in chunk.Objects)
+				{
+					if (WorldTileRegistry.GetTile(tile.Value)?.IsCrop == true)
+						farmTiles.Add(tile.Key);
+				}
+			}
+
+			var remainingTiles = new HashSet<(int x, int y)>(farmTiles);
+			while (remainingTiles.Count > 0)
+			{
+				var first = remainingTiles.First();
+				remainingTiles.Remove(first);
+				var queue = new Queue<(int x, int y)>();
+				queue.Enqueue(first);
+				int minX = first.x, maxX = first.x, minY = first.y, maxY = first.y;
+				int tilledTileCount = 0;
+
+				while (queue.Count > 0)
+				{
+					var tile = queue.Dequeue();
+					if (GetGroundTileIdAt(tile.x, tile.y) is 27 or 29)
+						tilledTileCount++;
+					minX = Math.Min(minX, tile.x);
+					maxX = Math.Max(maxX, tile.x);
+					minY = Math.Min(minY, tile.y);
+					maxY = Math.Max(maxY, tile.y);
+
+					for (int dx = -1; dx <= 1; dx++)
+					for (int dy = -1; dy <= 1; dy++)
+					{
+						if (dx == 0 && dy == 0) continue;
+						var neighbor = (tile.x + dx, tile.y + dy);
+						if (remainingTiles.Remove(neighbor))
+							queue.Enqueue(neighbor);
+					}
+				}
+
+				float radius = Math.Max(maxX - minX + 1, maxY - minY + 1) * Program.TileSize * 0.5f
+					+ Program.TileSize;
+				var anchorPos = new Vector2((minX + maxX + 1) * Program.TileSize * 0.5f,
+					(minY + maxY + 1) * Program.TileSize * 0.5f);
+				if (WorkZones.Values.Any(zone => zone.Kind == WorkZoneKind.Field
+					&& Vector2.DistanceSquared(anchorPos, zone.AnchorPos) <= MathF.Pow(radius + zone.Radius, 2f)))
+					continue;
+
+				var zone = new VillageWorkZone
+				{
+					Id = _nextWorkZoneId++,
+					Kind = WorkZoneKind.Field,
+					AnchorPos = anchorPos,
+					Radius = radius,
+					MaxWorkers = 4,
+					TilledTileCount = tilledTileCount,
+					MaxTilledTiles = Math.Max(48, tilledTileCount)
+				};
+				PopulateWorkSlots(zone, Random.Shared);
+				WorkZones[zone.Id] = zone;
+				Console.WriteLine($"[Farming] Zone de champ restaurée depuis le terrain, id={zone.Id}, cases labourées={tilledTileCount}.");
+			}
+		}
+
+		public static void RebuildWorkSlotOccupancy(IEnumerable<Entity> entities)
+		{
+			foreach (var zone in WorkZones.Values)
+			foreach (var slot in zone.Slots)
+				slot.Occupied = false;
+
+			foreach (var entity in entities)
+			{
+				if (!entity.WorkplacePosition.HasValue
+					|| !WorkZones.TryGetValue(entity.WorkZoneId, out var zone))
+					continue;
+
+				var assignedSlot = zone.Slots
+					.OrderBy(slot => Vector2.DistanceSquared(slot.WorldPos, entity.WorkplacePosition.Value))
+					.FirstOrDefault();
+				if (assignedSlot != null
+					&& Vector2.DistanceSquared(assignedSlot.WorldPos, entity.WorkplacePosition.Value) <= 1f)
+					assignedSlot.Occupied = true;
+			}
+		}
 
 		public static VillageCenter? FindNearestVillageCenter(Vector2 worldPos, float maxDistance = 2500f)
 		{
@@ -971,24 +1097,6 @@ namespace Soulfract
 				case Biome.IceSpikes: return 104; // Abyss
 				default: return 100; // default cave stone
 			}
-		}
-
-		private static void DrawTemporaryArrow(Vector2 from, Vector2 to, Color color, float thickness)
-		{
-			Raylib.DrawLineEx(from, to, thickness, color);
-			
-			Vector2 dir = to - from;
-			if (dir.Length() < 0.01f) return;
-			dir = Vector2.Normalize(dir);
-			
-			Vector2 perp = new Vector2(-dir.Y, dir.X);
-			float arrowSize = 10f;
-			
-			Vector2 tip1 = to - dir * arrowSize + perp * (arrowSize / 2);
-			Vector2 tip2 = to - dir * arrowSize - perp * (arrowSize / 2);
-			
-			Raylib.DrawLineEx(to, tip1, thickness, color);
-			Raylib.DrawLineEx(to, tip2, thickness, color);
 		}
 
 		private static readonly (int dx, int dy)[] RitualCandlePositions = new (int, int)[]
@@ -1422,8 +1530,6 @@ namespace Soulfract
             foreach (var pair in loadedPairs)
                 _caveEntryPairs[pair.Key] = pair.Value;
         }
-
-		private static Dictionary<(int x, int y), bool> _caveEntries = new();
 
 		public static bool IsCaveEntry(int tileX, int tileY)
         {
@@ -1861,7 +1967,7 @@ namespace Soulfract
 
 			foreach (Entity entity in Program.GetEntities())
 			{
-				if (!entity.IsAlive || entity.CarriedByConnectionId != -1) continue;
+				if (!entity.IsAlive || entity.IsSleeping || entity.CarriedByConnectionId != -1) continue;
 				if (entity.Rider == Program.GetPlayerEntity() || Program.GetPlayerEntity().Rider == entity) continue;
 
 				Rectangle entityBox = GetPushHitbox(entity);
@@ -1889,6 +1995,10 @@ namespace Soulfract
 
 		private static void ResolveEntityPush(Entity first, Entity second, float dt)
 		{
+			bool firstSleeping = first.IsSleeping;
+			bool secondSleeping = second.IsSleeping;
+			if (firstSleeping && secondSleeping) return;
+
 			Rectangle firstBox = GetPushHitbox(first);
 			Rectangle secondBox = GetPushHitbox(second);
 			if (!Raylib.CheckCollisionRecs(firstBox, secondBox)) return;
@@ -1913,21 +2023,29 @@ namespace Soulfract
 			float penetration = MathF.Min(overlapX, overlapY);
 
 			Vector2 separation = pushDirection * MathF.Min(0.5f, penetration * 0.05f);
-			ApplyEntitySeparation(first, separation);
-			ApplyEntitySeparation(second, -separation);
+			if (!firstSleeping)
+				ApplyEntitySeparation(first, separation);
+			if (!secondSleeping)
+				ApplyEntitySeparation(second, -separation);
 
 			float acceleration = proximity * proximity * MaxEntityPushAcceleration;
 			Vector2 push = pushDirection * (acceleration * dt * 0.5f);
-			if (first.IsPlayer)
-				Program.ApplyEntityPush(push);
-			else
-				first.ApplyPushImpulse(push);
-			if (second.IsPlayer)
-				Program.ApplyEntityPush(-push);
-			else
-				second.ApplyPushImpulse(-push);
-			first.IsKnockedBack = true;
-			second.IsKnockedBack = true;
+			if (!firstSleeping)
+			{
+				if (first.IsPlayer)
+					Program.ApplyEntityPush(push);
+				else
+					first.ApplyPushImpulse(push);
+				first.IsKnockedBack = true;
+			}
+			if (!secondSleeping)
+			{
+				if (second.IsPlayer)
+					Program.ApplyEntityPush(-push);
+				else
+					second.ApplyPushImpulse(-push);
+				second.IsKnockedBack = true;
+			}
 		}
 
 		private static Rectangle GetPushHitbox(Entity entity)
@@ -2113,18 +2231,6 @@ namespace Soulfract
 		// ─────────────────────────────────────────────────────────────────────────
         //  TEXTURES (variations / animations)
         // ─────────────────────────────────────────────────────────────────────────
-        private static int GetVariationForTile(int x, int y, int variationCount)
-        {
-            var key = (x, y);
-            if (!_tileVariationCache.ContainsKey(key))
-            {
-                int hash = (x * 73856093) ^ (y * 19349663);
-                int variation = Math.Abs(hash) % variationCount;
-                _tileVariationCache[key] = variation;
-            }
-            return _tileVariationCache[key];
-        }
-
 		private static int GetAnimationFrameForTile(int x, int y, int frameCount, float currentTime)
         {
             var key = (x, y);
@@ -2218,10 +2324,5 @@ namespace Soulfract
 			return Vector2.Distance(point, new Vector2(closestX, closestY));
 		}
 
-		private static bool IsConnectableAt(int x, int y)
-        {
-            int objId = GetObjectIdAt(x, y);
-            return objId != 0 && WorldTileRegistry.IsConnectable(objId);
-        }
     }
 }

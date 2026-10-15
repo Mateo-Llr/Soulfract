@@ -61,7 +61,6 @@ namespace Soulfract
         private static readonly Color COLOR_BUTTON_HOVER = new Color(100, 180, 100, 255);
         private static readonly Color COLOR_RESET = new Color(140, 80, 80, 255);
         private static readonly Color COLOR_RESET_HOVER = new Color(180, 100, 100, 255);
-        private static readonly Color COLOR_SLIDER_BG = new Color(40, 43, 48, 200);
 
         private static Texture2D _closeIcon;
         private static Texture2D _resetIcon;

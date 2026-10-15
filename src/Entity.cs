@@ -82,7 +82,6 @@ namespace Soulfract
         None,
         Telegraph,   // Immobile 0.3s
         Charge,      // Lunge 0.4s
-        Strike,      // Coup direct sans lancée : la cible est déjà au corps à corps
         Recovery     // Immobile 0.2s
     }
 
@@ -232,8 +231,6 @@ namespace Soulfract
         // Khamsin boss state machine
         private enum KhamsinBossState { Idle, Telegraph, Charge, Recover, Volley }
         private KhamsinBossState _khBossState = KhamsinBossState.Idle;
-        private float _khSalvoTimer = 0f;
-        private float _khAttackTimer = 0f;
         private float _khTelegraphTimer = 0f;
         private float _khChargeTimer = 0f;
         private float _khRecoveryTimer = 0f;
@@ -331,8 +328,8 @@ namespace Soulfract
         private enum GenieBossState
         {
             Idle, Teleport, ClonesTelegraph, FanTelegraph, FanFiring,
-            SandTelegraph, SandActive, LavaTelegraph, LavaActive,
-            LaserTelegraph, LaserSpinning, WishTelegraph, WishStrike, Recover
+            SandTelegraph, LavaTelegraph,
+            LaserTelegraph, LaserSpinning, WishTelegraph, Recover
         }
         private GenieBossState _geState = GenieBossState.Idle;
         private float _geStateTimer = 0f;
@@ -458,7 +455,6 @@ namespace Soulfract
         private const float KH_DASH_RECOVERY_DURATION = 0.25f;
         private const float KH_DASH_BRAKE_DURATION = 0.2f;
         private const float KH_DASH_SPEED = 600f; // vitesse de dash (px/s)
-        private const float KH_DASH_RANGE = 360f;
 
         // Constantes de timing
         private const float TELEGRAPH_DURATION = 0.3f;
@@ -469,8 +465,6 @@ namespace Soulfract
         //  Coup direct (Strike) : quand la cible est déjà à portée de contact
         // (AttackHitRange), inutile de faire attendre puis charger/foncer — l'entité
         // tente juste un coup rapide sur place, comme un vrai coup au corps à corps.
-        private const float STRIKE_WINDUP = 0.08f;   // très bref temps avant l'impact du coup
-        private const float STRIKE_DURATION = 0.18f; // durée totale du coup avant la récupération
 
         // ==================== IA DE COMBAT (approche / cercle / recul) ====================
         //  Plutôt que de foncer en permanence droit sur la cible, l'entité en Chase alterne
@@ -478,8 +472,6 @@ namespace Soulfract
         // Cela casse le pattern "charge constante" qui rendait le combat prévisible et
         // désagréable, en s'inspirant de l'approche "poke / reposition / commit" des jeux
         // d'action (Zelda, Dark Souls...).
-        private enum CombatMoveState { Approach, Strafe, Retreat }
-        private CombatMoveState _combatMoveState = CombatMoveState.Approach;
         private float _combatDecisionTimer = 0f;
         private int _strafeDir = 1;
         private float _combatRangeWobble = 0f;
@@ -582,6 +574,25 @@ namespace Soulfract
         public Vector2? WorkplacePosition = null;
         public int WorkZoneId = -1;
         private Vector2? _farmerWorkTarget = null;
+
+        //  Point de MARCHE réel utilisé pour atteindre _farmerWorkTarget (case de culture). Une case
+        // portant une culture / un objet peut être non praticable pour l'A* : on vise alors la
+        // case praticable la plus proche, et on exécute l'action depuis là.
+        private Vector2? _farmerApproachPos = null;
+        //  Cases de champ jugées inaccessibles (A* en échec / action impossible), ignorées un moment.
+        // La valeur est l'horloge (_farmClock) à laquelle la case redevient éligible.
+        private readonly Dictionary<(int x, int y), float> _unreachableFarmTiles = new();
+        private const float FarmerActionCooldownSeconds = 0.65f;
+        private float _farmClock = 0f;
+        private float _farmerActionCooldown = 0f;
+        //  Évite de rescanner tout le champ (tri LINQ) à chaque Decide() quand il n'y a rien à faire.
+        private float _farmerNoWorkCooldown = 0f;
+        //  Après l'abandon d'un trajet vers le poste/une case de travail, on laisse le PNJ vaquer
+        // à autre chose quelques secondes au lieu de re-choisir immédiatement la même cible.
+        private float _workGoalBackoffTimer = 0f;
+        private bool _workGoalActive = false;
+        private bool _assigningWorkplace = false;
+        private bool IsFarmerOnShift => Profession == ProfessionType.Farmer && _workBreakCooldown <= 0f && WorkZoneId >= 0;
         public bool IsVillager => Species == "human" && !IsPlayer;
         public bool IsVillageGuard => IsVillager && Profession == ProfessionType.Guard && !IsTamed;
         public Entity? CombatTargetEntity => _combatTargetEntity;
@@ -943,18 +954,6 @@ namespace Soulfract
         {
             "les chats", "les loups", "les renards", "les ratons laveurs",
             "les chevaux", "les ours", "les cochons", "les poules"
-        };
-
-        private static readonly string[] _npcIdleTalkLines =
-        {
-            "Je crois que le village est plus agréable quand il y a du monde autour.",
-            "Il y a des jours où le silence me semble plus agréable que les nouvelles.",
-            "J'ai déjà vu pire, mais ce matin il y a quelque chose de vraiment paisible dans l'air.",
-            "J'aime quand chaque rue semble avoir son petit rythme, comme une chanson.",
-            "Les bonnes journées, c'est surtout celles où on ne se dépêche pas trop.",
-            "J'ai l'impression que les gens se parlent plus doucement quand le vent tombe.",
-            "On finit par connaître les habitudes de chacun, et ça rassure un peu.",
-            "Le matin, j'aime observer les gens avant de décider quoi leur dire."
         };
 
         internal void InitializeSocialProfile()
@@ -1449,6 +1448,21 @@ namespace Soulfract
 
         private void AbandonCurrentGoal(string debugReason)
         {
+            //  Un trajet de TRAVAIL (case de champ ou poste) abandonné : on mémorise la case comme
+            // inaccessible et on suspend la routine de métier un moment. Sans ça, Decide() re-choisissait
+            // la même cible (la recherche est déterministe : toujours la case la plus proche) toutes les
+            // ~1,5 s, ce qui donnait un fermier figé avec sa ligne rouge de debug et aucun chemin.
+            if (_workGoalActive && AiState == NpcAiState.WalkToTarget)
+            {
+                _workGoalBackoffTimer = 25f;
+                if (_farmerWorkTarget.HasValue)
+                    BlacklistFarmTile(_farmerWorkTarget.Value, 120f);
+                _farmerWorkTarget = null;
+                _farmerApproachPos = null;
+                _workApproachPos = null;
+            }
+            _workGoalActive = false;
+
             if (_infirmaryBuildingId >= 0)
             {
                 World.ReleaseInfirmary(_infirmaryBuildingId, NetId);
@@ -1647,6 +1661,9 @@ namespace Soulfract
         private bool _walkingToBench = false;
         private float _sitTimer = 0f;
         private bool _morningDeparturePending = false;
+        private bool _farmerSupplyPreparedToday;
+        private bool _farmerSupplyWithdrawPending;
+        private const int FARMER_SEED_STOCK_TARGET = 10;
         private float _tentRestCooldown = 0f;
         private float _tentSleepTimer = 0f;
         private const float CAVE_TENT_SLEEP_DURATION = 30f;
@@ -1766,21 +1783,14 @@ namespace Soulfract
         {
             _currentPath.Clear();
             _pathRecalcTimer = 0f;
+            _pathFailStreak = 0;
+            _stuckProgressTimer = 0f;
+            _stuckProgressCheckPos = WorldPos;
         }
 
-        // Comportement des insectes (à conserver si vous en avez)
-        private Vector2 _dragonflyTarget = Vector2.Zero;
-        private float _dragonflyDashProgress = 1f;
-        private Vector2 _dragonflyStartPos = Vector2.Zero;
-        private float _dragonflyDashDuration = 0.6f;
-        private float _dragonflyDashTimer = 0f;
-        private const float DRAGONFLY_MIN_DISTANCE = 3f;
-
         // Autres timers
-        private float _fearCooldown = 0f;
         private float _lookAtPlayerTimer = 0f;
         private float _continuousFearTimer = 0f;
-        private Vector2 _lastKnownPlayerPos;
         private float _sleepTimer = 0f;
         private float _sleepWakeCooldown = 0f;
         private bool _isSleeping = false;
@@ -1797,7 +1807,6 @@ namespace Soulfract
         private bool _restingInChair = false;
         private const float SLEEP_TRANSITION_DELAY = 3f;
         private float _zzzTimer = 0f;
-        private const float ZZZ_INTERVAL = 0.8f;
         private float _zzzCurrentInterval = 0.8f;
 
         private Vector2 _lastPosForParticles;
@@ -2508,20 +2517,6 @@ namespace Soulfract
             _ => Localization.Get("profession.trader")
         };
 
-        public string GetProfessionDescription() => Profession switch
-        {
-            ProfessionType.Farmer => Localization.Get("profession.farmer.description"),
-            ProfessionType.Blacksmith => Localization.Get("profession.blacksmith.description"),
-            ProfessionType.Lumberjack => Localization.Get("profession.lumberjack.description"),
-            ProfessionType.Hunter => Localization.Get("profession.hunter.description"),
-            ProfessionType.Alchemist => Localization.Get("profession.alchemist.description"),
-            ProfessionType.Tailor => Localization.Get("profession.tailor.description"),
-            ProfessionType.Miner => Localization.Get("profession.miner.description"),
-            ProfessionType.Cook => Localization.Get("profession.cook.description"),
-            ProfessionType.Guard => Localization.GetOrDefault("profession.guard.description", "Défend le village contre les créatures hostiles."),
-            _ => Localization.Get("profession.trader.description")
-        };
-
         public void AssignProfessionAndTrade(ProfessionType? forcedProfession = null, bool allowGuard = true)
         {
             if (Species != "human" || IsPlayer || IsTamed)
@@ -2587,6 +2582,21 @@ namespace Soulfract
         {
             if (Profession == ProfessionType.None) return;
 
+            _workApproachPos = null; // le point d'approche en cache correspondait à l'ancien poste
+            _farmerWorkTarget = null;
+            _farmerApproachPos = null;
+
+            if (Profession == ProfessionType.Farmer
+                && WorkZoneId >= 0
+                && (!World.WorkZones.TryGetValue(WorkZoneId, out var assignedZone)
+                    || assignedZone.Kind != WorkZoneKind.Field))
+            {
+                if (WorkplacePosition.HasValue)
+                    World.ReleaseWorkSlot(WorkZoneId, WorkplacePosition.Value); // sinon l'emplacement restait "occupé" à vie
+                WorkplacePosition = null;
+                WorkZoneId = -1;
+            }
+
             if (ProfessionData.StationObjectIds.TryGetValue(Profession, out var stationIds) && stationIds.Length > 0)
             {
                 if (HomeBuildingId >= 0 && World.Houses.TryGetValue(HomeBuildingId, out var ownHouse))
@@ -2628,9 +2638,13 @@ namespace Soulfract
                 }
                 else if (Profession == ProfessionType.Farmer)
                 {
-                    if (HomePosition != Vector2.Zero && World.TryCreateFieldNear(HomePosition))
+                    if (!_assigningWorkplace && HomePosition != Vector2.Zero && World.TryCreateFieldNear(HomePosition))
                     {
-                        AssignWorkplace();
+                        // Garde anti-récursion : si le nouveau champ n'offre aucun emplacement, on ne
+                        // rappelle pas AssignWorkplace() indéfiniment (StackOverflow).
+                        _assigningWorkplace = true;
+                        try { AssignWorkplace(); }
+                        finally { _assigningWorkplace = false; }
                         return;
                     }
 
@@ -2957,8 +2971,6 @@ namespace Soulfract
                 IsAlerted = true;
                 AlertTimer = AlertDuration;
                 AlertOrigin = WorldPos;
-                _lastKnownPlayerPos = hitPos;
-                _fearCooldown = 5f;
                 _continuousFearTimer = 0f;
 
                 Vector2 fleeTargetPos = GetFearTargetPosition();
@@ -3090,8 +3102,9 @@ namespace Soulfract
             AiTimer = timer;
             AnimState = anim;
             Speed = speed ?? BaseSpeed;
-            _currentPath.Clear();
+            ResetPathfinding();
             _pathRecalcTimer = PATH_RECALC_INTERVAL;
+            _workGoalActive = false; // les routines de travail le repositionnent après SetGoal
         }
 
         private static float RandomRange(float min, float max) => (float)(min + Random.Shared.NextDouble() * (max - min));
@@ -3158,7 +3171,7 @@ namespace Soulfract
                 : Program.GetDarknessAlpha() <= 0.6f;
 
             //  La nuit, un villageois qui a un logement se repose chez lui au lieu de repartir en
-            // balade : le système GoHome (dans Update) le ramènera de toute façon vers HomePosition
+            // balade : le système GoHome (dans Update) le ramènera dans l'intérieur de sa maison
             // dès qu'il s'en éloigne, autant éviter l'aller-retour inutile et le flicker "un pas
             // dehors puis demi-tour" que ça provoquerait.
             if (!isDaytime)
@@ -3170,6 +3183,23 @@ namespace Soulfract
             bool canDoRoutine = !IsTalking && CurrentTalkPartner == null && TalkCooldown <= 0f;
             if (!canDoRoutine)
                 return; // occupé (discussion...) : Decide() sera rappelé au prochain tick
+
+            if (Profession == ProfessionType.Farmer && IsInsideAssignedHouse()
+                && !_farmerSupplyPreparedToday)
+            {
+                _farmerSupplyPreparedToday = true;
+                PrepareFarmerSeedsFromInventory();
+                if (GetFarmerSeedCount() < FARMER_SEED_STOCK_TARGET && HomeBuildingId >= 0)
+                {
+                    var chestApproachPos = World.GetHouseChestApproachPosition(HomeBuildingId, this);
+                    if (chestApproachPos.HasValue)
+                    {
+                        _farmerSupplyWithdrawPending = true;
+                        SetGoal(NpcAiState.GoToChestWithdraw, chestApproachPos.Value, 45f);
+                        return;
+                    }
+                }
+            }
 
             if (_morningDeparturePending)
             {
@@ -3285,6 +3315,9 @@ namespace Soulfract
             {
                 _workBreakCooldown = RandomRange(40f, 90f);
                 _workShiftTimer = RandomRange(150f, 300f);
+                // Une cible de travail périmée ne doit pas "rappeler" le fermier au champ pendant sa pause.
+                _farmerWorkTarget = null;
+                _farmerApproachPos = null;
                 return true;
             }
 
@@ -3302,22 +3335,55 @@ namespace Soulfract
                 if (IsOnWorkBreak())
                     return false;
 
-                if (WorkplacePosition == null || WorkZoneId < 0)
-                    AssignWorkplace();
+                // Trajet de travail tout juste abandonné (cible/poste inaccessible) : on fait autre
+                // chose un moment plutôt que de réessayer la même cible en boucle.
+                if (_workGoalBackoffTimer > 0f)
+                    return false;
 
-                if (WorkplacePosition.HasValue)
+                if (WorkplacePosition == null || WorkZoneId < 0
+                    || !World.WorkZones.TryGetValue(WorkZoneId, out var assignedField)
+                    || assignedField.Kind != WorkZoneKind.Field)
                 {
-                    AiState = NpcAiState.WalkToTarget;
-                    AiTarget = WorkplacePosition.Value;
-                    AiTimer = 45f;
-                    AnimState = "walk";
-                    Speed = BaseSpeed;
-                    _currentPath.Clear();
-                    _pathRecalcTimer = PATH_RECALC_INTERVAL;
+                    // AssignWorkplace() peut tenter de créer un champ (scan de terrain coûteux) :
+                    // ne pas le relancer à chaque Decide() quand ça échoue.
+                    if (_workplaceRetryCooldown > 0f)
+                        return false;
+                    _workplaceRetryCooldown = 30f;
+                    AssignWorkplace();
+                }
+
+                if (!WorkplacePosition.HasValue)
+                    return false;
+
+                //  Enchaîne directement sur la prochaine tâche du champ (avant : retour systématique
+                // au poste entre deux actions, puis nouvelle recherche).
+                if (TryFarmerWorkCycle())
+                {
+                    AiTimer = _farmerActionCooldown;
+                    return true;
+                }
+                if (_farmerWorkTarget.HasValue)
+                    return true; // TryFarmerWorkCycle a lancé le déplacement vers la case
+
+                //  Rien à faire dans le champ : rejoint son poste (case praticable la plus proche) puis attend.
+                if (!_workApproachPos.HasValue)
+                {
+                    var destroyedFarm = Program.GetDestroyedObjects();
+                    _workApproachPos = Pathfinder.IsWorldPositionWalkable(WorkplacePosition.Value, destroyedFarm, Species)
+                        ? WorkplacePosition.Value
+                        : Pathfinder.FindNearestWalkablePosition(WorkplacePosition.Value, destroyedFarm, Species, 4)
+                          ?? WorkplacePosition.Value;
+                }
+
+                if (Vector2.DistanceSquared(WorldPos, _workApproachPos.Value) < 90f * 90f)
+                {
+                    SetGoal(NpcAiState.Idle, WorldPos, RandomRange(4f, 8f), "idle");
                     return true;
                 }
 
-                return false;
+                SetGoal(NpcAiState.WalkToTarget, _workApproachPos.Value, 45f);
+                _workGoalActive = true;
+                return true;
             }
 
             //  Métiers à zone de travail (bûcheron, mineur, chasseur) : allaient auparavant JAMAIS
@@ -3327,6 +3393,9 @@ namespace Soulfract
                 && World.ProfessionZoneKind.ContainsKey(Profession))
             {
                 if (IsOnWorkBreak())
+                    return false;
+
+                if (_workGoalBackoffTimer > 0f)
                     return false;
 
                 if (WorkplacePosition == null)
@@ -3356,6 +3425,7 @@ namespace Soulfract
                     }
 
                     SetGoal(NpcAiState.WalkToTarget, _workApproachPos.Value, 45f);
+                    _workGoalActive = true;
                     return true;
                 }
             }
@@ -3419,61 +3489,167 @@ namespace Soulfract
             return WorldPos;
         }
 
+        private float FarmerActionRangeSq
+        {
+            get { float r = MathF.Max(70f, Program.TileSize * 2f); return r * r; }
+        }
+
+        private bool IsFarmTileBlacklisted(int x, int y)
+            => _unreachableFarmTiles.TryGetValue((x, y), out var until) && until > _farmClock;
+
+        private void BlacklistFarmTile(Vector2 worldPos, float seconds)
+        {
+            int tx = (int)MathF.Floor(worldPos.X / Program.TileSize);
+            int ty = (int)MathF.Floor(worldPos.Y / Program.TileSize);
+            if (_unreachableFarmTiles.Count > 32)
+            {
+                var expired = _unreachableFarmTiles.Where(kv => kv.Value <= _farmClock).Select(kv => kv.Key).ToList();
+                foreach (var k in expired) _unreachableFarmTiles.Remove(k);
+            }
+            _unreachableFarmTiles[(tx, ty)] = _farmClock + seconds;
+        }
+
+        //  Une case portant une culture/un objet peut ne pas être praticable pour l'A* (le but serait
+        // alors inatteignable par construction) : on vise la case praticable la plus proche.
+        private bool TryResolveFarmerApproach(Vector2 tileCenter, out Vector2 approach)
+        {
+            approach = tileCenter;
+            var destroyed = Program.GetDestroyedObjects();
+            if (Pathfinder.IsWorldPositionWalkable(tileCenter, destroyed, Species))
+                return true;
+
+            var near = Pathfinder.FindNearestWalkablePosition(tileCenter, destroyed, Species, 2);
+            if (!near.HasValue)
+                return false;
+
+            float maxOffset = Program.TileSize * 2f;
+            if (Vector2.DistanceSquared(near.Value, tileCenter) > maxOffset * maxOffset)
+                return false;
+
+            approach = near.Value;
+            return true;
+        }
+
+        private void BeginFarmerWalk()
+        {
+            Vector2 dest = _farmerApproachPos ?? _farmerWorkTarget ?? WorldPos;
+            SetGoal(NpcAiState.WalkToTarget, dest, 45f);
+            _workGoalActive = true;
+        }
+
+        //  Appelée à l'arrivée d'un fermier en service (à la place des deux blocs dupliqués de
+        // MoveTowardTarget) : agit si possible, sinon enchaîne sur la tâche suivante ou se repose.
+        private void HandleFarmerArrival()
+        {
+            if (TryFarmerWorkCycle())
+            {
+                AiState = NpcAiState.Idle;
+                AnimState = "idle";
+                AiTimer = _farmerActionCooldown;
+                return;
+            }
+
+            if (AiState == NpcAiState.WalkToTarget && _farmerWorkTarget.HasValue)
+                return; // un nouveau déplacement vers la prochaine case vient d'être lancé
+
+            AiState = NpcAiState.Idle;
+            AnimState = "idle";
+            AiTimer = RandomRange(1f, 3f);
+        }
+
         private bool TryFarmerWorkCycle()
         {
             if (Profession != ProfessionType.Farmer)
                 return false;
 
-            if (WorkZoneId >= 0 && World.WorkZones.TryGetValue(WorkZoneId, out var zone) && zone.Kind == WorkZoneKind.Field)
+            if (_farmerActionCooldown > 0f)
             {
-                if (_farmerWorkTarget.HasValue && Vector2.DistanceSquared(WorldPos, _farmerWorkTarget.Value) < 70f * 70f)
+                AiState = NpcAiState.Idle;
+                AnimState = "idle";
+                AiTimer = _farmerActionCooldown;
+                return true;
+            }
+
+            //  Pendant une pause, le fermier ne retourne pas travailler (avant, n'importe quelle
+            // arrivée de balade le remettait au travail via cette méthode).
+            if (_workBreakCooldown > 0f)
+            {
+                _farmerWorkTarget = null;
+                _farmerApproachPos = null;
+                return false;
+            }
+
+            if (WorkZoneId < 0 || !World.WorkZones.TryGetValue(WorkZoneId, out var zone) || zone.Kind != WorkZoneKind.Field)
+                return false;
+
+            if (_farmerWorkTarget.HasValue)
+            {
+                Vector2 t = _farmerWorkTarget.Value;
+                bool inRange = Vector2.DistanceSquared(WorldPos, t) < FarmerActionRangeSq
+                    || (_farmerApproachPos.HasValue && Vector2.DistanceSquared(WorldPos, _farmerApproachPos.Value) < 70f * 70f);
+
+                if (inRange)
                 {
-                    if (TryHarvestReadyCropInZone(zone, _farmerWorkTarget.Value))
+                    if (TryHarvestReadyCropInZone(zone, t)
+                        || TryWaterDryingCropInZone(zone, t)
+                        || TryTillFieldTile(zone, t)
+                        || TryPlantSeedInFieldZone(zone, t))
                     {
-                        Console.WriteLine($"[Farming] PNJ {NetId} a récolté sur {(_farmerWorkTarget.Value / Program.TileSize)} dans la zone {WorkZoneId}.");
                         _farmerWorkTarget = null;
-                        AiTimer = 0f;
-                        return true;
-                    }
-                    if (TryWaterDryingCropInZone(zone, _farmerWorkTarget.Value))
-                    {
-                        Console.WriteLine($"[Farming] PNJ {NetId} a arrosé {(_farmerWorkTarget.Value / Program.TileSize)} sur la zone {WorkZoneId}.");
-                        _farmerWorkTarget = null;
-                        AiTimer = 0f;
-                        return true;
-                    }
-                    if (TryTillFieldTile(zone, _farmerWorkTarget.Value))
-                    {
-                        Console.WriteLine($"[Farming] PNJ {NetId} a labouré {(_farmerWorkTarget.Value / Program.TileSize)} dans la zone {WorkZoneId}.");
-                        _farmerWorkTarget = null;
-                        AiTimer = 0f;
-                        return true;
-                    }
-                    if (TryPlantSeedInFieldZone(zone, _farmerWorkTarget.Value))
-                    {
-                        Console.WriteLine($"[Farming] PNJ {NetId} a planté sur {(_farmerWorkTarget.Value / Program.TileSize)} dans la zone {WorkZoneId}.");
-                        _farmerWorkTarget = null;
+                        _farmerApproachPos = null;
+                        _farmerActionCooldown = FarmerActionCooldownSeconds;
                         AiTimer = 0f;
                         return true;
                     }
 
+                    //  Arrivé mais plus rien à faire sur cette case (état changé entre-temps) : sans
+                    // liste noire, TryFindFarmerActionTarget la renvoyait à l'identique, en boucle.
+                    BlacklistFarmTile(t, 120f);
                     _farmerWorkTarget = null;
+                    _farmerApproachPos = null;
                 }
+                else
+                {
+                    // En route (ou trajet interrompu par un autre état) : relancer le déplacement.
+                    BeginFarmerWalk();
+                    return false;
+                }
+            }
 
-                if (TryFindFarmerActionTarget(zone, out var targetPos))
+            if (_farmerNoWorkCooldown > 0f)
+                return false;
+
+            if (!Inventory.Slots.Any(slot =>
+                !slot.IsEmpty && slot.Item != null &&
+                GameData.ItemDatabase.TryGetValue(GameData.GetItemId(slot.Item.Name), out var data) &&
+                data.IsSeed && data.CropId != 0)
+                && TryCraftSeedsForFarmer())
+            {
+                _farmerActionCooldown = FarmerActionCooldownSeconds;
+                AiTimer = 0f;
+                return true;
+            }
+
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                if (!TryFindFarmerActionTarget(zone, out var targetPos))
+                    break;
+
+                if (TryResolveFarmerApproach(targetPos, out var approach))
                 {
                     _farmerWorkTarget = targetPos;
-                    AiState = NpcAiState.WalkToTarget;
-                    AiTarget = targetPos;
-                    AnimState = "walk";
-                    _currentPath.Clear();
-                    _pathRecalcTimer = PATH_RECALC_INTERVAL;
+                    _farmerApproachPos = approach;
+                    BeginFarmerWalk();
                     return false;
                 }
 
-                Console.WriteLine($"[Farming] PNJ {NetId} est sur sa zone {WorkZoneId} mais n'a rien trouvé à faire (pas de récolte prête, rien à arroser, pas de case libre ou plus de graines).");
+                BlacklistFarmTile(targetPos, 180f); // aucune case praticable à proximité : on l'ignore
             }
 
+#if DEBUG_NPC_AI
+            Console.WriteLine($"[Farming] PNJ {NetId} sur sa zone {WorkZoneId} : rien à faire (pas de récolte prête, rien à arroser, pas de case libre ou plus de graines).");
+#endif
+            _farmerNoWorkCooldown = RandomRange(8f, 15f);
             return false;
         }
 
@@ -3503,46 +3679,42 @@ namespace Soulfract
             int maxTileX = (int)MathF.Ceiling((zone.AnchorPos.X + zone.Radius) / Program.TileSize) + 1;
             int minTileY = (int)MathF.Floor((zone.AnchorPos.Y - zone.Radius) / Program.TileSize) - 1;
             int maxTileY = (int)MathF.Ceiling((zone.AnchorPos.Y + zone.Radius) / Program.TileSize) + 1;
+            var searchTiles = GetFieldTileSearchOrder(zone, minTileX, maxTileX, minTileY, maxTileY);
+            searchTiles.RemoveAll(t => IsFarmTileBlacklisted(t.x, t.y));
 
-            for (int x = minTileX; x <= maxTileX; x++)
+            foreach (var (x, y) in searchTiles)
             {
-                for (int y = minTileY; y <= maxTileY; y++)
+                int objectId = World.GetObjectIdAt(x, y);
+                var tileData = WorldTileRegistry.GetTile(objectId);
+                if (tileData != null && tileData.IsCrop)
                 {
-                    int objectId = World.GetObjectIdAt(x, y);
-                    var tileData = WorldTileRegistry.GetTile(objectId);
-                    if (tileData != null && tileData.IsCrop)
+                    var cropData = World.GetCropDataAt(x, y);
+                    if (cropData != null && cropData.AccumulatedGrowthTime >= tileData.GrowthTime)
                     {
-                        var cropData = World.GetCropDataAt(x, y);
-                        if (cropData != null && cropData.AccumulatedGrowthTime >= tileData.GrowthTime)
-                        {
-                            targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
-                            return true;
-                        }
+                        targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
+                        return true;
                     }
                 }
             }
 
-            for (int x = minTileX; x <= maxTileX; x++)
+            foreach (var (x, y) in searchTiles)
             {
-                for (int y = minTileY; y <= maxTileY; y++)
-                {
-                    int groundId = World.GetGroundTileIdAt(x, y);
-                    if (groundId != 27)
-                        continue;
+                int groundId = World.GetGroundTileIdAt(x, y);
+                if (groundId != 27)
+                    continue;
 
-                    var cropData = World.GetCropDataAt(x, y);
-                    if (cropData == null)
-                        continue;
+                var cropData = World.GetCropDataAt(x, y);
+                if (cropData == null)
+                    continue;
 
-                    var tileData = WorldTileRegistry.GetTile(cropData.CropTileId);
-                    if (tileData == null || !tileData.IsCrop)
-                        continue;
-                    if (cropData.AccumulatedGrowthTime >= tileData.GrowthTime)
-                        continue;
+                var tileData = WorldTileRegistry.GetTile(cropData.CropTileId);
+                if (tileData == null || !tileData.IsCrop)
+                    continue;
+                if (cropData.AccumulatedGrowthTime >= tileData.GrowthTime)
+                    continue;
 
-                    targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
-                    return true;
-                }
+                targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
+                return true;
             }
 
             var seedSlot = Inventory.Slots.FirstOrDefault(slot =>
@@ -3557,24 +3729,36 @@ namespace Soulfract
             if (!GameData.ItemDatabase.TryGetValue(itemId, out var seedData) || seedData.CropId == 0)
                 return false;
 
-            for (int x = minTileX; x <= maxTileX; x++)
+            foreach (var (x, y) in searchTiles)
             {
-                for (int y = minTileY; y <= maxTileY; y++)
-                {
-                    int groundId = World.GetGroundTileIdAt(x, y);
-                    if (groundId != 27 && groundId != 29)
-                        continue;
-                    if (World.GetObjectIdAt(x, y) != 0)
-                        continue;
-                    if (World.GetCropDataAt(x, y) != null)
-                        continue;
+                int groundId = World.GetGroundTileIdAt(x, y);
+                if (groundId != 27 && groundId != 29)
+                    continue;
+                if (World.GetObjectIdAt(x, y) != 0)
+                    continue;
+                if (World.GetCropDataAt(x, y) != null)
+                    continue;
 
-                    targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
-                    return true;
-                }
+                targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
+                return true;
             }
 
             return TryFindUntilledFieldTile(zone, minTileX, maxTileX, minTileY, maxTileY, out targetPos);
+        }
+
+        private static List<(int x, int y)> GetFieldTileSearchOrder(
+            VillageWorkZone zone,
+            int minTileX,
+            int maxTileX,
+            int minTileY,
+            int maxTileY)
+        {
+            int centerX = (int)MathF.Floor(zone.AnchorPos.X / Program.TileSize);
+            int centerY = (int)MathF.Floor(zone.AnchorPos.Y / Program.TileSize);
+            return (from x in Enumerable.Range(minTileX, maxTileX - minTileX + 1)
+                    from y in Enumerable.Range(minTileY, maxTileY - minTileY + 1)
+                    orderby (x - centerX) * (x - centerX) + (y - centerY) * (y - centerY)
+                    select (x, y)).ToList();
         }
 
         private bool TryFindUntilledFieldTile(VillageWorkZone zone, int minTileX, int maxTileX, int minTileY, int maxTileY, out Vector2 targetPos)
@@ -3583,20 +3767,19 @@ namespace Soulfract
             if (zone.TilledTileCount >= zone.MaxTilledTiles)
                 return false;
 
-            for (int x = minTileX; x <= maxTileX; x++)
+            foreach (var (x, y) in GetFieldTileSearchOrder(zone, minTileX, maxTileX, minTileY, maxTileY))
             {
-                for (int y = minTileY; y <= maxTileY; y++)
-                {
-                    int groundId = World.GetGroundTileIdAt(x, y);
-                    var groundTile = WorldTileRegistry.GetTile(groundId);
-                    if (groundTile == null || !groundTile.Diggable)
-                        continue;
-                    if (groundId == 27 || groundId == 29 || World.GetObjectIdAt(x, y) != 0 || World.GetCropDataAt(x, y) != null)
-                        continue;
+                if (IsFarmTileBlacklisted(x, y))
+                    continue;
+                int groundId = World.GetGroundTileIdAt(x, y);
+                var groundTile = WorldTileRegistry.GetTile(groundId);
+                if (groundTile == null || !groundTile.Diggable)
+                    continue;
+                if (groundId == 27 || groundId == 29 || World.GetObjectIdAt(x, y) != 0 || World.GetCropDataAt(x, y) != null)
+                    continue;
 
-                    targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
-                    return true;
-                }
+                targetPos = new Vector2((x + 0.5f) * Program.TileSize, (y + 0.5f) * Program.TileSize);
+                return true;
             }
 
             return false;
@@ -3686,10 +3869,21 @@ namespace Soulfract
                         qty = 1;
 
                     int harvestItemId = GameData.GetItemId(tileData.HarvestItemId);
-                    if (GameData.ItemDatabase.TryGetValue(harvestItemId, out var harvestData))
+                    if (!GameData.ItemDatabase.TryGetValue(harvestItemId, out var harvestData))
                     {
-                        var harvestItem = new Item(harvestData.Name, qty, harvestData.Color, harvestData.Icon);
-                        World.StackItemIntoContainer(Inventory, harvestItem, qty);
+                        Console.WriteLine($"[Farming] Impossible de récolter {tileData.Name} : item de récolte introuvable ({tileData.HarvestItemId}).");
+                        return false;
+                    }
+
+                    if (!World.ContainerHasSpaceForItem(Inventory, harvestData.Name))
+                        return false;
+
+                    var harvestItem = new Item(harvestData.Name, qty, harvestData.Color, harvestData.Icon);
+                    int stored = World.StackItemIntoContainer(Inventory, harvestItem, qty);
+                    if (stored != qty)
+                    {
+                        Console.WriteLine($"[Farming] Récolte de {tileData.Name} annulée : inventaire du fermier {NetId} insuffisant ({stored}/{qty}).");
+                        return false;
                     }
 
                     if (tileData.RegrowsAfterHarvest)
@@ -3702,6 +3896,153 @@ namespace Soulfract
                     }
                     return true;
                 }
+            }
+
+            return false;
+        }
+
+        private bool TryCraftSeedsForFarmer()
+        {
+            foreach (var recipe in GameData.Recipes)
+            {
+                if (recipe.IsRitual || recipe.IsHidden || !string.IsNullOrWhiteSpace(recipe.RequiresStation) || recipe.ResultCount <= 0)
+                    continue;
+                if (!GameData.ItemDatabase.TryGetValue(recipe.ResultId, out var seedData)
+                    || !seedData.IsSeed
+                    || seedData.CropId == 0
+                    || !World.ContainerHasSpaceForItem(Inventory, seedData.Name))
+                    continue;
+
+                var requiredIngredients = recipe.Ingredients
+                    .GroupBy(ingredient => ingredient.id)
+                    .Select(group => (itemId: group.Key, quantity: group.Sum(ingredient => ingredient.qty)))
+                    .ToList();
+
+                if (requiredIngredients.Count == 0 || requiredIngredients.Any(ingredient =>
+                    ingredient.quantity <= 0
+                    || !GameData.ItemDatabase.TryGetValue(ingredient.itemId, out var ingredientData)
+                    || Inventory.Slots.Sum(slot =>
+                        slot.IsEmpty || slot.Item == null || slot.Count <= 0
+                            || GameData.GetItemId(slot.Item.Name) != ingredient.itemId
+                            ? 0
+                            : slot.Count) < ingredient.quantity))
+                    continue;
+
+                foreach (var ingredient in requiredIngredients)
+                {
+                    int remaining = ingredient.quantity;
+                    foreach (var slot in Inventory.Slots)
+                    {
+                        if (remaining <= 0)
+                            break;
+                        if (slot.IsEmpty || slot.Item == null || GameData.GetItemId(slot.Item.Name) != ingredient.itemId)
+                            continue;
+
+                        int consumed = Math.Min(slot.Count, remaining);
+                        slot.Count -= consumed;
+                        remaining -= consumed;
+                        if (slot.Count <= 0)
+                            slot.Clear();
+                    }
+                }
+
+                var craftedSeeds = new Item(seedData.Name, recipe.ResultCount, seedData.Color, seedData.Icon);
+                int stored = World.StackItemIntoContainer(Inventory, craftedSeeds, recipe.ResultCount);
+                if (stored != recipe.ResultCount)
+                    throw new InvalidOperationException($"Fermier {NetId} : impossible de ranger les graines produites par la recette {recipe.Id}.");
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private int GetFarmerSeedCount()
+        {
+            return Inventory.Slots.Sum(slot =>
+                !slot.IsEmpty && slot.Item != null
+                && GameData.ItemDatabase.TryGetValue(GameData.GetItemId(slot.Item.Name), out var data)
+                && data.IsSeed && data.CropId != 0
+                    ? slot.Count
+                    : 0);
+        }
+
+        private void PrepareFarmerSeedsFromInventory()
+        {
+            while (GetFarmerSeedCount() < FARMER_SEED_STOCK_TARGET && TryCraftSeedsForFarmer())
+            {
+            }
+        }
+
+        private void PrepareFarmerSeedsFromHouseChest()
+        {
+            if (HomeBuildingId < 0)
+                return;
+
+            int seedCount = GetFarmerSeedCount();
+            foreach (var seedData in GameData.ItemDatabase.Values
+                .Where(data => data.IsSeed && data.CropId != 0)
+                .OrderBy(data => data.ID))
+            {
+                if (seedCount >= FARMER_SEED_STOCK_TARGET)
+                    break;
+
+                int itemId = seedData.ID;
+                int available = World.GetHouseChestItemCount(HomeBuildingId, itemId);
+                int quantity = Math.Min(FARMER_SEED_STOCK_TARGET - seedCount, available);
+                if (quantity <= 0)
+                    continue;
+
+                if (World.TryWithdrawHouseChestItems(HomeBuildingId, this,
+                    new Dictionary<int, int> { [itemId] = quantity }))
+                    seedCount += quantity;
+            }
+
+            PrepareFarmerSeedsFromInventory();
+            while (GetFarmerSeedCount() < FARMER_SEED_STOCK_TARGET
+                && TryWithdrawIngredientsForFarmerSeedRecipe()
+                && TryCraftSeedsForFarmer())
+            {
+            }
+        }
+
+        private bool TryWithdrawIngredientsForFarmerSeedRecipe()
+        {
+            if (HomeBuildingId < 0)
+                return false;
+
+            foreach (var recipe in GameData.Recipes)
+            {
+                if (recipe.IsRitual || recipe.IsHidden || !string.IsNullOrWhiteSpace(recipe.RequiresStation)
+                    || recipe.ResultCount <= 0
+                    || !GameData.ItemDatabase.TryGetValue(recipe.ResultId, out var seedData)
+                    || !seedData.IsSeed || seedData.CropId == 0
+                    || !World.ContainerHasSpaceForItem(Inventory, seedData.Name))
+                    continue;
+
+                var missingIngredients = new Dictionary<int, int>();
+                bool validRecipe = true;
+                foreach (var group in recipe.Ingredients.GroupBy(ingredient => ingredient.id))
+                {
+                    int required = group.Sum(ingredient => ingredient.qty);
+                    int carried = Inventory.Slots.Sum(slot =>
+                        !slot.IsEmpty && slot.Item != null && slot.Count > 0
+                        && GameData.GetItemId(slot.Item.Name) == group.Key
+                            ? slot.Count
+                            : 0);
+                    int missing = required - carried;
+                    if (required <= 0 || !GameData.ItemDatabase.ContainsKey(group.Key))
+                    {
+                        validRecipe = false;
+                        break;
+                    }
+                    if (missing > 0)
+                        missingIngredients[group.Key] = missing;
+                }
+
+                if (validRecipe && missingIngredients.Count > 0
+                    && World.TryWithdrawHouseChestItems(HomeBuildingId, this, missingIngredients))
+                    return true;
             }
 
             return false;
@@ -3726,35 +4067,32 @@ namespace Soulfract
             int minTileY = (int)MathF.Floor((zone.AnchorPos.Y - zone.Radius) / Program.TileSize) - 1;
             int maxTileY = (int)MathF.Ceiling((zone.AnchorPos.Y + zone.Radius) / Program.TileSize) + 1;
 
-            for (int x = minTileX; x <= maxTileX; x++)
+            foreach (var (x, y) in GetFieldTileSearchOrder(zone, minTileX, maxTileX, minTileY, maxTileY))
             {
-                for (int y = minTileY; y <= maxTileY; y++)
+                if (targetPos.HasValue)
                 {
-                    if (targetPos.HasValue)
-                    {
-                        int targetTileX = (int)MathF.Floor(targetPos.Value.X / Program.TileSize);
-                        int targetTileY = (int)MathF.Floor(targetPos.Value.Y / Program.TileSize);
-                        if (x != targetTileX || y != targetTileY)
-                            continue;
-                    }
-
-                    int groundId = World.GetGroundTileIdAt(x, y);
-                    if (groundId != 27 && groundId != 29)
+                    int targetTileX = (int)MathF.Floor(targetPos.Value.X / Program.TileSize);
+                    int targetTileY = (int)MathF.Floor(targetPos.Value.Y / Program.TileSize);
+                    if (x != targetTileX || y != targetTileY)
                         continue;
-                    if (World.GetObjectIdAt(x, y) != 0)
-                        continue;
-                    if (World.GetCropDataAt(x, y) != null)
-                        continue;
-
-                    World.PlantCrop(x, y, seedData.CropId, Program.GetGameTime());
-                    seedSlot.Count -= 1;
-                    if (seedSlot.Count <= 0)
-                    {
-                        seedSlot.Item = null;
-                        seedSlot.Count = 0;
-                    }
-                    return true;
                 }
+
+                int groundId = World.GetGroundTileIdAt(x, y);
+                if (groundId != 27 && groundId != 29)
+                    continue;
+                if (World.GetObjectIdAt(x, y) != 0)
+                    continue;
+                if (World.GetCropDataAt(x, y) != null)
+                    continue;
+
+                World.PlantCrop(x, y, seedData.CropId, Program.GetGameTime());
+                seedSlot.Count -= 1;
+                if (seedSlot.Count <= 0)
+                {
+                    seedSlot.Item = null;
+                    seedSlot.Count = 0;
+                }
+                return true;
             }
 
             return false;
@@ -3894,6 +4232,10 @@ namespace Soulfract
             IsTalking = true;
             TalkTimer = 2.2f + (float)(Random.Shared.NextDouble() * 1.4f);
             TalkCooldown = 6f + (float)(Random.Shared.NextDouble() * 8f);
+            AiState = NpcAiState.Idle;
+            AiTarget = WorldPos;
+            _currentPath.Clear();
+            Speed = 0f;
 
             var lines = new[]
             {
@@ -3919,6 +4261,10 @@ namespace Soulfract
                 partner.TalkCooldown = TalkCooldown;
                 partner.TalkText = TalkText;
                 partner.CurrentTalkPartner = this;
+                partner.AiState = NpcAiState.Idle;
+                partner.AiTarget = partner.WorldPos;
+                partner._currentPath.Clear();
+                partner.Speed = 0f;
             }
             else
             {
@@ -4068,55 +4414,6 @@ namespace Soulfract
             };
         }
 
-        public void DrawChargeBar()
-        {
-            if (!IsChargingAttack) return;
-
-            int ts = Program.TileSize;
-            int tileX = (int)(WorldPos.X / ts);
-            int tileY = (int)(WorldPos.Y / ts);
-            int height = World.GetHeightAt(tileX, tileY);
-            float yOffset = -height * ts / 4;
-            Vector2 visualPos = new Vector2(WorldPos.X, WorldPos.Y + yOffset);
-
-            float barWidth = 50f;
-            float barHeight = 6f;
-            float barX = visualPos.X - barWidth / 2f;
-            float barY = visualPos.Y - ts * 0.8f - 10f;
-
-            // Fond
-            Raylib.DrawRectangleRounded(
-                new Rectangle(barX, barY, barWidth, barHeight),
-                0.3f, 6,
-                new Color(0, 0, 0, 180)
-            );
-
-            // Bordure
-            Raylib.DrawRectangleRoundedLines(
-                new Rectangle(barX, barY, barWidth, barHeight),
-                0.3f, 6, 1,
-                new Color(100, 100, 100, 200)
-            );
-
-            float progress = GetChargeProgress();
-            if (progress > 0.01f)
-            {
-                float pulse = 0.8f + 0.2f * MathF.Sin((float)Raylib.GetTime() * 12f);
-                Color chargeColor = new Color(
-                    (byte)(200 * pulse),
-                    (byte)(180 * pulse),
-                    (byte)(50 * pulse),
-                    (byte)255
-                );
-
-                Raylib.DrawRectangleRounded(
-                    new Rectangle(barX + 2, barY + 2, (barWidth - 4) * progress, barHeight - 4),
-                    0.2f, 6,
-                    chargeColor
-                );
-            }
-        }
-
         // ==================== UPDATE ====================
         /// <summary>
         /// Détermine où ce PNJ doit regarder (pupilles + sourcils), selon un ordre de priorité :
@@ -4224,7 +4521,7 @@ namespace Soulfract
             EyebrowRightOffset = new Vector2(0f, Program.ComputeGazeOffset(rightEyeWorldPos, gazeTarget.Value, 0f, browMaxY).Y);
         }
 
-        public bool ShouldRunFullAiUpdate(Vector2 playerPos, int updateIndex)
+        public bool ShouldRunFullAiUpdate(Vector2 playerPos, int updateIndex, int framePhase)
         {
             if (IsPlayer || IsPetCompanion || IsBoss)
                 return true;
@@ -4261,7 +4558,7 @@ namespace Soulfract
             // chaque frame. On laisse le moteur se concentrer sur les PNJ proches du joueur ou
             // déjà engagés dans une action urgente, ce qui coupe fortement les pics de coût quand
             // le village est rempli de dizaines d'habitants.
-            return (updateIndex & 3) == 0;
+            return ((updateIndex + framePhase) & 3) == 0;
         }
 
         public void Update(float dt, HashSet<string> destroyed, Vector2 playerPos, int playerHeldItemId)
@@ -4629,14 +4926,6 @@ namespace Soulfract
                 return;
             }
 
-            // Comportement insectes volants (à conserver)
-            var speciesInfoForFlight = SpeciesData.GetSpeciesInfo(Species);
-            if (speciesInfoForFlight != null && speciesInfoForFlight.CanBeCaught)
-            {
-                // ... votre code existant pour les insectes ...
-                // (je ne l'ai pas réécrit ici pour garder le code lisible)
-            }
-
             // Croissance des bébés
             if (IsBaby && !_isSleeping)
             {
@@ -4686,8 +4975,7 @@ namespace Soulfract
                 // modifiait AiState sans aucune vérification et pouvait donc faire décrocher un
                 // PNJ en plein milieu d'une invitation, même juste après avoir cliqué dessus.
                 if (TalkCooldown <= 0f && !IsTamed && Species == "human" && !IsPlayer && HomePosition != Vector2.Zero
-                    && AiState != NpcAiState.GoToChestDeposit && AiState != NpcAiState.GoToChestWithdraw
-                    && TryCommitGoal(NpcPriority.Social))
+                    && AiState != NpcAiState.GoToChestDeposit && AiState != NpcAiState.GoToChestWithdraw)
                 {
                     const float talkDistance = 70f;
                     Entity? closestTalkTarget = null;
@@ -4711,27 +4999,27 @@ namespace Soulfract
 
                     if (closestTalkTarget != null)
                     {
-                        float dist = Vector2.Distance(WorldPos, closestTalkTarget.WorldPos);
-                        if (dist <= talkDistance)
+                        if (TryCommitGoal(NpcPriority.Social))
                         {
-                            StartTalking(closestTalkTarget);
-                        }
-                        else
-                        {
-                            AiState = NpcAiState.WalkToTarget;
-                            AiTarget = closestTalkTarget.WorldPos;
-                            _currentPath.Clear();
-                            AnimState = "walk";
-                            Speed = BaseSpeed;
+                            float dist = Vector2.Distance(WorldPos, closestTalkTarget.WorldPos);
+                            if (dist <= talkDistance)
+                            {
+                                StartTalking(closestTalkTarget);
+                            }
+                            else
+                            {
+                                AiState = NpcAiState.WalkToTarget;
+                                AiTarget = closestTalkTarget.WorldPos;
+                                _currentPath.Clear();
+                                _pathRecalcTimer = 0f;
+                                AnimState = "walk";
+                                Speed = BaseSpeed;
+                            }
                         }
                     }
-                    else if (Random.Shared.NextDouble() < 0.002f)
+                    else if (Random.Shared.NextDouble() < 0.002f && TryCommitGoal(NpcPriority.Social))
                     {
                         StartTalking();
-                    }
-                    else
-                    {
-                        _debugPlannedPriorities.Remove(NpcPriority.Social);
                     }
                 }
             }
@@ -4809,6 +5097,7 @@ namespace Soulfract
                             var chestApproachPos = World.GetHouseChestApproachPosition(HomeBuildingId, this);
                             if (chestApproachPos.HasValue)
                             {
+                                _farmerSupplyWithdrawPending = false;
                                 AiState = NpcAiState.GoToChestWithdraw;
                                 AiTarget = chestApproachPos.Value;
                                 _currentPath.Clear();
@@ -4869,18 +5158,25 @@ namespace Soulfract
                     if (AiState != NpcAiState.GoToChestDeposit && AiState != NpcAiState.GoToChestWithdraw
                         && CurrentTalkPartner != null && CurrentTalkPartner.IsAlive && TryCommitGoal(NpcPriority.Social))
                     {
-                        float distToTalkPartner = Vector2.Distance(WorldPos, CurrentTalkPartner.WorldPos);
-                        if (distToTalkPartner > 55f)
+                        if (!IsTalking)
                         {
-                            AiState = NpcAiState.WalkToTarget;
-                            AiTarget = CurrentTalkPartner.WorldPos;
-                            _currentPath.Clear();
-                            AnimState = "walk";
-                            Speed = BaseSpeed;
-                        }
-                        else if (distToTalkPartner <= 55f && !IsTalking)
-                        {
-                            StartTalking(CurrentTalkPartner);
+                            float distToTalkPartner = Vector2.Distance(WorldPos, CurrentTalkPartner.WorldPos);
+                            if (distToTalkPartner > 55f)
+                            {
+                                if (AiState != NpcAiState.WalkToTarget)
+                                {
+                                    AiState = NpcAiState.WalkToTarget;
+                                    _currentPath.Clear();
+                                    _pathRecalcTimer = 0f;
+                                    AnimState = "walk";
+                                    Speed = BaseSpeed;
+                                }
+                                AiTarget = CurrentTalkPartner.WorldPos;
+                            }
+                            else
+                            {
+                                StartTalking(CurrentTalkPartner);
+                            }
                         }
                     }
                     else if (hasHome && CurrentTalkPartner == null && TryCommitGoal(NpcPriority.Routine))
@@ -4946,7 +5242,7 @@ namespace Soulfract
 
                                 if (HomeBuildingId >= 0 && Random.Shared.NextDouble() < 0.7)
                                 {
-                                    var spot = World.PickRandomInteriorSpot(HomeBuildingId);
+                                    var spot = GetHomeInteriorTarget(moveAwayFromCurrentPosition: true);
                                     if (spot != Vector2.Zero)
                                     {
                                         AiState = NpcAiState.WalkToTarget;
@@ -5176,8 +5472,6 @@ namespace Soulfract
                 _goalLockTimer -= dt;
                 if (_goalLockTimer < 0f) _goalLockTimer = 0f;
             }
-            if (_fearCooldown > 0f) _fearCooldown -= dt;
-
             //  PRIORITÉ ABSOLUE : vie en danger. Si les PV sont critiques et qu'une menace
             // (le joueur) se trouve à proximité, l'entité fuit quel que soit ce qu'elle était
             // en train de faire (combat, routine, nourriture, discussion...). Ce contrôle est
@@ -5192,14 +5486,18 @@ namespace Soulfract
                 bool threatNearby = _hasFearTarget && distanceToThreatSq < fleeTriggerRadius * fleeTriggerRadius;
                 if (hpPercent <= 0.25f && threatNearby && TryCommitGoal(NpcPriority.Survival, 2.5f))
                 {
-                    Vector2 fleeDir = WorldPos - fearTargetPos;
-                    fleeDir = fleeDir.LengthSquared() > 0.01f ? Vector2.Normalize(fleeDir) : new Vector2(1, 0);
-                    AiState = NpcAiState.Flee;
-                    _attackPhase = AttackPhase.None;
-                    AiTarget = fearTargetPos + fleeDir * GetFleeSafeRadius();
-                    AiTimer = 6f;
-                    Speed = RunSpeed;
-                    ShowAlertIcon = false;
+                    if (AiState != NpcAiState.Flee)
+                    {
+                        Vector2 fleeDir = WorldPos - fearTargetPos;
+                        fleeDir = fleeDir.LengthSquared() > 0.01f ? Vector2.Normalize(fleeDir) : new Vector2(1, 0);
+                        AiState = NpcAiState.Flee;
+                        _attackPhase = AttackPhase.None;
+                        AiTarget = fearTargetPos + fleeDir * GetFleeSafeRadius();
+                        AiTimer = 6f;
+                        Speed = RunSpeed;
+                        ShowAlertIcon = false;
+                        ResetPathfinding();
+                    }
                 }
             }
 
@@ -5405,6 +5703,14 @@ namespace Soulfract
             if (_workplaceRetryCooldown > 0f)
                 _workplaceRetryCooldown = Math.Max(0f, _workplaceRetryCooldown - dt);
 
+            _farmClock += dt;
+            if (_farmerActionCooldown > 0f)
+                _farmerActionCooldown = Math.Max(0f, _farmerActionCooldown - dt);
+            if (_farmerNoWorkCooldown > 0f)
+                _farmerNoWorkCooldown = Math.Max(0f, _farmerNoWorkCooldown - dt);
+            if (_workGoalBackoffTimer > 0f)
+                _workGoalBackoffTimer = Math.Max(0f, _workGoalBackoffTimer - dt);
+
             if (_chestDepositRetryCooldown > 0f)
                 _chestDepositRetryCooldown = Math.Max(0f, _chestDepositRetryCooldown - dt);
 
@@ -5514,9 +5820,10 @@ namespace Soulfract
                     _stuckProgressCheckPos = WorldPos;
                 }
 
-                if (_currentPath.Count > 0 && _pathRecalcTimer > 0f)
+                if (_pathRecalcTimer > 0f)
                 {
-                    // conserver
+                    // Garder le chemin courant ou attendre avant de retenter si le dernier
+                    // calcul n'a trouvé aucun chemin.
                 }
                 else
                 {
@@ -5566,6 +5873,11 @@ namespace Soulfract
                     // directement. Si la recherche vers la case intérieure échoue, on tente
                     // au moins de trouver un chemin jusqu'à la porte de la maison.
                     int searchMargin = ComputeDynamicPathMargin(WorldPos, AiTarget);
+                    //  Le plafond de marge était FIXE d'un essai à l'autre : une cible qui exige un détour
+                    // plus large (maison, étang, clôture du champ...) échouait donc trois fois à l'identique.
+                    // Chaque échec consécutif élargit désormais la zone de recherche.
+                    if (_pathFailStreak > 0)
+                        searchMargin = Math.Min(searchMargin * (1 + _pathFailStreak) + 6, 48);
                     _currentPath = Pathfinder.FindPath(WorldPos, AiTarget, destroyed, searchMargin, Species);
 
                     if (_currentPath.Count == 0 && AiState == NpcAiState.GoHome && HomeBuildingId >= 0 && World.Houses.TryGetValue(HomeBuildingId, out var homeHouse))
@@ -5659,6 +5971,7 @@ namespace Soulfract
                             AiState = NpcAiState.LookAtPlayer;
                             _lookAtPlayerTimer = 1.5f;
                             Speed = SpeciesData.GetSpeed(Species);
+                            ResetPathfinding();
                         }
                         else if (AiTimer <= 0f)
                         {
@@ -5828,15 +6141,21 @@ namespace Soulfract
             switch (state)
             {
                 case NpcAiState.GoToChestWithdraw:
-                    return (20f, () =>
+                    return (Program.TileSize * 1.25f, () =>
                     {
-                        if (HomeBuildingId >= 0)
+                        if (_farmerSupplyWithdrawPending)
+                        {
+                            _farmerSupplyWithdrawPending = false;
+                            PrepareFarmerSeedsFromHouseChest();
+                        }
+                        else if (HomeBuildingId >= 0)
                             World.TryWithdrawFoodFromChest(HomeBuildingId, this);
+                        AiTimer = 0f;
                         return GoalArrivalResult.Complete;
                     });
 
                 case NpcAiState.GoToChestDeposit:
-                    return (35f, () =>
+                    return (Program.TileSize * 1.25f, () =>
                     {
                         bool logArrival = !_chestArrivalLogged;
                         if (logArrival)
@@ -5962,35 +6281,75 @@ namespace Soulfract
                 .Select(slot => $"{slot.Item!.Name}x{slot.Count}"));
         }
 
-        //  BUGFIX : cette fonction renvoyait auparavant systématiquement la case intérieure la
-        // plus proche de la porte de la maison — la MÊME case pour tous les habitants d'une même
-        // maison. Résultat : tous les colocataires convergeaient vers ce point unique en rentrant
-        // le soir, se bloquaient mutuellement (collision) et s'arrêtaient groupés au même endroit
-        // au lieu d'aller chacun vers son propre lit. `HomePosition` est déjà la case intérieure
-        // individuellement réservée à ce PNJ (voir World.FindNearestFreeHouseSpot à la création) :
-        // c'est elle qu'il faut viser en priorité. Le repli "case la plus proche de la porte" ne
-        // sert plus qu'aux cas où ce PNJ n'a exceptionnellement pas de HomePosition valide.
         private Vector2 GetHomeEntryTarget()
         {
-            if (HomeBuildingId >= 0 && HomePosition != Vector2.Zero
-                && World.HouseInteriorSpots.TryGetValue(HomeBuildingId, out var ownSpots)
-                && ownSpots.Any(spot => Vector2.DistanceSquared(spot.WorldPos, HomePosition) < 4f))
-            {
+            return GetHomeInteriorTarget(moveAwayFromCurrentPosition: false);
+        }
+
+        private Vector2 GetHomeInteriorTarget(bool moveAwayFromCurrentPosition)
+        {
+            if (HomeBuildingId < 0
+                || !World.HouseInteriorSpots.TryGetValue(HomeBuildingId, out var spots)
+                || spots.Count == 0)
                 return HomePosition;
-            }
 
-            if (HomeBuildingId >= 0
-                && World.HouseInteriorSpots.TryGetValue(HomeBuildingId, out var spots)
-                && spots.Count > 0
-                && World.Houses.TryGetValue(HomeBuildingId, out var house))
+            // Occupied réserve les cases de couchage; ces cases restent des destinations
+            // valides pour les déplacements et les rondes à l'intérieur.
+            var candidates = spots
+                .Where(spot => World.GetObjectIdAt(spot.Tile.x, spot.Tile.y) == 0)
+                .Where(spot => WorldTileRegistry.GetTile(World.GetGroundTileIdAt(spot.Tile.x, spot.Tile.y))?.Walkable == true)
+                .Select(spot => spot.WorldPos)
+                .Distinct()
+                .ToList();
+            if (candidates.Count == 0)
+                return HomePosition;
+
+            var otherResidents = new List<Vector2>();
+            if (moveAwayFromCurrentPosition && IsInsideAssignedHouse())
+                otherResidents.Add(WorldPos);
+
+            foreach (var resident in Program.GetEntities())
             {
-                return spots
-                    .OrderBy(spot => Vector2.DistanceSquared(spot.WorldPos, house.DoorWorldPos))
-                    .First()
-                    .WorldPos;
+                if (resident == this || !resident.IsAlive || resident.HomeBuildingId != HomeBuildingId)
+                    continue;
+
+                bool isHeadingHome = resident.AiState == NpcAiState.GoHome;
+                bool isInside = resident.IsInsideAssignedHouse();
+                if (!isHeadingHome && !isInside)
+                    continue;
+
+                bool hasInteriorMovementTarget = IsMovementState(resident.AiState)
+                    && candidates.Any(candidate => Vector2.DistanceSquared(candidate, resident.AiTarget) < 4f);
+                otherResidents.Add(isHeadingHome || hasInteriorMovementTarget
+                    ? resident.AiTarget
+                    : resident.WorldPos);
             }
 
-            return HomePosition;
+            if (otherResidents.Count == 0)
+                return candidates[Random.Shared.Next(candidates.Count)];
+
+            // Répartir les objectifs dans les cases praticables les plus éloignées des
+            // habitants déjà dans la maison ou en route, au lieu de faire converger tout
+            // le monde vers le seuil ou vers une case de couchage commune.
+            float bestDistance = float.MinValue;
+            var bestCandidates = new List<Vector2>();
+            foreach (var candidate in candidates)
+            {
+                float nearestResidentDistance = otherResidents.Min(position =>
+                    Vector2.DistanceSquared(candidate, position));
+                if (nearestResidentDistance > bestDistance + 0.01f)
+                {
+                    bestDistance = nearestResidentDistance;
+                    bestCandidates.Clear();
+                    bestCandidates.Add(candidate);
+                }
+                else if (MathF.Abs(nearestResidentDistance - bestDistance) <= 0.01f)
+                {
+                    bestCandidates.Add(candidate);
+                }
+            }
+
+            return bestCandidates[Random.Shared.Next(bestCandidates.Count)];
         }
 
         private void StartSitting()
@@ -6104,11 +6463,10 @@ namespace Soulfract
         // ==================== IA - MOUVEMENTS ====================
         //  Le trajet "rentrer à la maison" (AiState.GoHome) n'a plus de logique dédiée : il
         // passe par le même appel générique à Pathfinder.FindPath(WorldPos, AiTarget, ...) que
-        // WalkToTarget/Chase/Wander, dans Update, avec AiTarget = HomePosition. La tuile de la
-        // porte est traitée comme franchissable par le pathfinder (voir World.IsDoorTile dans
-        // Pathfinding.IsSingleTileWalkable), donc l'A* la traverse tout seul pour amener le PNJ
-        // jusqu'à sa case intérieure, en contournant réellement les murs plutôt qu'en fonçant
-        // dedans en ligne droite.
+        // WalkToTarget/Chase/Wander, dans Update, avec une destination choisie parmi les cases
+        // praticables de l'intérieur. La tuile de la porte est traitée comme franchissable par le
+        // pathfinder (voir World.IsDoorTile dans Pathfinding.IsSingleTileWalkable), donc l'A*
+        // peut traverser l'entrée et contourner réellement les murs au lieu de viser le seuil.
 
         //  Liste UNIQUE des états "le PNJ a une intention de déplacement et doit suivre
         //  _currentPath / MoveTowardTarget". Avant, cette même liste était recopiée à la main
@@ -6166,6 +6524,14 @@ namespace Soulfract
 
                 if (Vector2.DistanceSquared(WorldPos, AiTarget) < arrivalRadius * arrivalRadius)
                 {
+                    //  Arrivé d'emblée à portée (case voisine) : le fermier agit tout de suite au lieu de
+                    // passer en Idle 1-3 s et de dépendre d'un nouveau Decide().
+                    if (AiState == NpcAiState.WalkToTarget && IsFarmerOnShift && !_walkingToBench)
+                    {
+                        HandleFarmerArrival();
+                        return;
+                    }
+
                     if (AiState == NpcAiState.WalkToTarget)
                         AiTimer = Math.Min(AiTimer, RandomRange(1f, 3f)); // pas de longue immobilité (timer de 20s hérité)
                     AiState = NpcAiState.Idle;
@@ -6261,27 +6627,9 @@ namespace Soulfract
                             {
                                 if (_walkingToBench && _reservedBench.HasValue)
                                     StartSitting();
-                                else if (Profession == ProfessionType.Farmer)
+                                else if (IsFarmerOnShift)
                                 {
-                                    if (TryFarmerWorkCycle())
-                                    {
-                                        AiState = NpcAiState.Idle;
-                                        AnimState = "idle";
-                                        AiTimer = 0f;
-                                    }
-                                    else if (_farmerWorkTarget.HasValue)
-                                    {
-                                        AiState = NpcAiState.WalkToTarget;
-                                        AiTarget = _farmerWorkTarget.Value;
-                                        AnimState = "walk";
-                                        _currentPath.Clear();
-                                        _pathRecalcTimer = PATH_RECALC_INTERVAL;
-                                    }
-                                    else
-                                    {
-                                        AiState = NpcAiState.Idle;
-                                        AnimState = "idle";
-                                    }
+                                    HandleFarmerArrival();
                                 }
                                 else
                                 {
@@ -6323,29 +6671,10 @@ namespace Soulfract
                     {
                         StartSitting();
                     }
-                    else if (Profession == ProfessionType.Farmer)
-                    {
-                        if (TryFarmerWorkCycle())
-                        {
-                            AiState = NpcAiState.Idle;
-                            AnimState = "idle";
-                            AiTimer = 0f;
-                        }
-                        else if (_farmerWorkTarget.HasValue)
-                        {
-                            AiState = NpcAiState.WalkToTarget;
-                            AiTarget = _farmerWorkTarget.Value;
-                            AnimState = "walk";
-                            _currentPath.Clear();
-                            _pathRecalcTimer = PATH_RECALC_INTERVAL;
-                        }
-                        else
-                        {
-                            AiState = NpcAiState.Idle;
-                            AnimState = "idle";
-                            AiTimer = (float)(Random.Shared.NextDouble() * 2f + 1f);
-                        }
-                    }
+                    else if (IsFarmerOnShift)
+                                {
+                                    HandleFarmerArrival();
+                                }
                     else
                     {
                         ReleaseCurrentGoalLock();
@@ -6491,36 +6820,34 @@ namespace Soulfract
 
             Speed = RunSpeed;
 
-            Vector2 move = fleeDir * Speed * dt;
-            Facing = move.X >= 0 ? 1f : -1f;
-
-            // Si l'entité chevauche sa monture, elle doit être assise
-            if (IsRidingMount)
+            if (_currentPath.Count > 0)
             {
-                AnimState = "sit";
-            }
-            else if (IsBirdFlying)
-            {
-                // En vol, on garde une anim de déplacement classique (le rendu ajoute juste le
-                // décalage vertical) : "walk" suffit, inutile de forcer un "run" au sol.
-                AnimState = "walk";
+                MoveTowardTarget(dt, destroyed, arrivalRadius: 30f);
             }
             else
             {
-                float runThreshold = BaseSpeed * 1.2f;
-                if (Speed > runThreshold)
-                    AnimState = "run";
+                // Garder une tentative locale quand le pathfinder ne trouve pas encore
+                // d'itinéraire, sans traverser les obstacles.
+                Vector2 startPos = WorldPos;
+                Vector2 move = fleeDir * Speed * dt;
+                Facing = move.X >= 0 ? 1f : -1f;
+
+                Vector2 newPosX = WorldPos + new Vector2(move.X, 0);
+                if (!World.IsCollidingEntity(newPosX, destroyed, Species))
+                    WorldPos.X += move.X;
+
+                Vector2 newPosY = WorldPos + new Vector2(0, move.Y);
+                if (!World.IsCollidingEntity(newPosY, destroyed, Species))
+                    WorldPos.Y += move.Y;
+
+                bool moved = WorldPos != startPos;
+                if (IsRidingMount)
+                    AnimState = "sit";
+                else if (moved)
+                    AnimState = IsBirdFlying || Speed <= BaseSpeed * 1.2f ? "walk" : "run";
                 else
-                    AnimState = "walk";
+                    AnimState = "idle";
             }
-
-            Vector2 newPosX = WorldPos + new Vector2(move.X, 0);
-            if (!World.IsCollidingEntity(newPosX, destroyed, Species))
-                WorldPos.X += move.X;
-
-            Vector2 newPosY = WorldPos + new Vector2(0, move.Y);
-            if (!World.IsCollidingEntity(newPosY, destroyed, Species))
-                WorldPos.Y += move.Y;
 
             float distToThreat = Vector2.Distance(WorldPos, fearTargetPos);
 
@@ -6780,7 +7107,7 @@ namespace Soulfract
             {
                 Speed = RunSpeed;
                 PerformMovement(dt, destroyed, attackTriggerRange);
-                AnimState = "run";
+                AnimState = _currentPath.Count > 0 ? "run" : "idle";
                 return;
             }
 
@@ -6836,7 +7163,6 @@ namespace Soulfract
                     Program.SpawnHostileArrow(WorldPos, shootDir, RANGED_ARROW_SPEED, Attack, _combatTargetEntity, this, AiTargetConnectionId);
                     _rangedShootCooldown = (float)(Random.Shared.NextDouble() * 0.6f + 1.0f); // 1–1.6s
                     // Après avoir tiré, on se replace un peu avant de retirer.
-                    _combatMoveState = CombatMoveState.Strafe;
                     _combatDecisionTimer = 0.6f;
                 }
                 return;
@@ -8879,6 +9205,8 @@ namespace Soulfract
             if (HomeBuildingId == TentHomeBuildingId && _tentRestCooldown > 0f)
                 _tentRestCooldown = Math.Max(0f, _tentRestCooldown - dt);
             bool isNight = isTentResident ? _tentRestCooldown <= 0f : darkness > 0.6f;
+            if (isNight)
+                _farmerSupplyPreparedToday = false;
 
             //  Un oiseau ne peut pas dormir en plein vol : il doit forcément se poser au sol
             // d'abord. S'il fait nuit alors qu'il est encore en l'air, on force un atterrissage

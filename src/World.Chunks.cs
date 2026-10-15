@@ -520,8 +520,6 @@ namespace Soulfract
         //  Diminuée pour ne pas multiplier les unités de manière excessive.
         private const float GOBLIN_MOUNT_WOLF_CHANCE = 0.12f;
 
-		private const int MAX_CAVE_ENTRIES_PER_CHUNK = 1;
-
 		/// <summary>
         /// Crée (si besoin) tous les chunks vides d'une zone rectangulaire dans le dictionnaire
         /// de chunks ACTUELLEMENT ACTIF (voir GetChunksDict), AVANT que la génération du donjon

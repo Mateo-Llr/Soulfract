@@ -15,6 +15,7 @@ namespace Soulfract
     public static partial class Program
     {
 		private static long _lastScreenshotScanAt;
+		private static int _entityAiUpdateFrame;
 
 		[DllImport("kernel32.dll", SetLastError = true)]
 		private static extern bool AllocConsole();
@@ -59,8 +60,6 @@ void main()
 		private static bool _mapRenderTextureInitialized = false;
 		private static int _mapRenderTextureWidth = -1;
 		private static int _mapRenderTextureHeight = -1;
-		private static float _mapRenderTextureOriginTileX = float.MinValue;
-		private static float _mapRenderTextureOriginTileY = float.MinValue;
 		private static int _mapRenderTextureVisibleTilesX = -1;
 		private static int _mapRenderTextureVisibleTilesY = -1;
 		private static float _mapRenderTextureTileSize = -1f;
@@ -113,108 +112,6 @@ void main()
 
 			return false;
 		}
-
-		static void DrawDeathScreen()
-        {
-            //  Vignette : opacité des bords qui augmente progressivement pendant la phase
-            // Vignette, puis reste au maximum pour toutes les phases suivantes.
-            float vignetteT = _deathScreenPhase == DeathScreenPhase.Vignette
-                ? Math.Clamp(_deathScreenPhaseTimer / VIGNETTE_DURATION, 0f, 1f)
-                : 1f;
-            if (vignetteT > 0f)
-            {
-                int maxAlpha = (int)(180 * vignetteT);
-                int steps = 10;
-                for (int i = 0; i < steps; i++)
-                {
-                    float f = (float)i / steps;
-                    int alpha = (int)(maxAlpha * (1f - f));
-                    int thickness = (int)(ScreenWidth * 0.12f * (1f - f) / steps) + 2;
-                    Color c = new Color(0, 0, 0, alpha);
-                    Raylib.DrawRectangle(0, i * thickness, ScreenWidth, thickness, c);
-                    Raylib.DrawRectangle(0, ScreenHeight - (i + 1) * thickness, ScreenWidth, thickness, c);
-                    Raylib.DrawRectangle(i * thickness, 0, thickness, ScreenHeight, c);
-                    Raylib.DrawRectangle(ScreenWidth - (i + 1) * thickness, 0, thickness, ScreenHeight, c);
-                }
-            }
-
-            if (_deathScreenPhase == DeathScreenPhase.Vignette)
-                return;
-
-            int centerX = ScreenWidth / 2;
-            int centerY = ScreenHeight / 2 - 40;
-
-            //  Crâne : léger effet d'impulsion (pop) à l'apparition -> dépasse légèrement sa
-            // taille finale puis revient, plutôt qu'un simple fade-in statique.
-            float skullScale = 1f;
-            if (_deathScreenPhase == DeathScreenPhase.SkullPop)
-            {
-                float t = Math.Clamp(_deathScreenPhaseTimer / SKULL_POP_DURATION, 0f, 1f);
-                // Montée rapide avec léger dépassement (pop) puis retour à la taille finale.
-                float bounce = t < 0.6f
-                    ? MathHelper.Lerp(0f, 1.25f, t / 0.6f)
-                    : MathHelper.Lerp(1.25f, 1f, (t - 0.6f) / 0.4f);
-                skullScale = bounce;
-            }
-
-            Texture2D skull = LoadDeathSkullTexture();
-            int baseSize = 168;
-            int size = (int)(baseSize * skullScale);
-            if (skull.Id != 0)
-            {
-                Rectangle src = new Rectangle(0, 0, skull.Width, skull.Height);
-                Rectangle dst = new Rectangle(centerX - size / 2f, centerY - size / 2f, size, size);
-                Raylib.DrawTexturePro(skull, src, dst, Vector2.Zero, 0f, Color.White);
-            }
-            else
-            {
-                // Repli si l'asset n'est pas présent : simple représentation textuelle.
-                int fallbackFontSize = size;
-                string glyph = "";
-                int gw = Raylib.MeasureText(glyph, fallbackFontSize);
-                FontManager.DrawText(glyph, centerX - gw / 2, centerY - fallbackFontSize / 2, fallbackFontSize, Color.White);
-            }
-
-            if (_deathScreenPhase == DeathScreenPhase.SkullPop)
-                return;
-
-            //  Message qui s'écrit progressivement, en rouge, sous le crâne.
-            string visibleText = _deathMessage.Substring(0, Math.Min(_deathMessageCharsShown, _deathMessage.Length));
-            int msgFontSize = 32;
-            int maxWidth = (int)(ScreenWidth * 0.65f);
-            var wrapped = WrapTextToWidth(visibleText, msgFontSize, maxWidth);
-            int lineHeight = msgFontSize + 10;
-            int textStartY = centerY + baseSize / 2 + 32;
-            for (int i = 0; i < wrapped.Count; i++)
-            {
-                int lw = Raylib.MeasureText(wrapped[i], msgFontSize);
-                FontManager.DrawText(wrapped[i], centerX - lw / 2, textStartY + i * lineHeight, msgFontSize, Color.Red);
-            }
-
-            if (_deathScreenPhase == DeathScreenPhase.WaitingForButton || _deathScreenPhase == DeathScreenPhase.TypingMessage)
-                return;
-
-            //  Bouton "Réapparaître", uniquement une fois le message affiché en entier et
-            // le petit délai post-texte écoulé.
-            if (_deathScreenPhase == DeathScreenPhase.ButtonReady)
-            {
-                string label = "Réapparaître";
-                int btnFontSize = 26;
-                int textW = Raylib.MeasureText(label, btnFontSize);
-                int btnW = textW + 70;
-                int btnH = 56;
-                int btnX = centerX - btnW / 2;
-                int btnY = ScreenHeight - 110;
-                _respawnButtonRect = new Rectangle(btnX, btnY, btnW, btnH);
-
-                Vector2 mouse = Raylib.GetMousePosition();
-                bool hovered = Raylib.CheckCollisionPointRec(mouse, _respawnButtonRect);
-                Color bg = hovered ? new Color(150, 30, 30, 230) : new Color(110, 20, 20, 220);
-                Raylib.DrawRectangleRec(_respawnButtonRect, bg);
-                Raylib.DrawRectangleLinesEx(_respawnButtonRect, 2, Color.Red);
-                FontManager.DrawText(label, btnX + 30, btnY + (btnH - btnFontSize) / 2, btnFontSize, Color.White);
-            }
-        }
 
 		// Rempli si le jeu a été relancé automatiquement avec --autohost-port=XXXX
 		// (après une élévation UAC déclenchée depuis StartHostingGame). Consommé
@@ -4685,6 +4582,7 @@ void main()
 			PerfStats.StartSection(PerfStats.Section.EntityUpdate);
 			List<(int ConnectionId, Vector2 Pos)>? connectedPlayerPositions =
 				NetworkManager.IsHost ? NetworkManager.GetConnectedPlayerPositions() : null;
+			int entityAiFramePhase = unchecked(++_entityAiUpdateFrame) & 3;
 			for (int i = entities.Count - 1; i >= 0; i--)
 			{
 				var e = entities[i];
@@ -4779,7 +4677,7 @@ void main()
 					// gaze/choix d'objectif seulement pour les PNJ proches du joueur ou déjà en
 					// danger. Les PNJ lointains et calmes sont mis à jour moins souvent, ce qui coupe
 					// drastiquement les pics de lag dès qu'il y a des dizaines d'habitants en village.
-					if (!e.ShouldRunFullAiUpdate(targetPos, i))
+					if (!e.ShouldRunFullAiUpdate(targetPos, i, entityAiFramePhase))
 						continue;
 
 					PerfStats.NotifyFullAiUpdate();

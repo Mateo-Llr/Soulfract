@@ -669,7 +669,6 @@ namespace Soulfract
         private const int MAX_INCOMING_MESSAGES_PER_FRAME = 4;
         private const int NETWORK_TIMEOUT_MS = 5000; // timeout lecture/écriture (5s)
         private const int HEARTBEAT_INTERVAL_MS = 5000; // intervalle entre les heartbeats
-        private const int MAX_ERRORS_BEFORE_DISCONNECT = 10; // seuil d'erreurs
 
         // ---- État général ----
         private static bool _isHost = false;
@@ -723,7 +722,6 @@ namespace Soulfract
         // ---- Timers d'envoi périodique ----
         private static double _lastStateSend = 0;
         private static double _lastPouilleuxStateBroadcast = 0;
-        private static double _lastRosterBroadcast = 0;
         private static double _lastGroundItemsBroadcast = 0;
         private static double _lastEntityBroadcast = 0;
         private static double _lastTimeBroadcast = 0;

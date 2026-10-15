@@ -245,18 +245,6 @@ namespace Soulfract
 		//  Dernière position de mort du joueur, persistante (affichée sur la carte via skull_map.png)
         public static Vector2 LastDeathPosition = Vector2.Zero;
 
-		static bool _deathSkullLoaded = false;
-
-		private static Texture2D LoadDeathSkullTexture()
-        {
-            if (_deathSkullLoaded && _deathSkullTexture.Id != 0)
-                return _deathSkullTexture;
-            if (File.Exists("assets/gui/death_skull.png"))
-                _deathSkullTexture = Raylib.LoadTexture("assets/gui/death_skull.png");
-            _deathSkullLoaded = true;
-            return _deathSkullTexture;
-        }
-
 		static int _caveTransitionTileX = 0;
 
 		static int _caveTransitionTileY = 0;
@@ -539,75 +527,6 @@ namespace Soulfract
 			_playerPos = dismountPos;
 
 			MountedAnimal = null;
-		}
-
-		// Fonction pour flouter une texture existante
-		private static void ApplyGaussianBlurToTexture(ref Texture2D texture, int radius)
-		{
-			Image img = Raylib.LoadImageFromTexture(texture);
-			img = ApplyGaussianBlurToImage(img, radius);
-			Raylib.UnloadTexture(texture);
-			texture = Raylib.LoadTextureFromImage(img);
-			Raylib.UnloadImage(img);
-		}
-
-		// Fonction de flou gaussien simple
-		private static Image ApplyGaussianBlurToImage(Image img, int radius)
-		{
-			int width = img.Width;
-			int height = img.Height;
-			Image result = Raylib.GenImageColor(width, height, Color.Blank);
-			
-			// Noyau de flou gaussien simplifié (taille 3x3)
-			float[,] kernel = {
-				{ 1f/16f, 2f/16f, 1f/16f },
-				{ 2f/16f, 4f/16f, 2f/16f },
-				{ 1f/16f, 2f/16f, 1f/16f }
-			};
-			int kernelSize = 3;
-			int offset = kernelSize / 2;
-			
-			for (int y = 0; y < height; y++)
-			{
-				for (int x = 0; x < width; x++)
-				{
-					float rSum = 0, gSum = 0, bSum = 0, aSum = 0;
-					float weightSum = 0;
-					
-					for (int ky = -offset; ky <= offset; ky++)
-					{
-						for (int kx = -offset; kx <= offset; kx++)
-						{
-							int px = x + kx;
-							int py = y + ky;
-							if (px >= 0 && px < width && py >= 0 && py < height)
-							{
-								Color c = Raylib.GetImageColor(img, px, py);
-								float weight = kernel[ky + offset, kx + offset];
-								rSum += c.R * weight;
-								gSum += c.G * weight;
-								bSum += c.B * weight;
-								aSum += c.A * weight;
-								weightSum += weight;
-							}
-						}
-					}
-					
-					if (weightSum > 0)
-					{
-						Color newColor = new Color(
-							(byte)(rSum / weightSum),
-							(byte)(gSum / weightSum),
-							(byte)(bSum / weightSum),
-							(byte)(aSum / weightSum)
-						);
-						Raylib.ImageDrawPixel(ref result, x, y, newColor);
-					}
-				}
-			}
-			
-			Raylib.UnloadImage(img);
-			return result;
 		}
 
 		// Cache pour la texture du marqueur
@@ -1444,41 +1363,6 @@ namespace Soulfract
             }
         }
 
-		private static void RegenerateAllRoofs()
-        {
-            Console.WriteLine("Vérification des toits...");
-
-            var surfaceChunks = World.GetAllSurfaceChunks();
-            var caveChunks = World.GetAllCaveChunks();
-            int roofsFound = 0;
-
-            foreach (var (chunkX, chunkY, chunkData) in surfaceChunks)
-            {
-                foreach (var (pos, overlayId) in chunkData.Overlays)
-                {
-                    if (overlayId == 82)
-                    {
-                        roofsFound++;
-                    }
-                }
-            }
-
-            foreach (var (chunkX, chunkY, chunkData) in caveChunks)
-            {
-                foreach (var (pos, overlayId) in chunkData.Overlays)
-                {
-                    if (overlayId == 82)
-                    {
-                        roofsFound++;
-                    }
-                }
-            }
-
-            Console.WriteLine($"   {roofsFound} toits trouvés dans les chunks chargés");
-
-            World.ForceRebuildBuildingIds();
-        }
-
 		private static void SpawnTileBreakParticles(Vector2 worldPos, Color tileColor)
 		{
 			int particleCount = Random.Shared.Next(6, 12);
@@ -1781,28 +1665,6 @@ namespace Soulfract
 			if (dto.SlimeStorageSlot != null)
 				SaveSystem.RestoreInventorySlotFromSave(dto.SlimeStorageSlot, proxy.GetSlimeStorageSlot());
 			return proxy;
-		}
-
-		private static Vector2 FindWaterSurface(Vector2 worldPos)
-		{
-			int ts = TileSize;
-			int startX = (int)(worldPos.X / ts);
-			int startY = (int)(worldPos.Y / ts);
-			for (int y = startY - 5; y <= startY + 5; y++)
-			{
-				for (int x = startX - 5; x <= startX + 5; x++)
-				{
-					int groundId = World.GetGroundTileIdAt(x, y);
-					if (groundId == 10 || groundId == 11) // eau
-					{
-						int height = World.GetHeightAt(x, y);
-						float yOffset = -height * ts / 4;
-						float waterSurfaceY = y * ts + yOffset + ts / 2f;
-						return new Vector2(x * ts + ts / 2f, waterSurfaceY);
-					}
-				}
-			}
-			return Vector2.Zero;
 		}
 
 		private static void SpawnPlayerFootstepParticle()

@@ -218,7 +218,6 @@ namespace Soulfract
             _chunks.Clear();
             _caveChunks.Clear();
             _activeChunks.Clear();
-            _tileVariationCache.Clear();
             _tileAnimationStartCache.Clear();
             _heightCache.Clear();
 				_climateCache.Clear();
@@ -249,6 +248,11 @@ namespace Soulfract
             _dungeonBosses.Clear();
             _dungeonChunksByInstance.Clear();
             _activeDungeonChunks.Clear();
+            WorkZones.Clear();
+            _nextWorkZoneId = 1;
+            _fieldWorkZonesReconstructed = false;
+            VillageCenters.Clear();
+            _villageCentersReconstructed = false;
             _currentDungeonInstanceId = -1;
             _isInDungeon = false;
             _nextDungeonInstanceId = 0;

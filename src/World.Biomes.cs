@@ -121,40 +121,6 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
             return _biomeBorderTextures.ContainsKey(groundId) || _biomeBorderAnimationFrames.ContainsKey(groundId);
         }
 
-		private static float GetBorderRotation(string direction)
-		{
-			return direction switch
-			{
-				"left" => 0f,
-				"right" => 180f,
-				"up" => 90f,
-				"down" => -90f,
-				"topleft" => 0f,
-				"topright" => 90f,
-				"bottomright" => 180f,
-				"bottomleft" => 270f,
-				_ => 0f
-			};
-		}
-
-		// Obtenir le flag de flip pour la texture de bordure
-		private static bool GetBorderFlip(string direction)
-		{
-			return direction switch
-			{
-				"topleft" => false,
-				"topright" => true,
-				"bottomright" => false,
-				"bottomleft" => true,
-				_ => false
-			};
-		}
-
-		private static float GetHumidityNoise(float x, float y)
-		{
-			return WorldGeneration.GetHumidity(x, y);
-		}
-
 		/// <summary>
         /// Calcule (et met en cache) température/humidité/élévation pour une tuile donnée.
         /// Avant cette méthode, GetHeightAt / GetBiomeAt / GetGroundTileIdAt recalculaient
@@ -409,21 +375,5 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
             Raylib.DrawTexturePro(cliffBorderTex, src, dest, origin, rotation, Color.White);
         }
 
-		private static void ClearCurrentWorld()
-        {
-            if (_isUnderground)
-            {
-                _chunks.Clear();
-                _heightCache.Clear();
-				_climateCache.Clear();
-            }
-            else
-            {
-                _caveChunks.Clear();
-                _caveHeightCache.Clear();
-            }
-            _tileVariationCache.Clear();
-            _tileAnimationStartCache.Clear();
-        }
     }
 }

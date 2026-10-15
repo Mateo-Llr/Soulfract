@@ -2053,7 +2053,6 @@ namespace Soulfract
         private static bool _loaded = false;
 
         private const float EDGE_MARGIN = 48f;      // distance minimale par rapport au bord de l'écran
-        private const float ABOVE_HEAD_OFFSET = 130f; // hauteur au-dessus du PNJ quand il est visible
         private const float ICON_SIZE = 34f;
 
         public static Texture2D GetTrackerTexture()

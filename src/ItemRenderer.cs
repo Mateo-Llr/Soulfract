@@ -702,43 +702,6 @@ namespace Soulfract
             return PotionContentInfo.TryGetValue(contentType, out var info) ? info.Color : fallbackTint;
         }
 
-        private static Color ResolveDisplayTint(Item? item, Color? tint)
-        {
-            Color finalTint = tint ?? Color.White;
-            if (item == null) return finalTint;
-
-            Color displayColor;
-            bool hasCustomColor = false;
-
-            if (item.CustomColors != null && item.CustomColors.Count > 0 && item.CustomColors[0].HasValue)
-            {
-                displayColor = item.CustomColors[0].Value;
-                hasCustomColor = true;
-            }
-            else if (item.CustomColor.HasValue)
-            {
-                displayColor = item.CustomColor.Value;
-                hasCustomColor = true;
-            }
-            else
-            {
-                displayColor = item.BaseColor;
-                hasCustomColor = false;
-            }
-
-            if (hasCustomColor && tint.HasValue)
-            {
-                return new Color(
-                    (byte)(finalTint.R * displayColor.R / 255),
-                    (byte)(finalTint.G * displayColor.G / 255),
-                    (byte)(finalTint.B * displayColor.B / 255),
-                    (byte)(finalTint.A * displayColor.A / 255)
-                );
-            }
-
-            return hasCustomColor ? displayColor : finalTint;
-        }
-
         /// <summary>
         /// Résout la texture à utiliser pour représenter un item de façon simple (couche 1
         /// en priorité, repli sur ItemData.Icon si aucune texture par couche n'existe).

@@ -17,7 +17,6 @@ namespace Soulfract
         private const int SLOTS_PER_ROW = 5;
         private static int HEADER_HEIGHT => UIManager.ScaleInt(45);
         private static int MODULE_MARGIN_BOTTOM => UIManager.ScaleInt(20);
-        private static int EQUIPMENT_SLOT_SIZE => UIManager.ScaleInt(48);
 
         public static int GetWindowX() => _mainPanelX;
         public static int GetWindowY() => _mainPanelY;
@@ -28,7 +27,6 @@ namespace Soulfract
 
         // Couleurs
         private static readonly Color COLOR_BG_DARK = new Color(25, 28, 35, 100);
-        private static readonly Color COLOR_BG_MEDIUM = new Color(35, 38, 45, 255);
         private static readonly Color COLOR_SLOT_NORMAL = new Color(50, 53, 60, 255);
         private static readonly Color COLOR_SLOT_HOVER = new Color(70, 73, 80, 255);
         private static readonly Color COLOR_SLOT_SELECTED = new Color(100, 110, 80, 255);
@@ -37,8 +35,6 @@ namespace Soulfract
         private static readonly Color COLOR_BORDER = new Color(65, 68, 75, 255);
         private static readonly Color COLOR_HEADER = new Color(35, 38, 48, 255);
         private static readonly Color COLOR_TOOLTIP_BG = new Color(20, 22, 28, 240);
-        private static readonly Color COLOR_SLOT_EQUIPPED = new Color(210, 180, 100, 80);
-        private static readonly Color COLOR_SLOT_FILLED = new Color(100, 180, 100, 60);
 
         // Textures 9-slice
         private static NineSliceTexture? _panelTexture;
@@ -400,39 +396,6 @@ namespace Soulfract
             }
 
             InventorySlots = newSlots;
-        }
-
-        private static void MergeInventoryStacks()
-        {
-            //  Fusion des piles d'items de même nom et même couleur.
-            // Après la restauration, des items du même type peuvent être séparés en
-            // plusieurs slots, ce qui ne doit pas se produire (un seul slot par type+couleur).
-            for (int i = InventorySlots.Count - 1; i >= 0; i--)
-            {
-                var slot = InventorySlots[i];
-                if (slot.IsEmpty || slot.Item == null) continue;
-
-                // Chercher les autres piles du même item
-                for (int j = i + 1; j < InventorySlots.Count; j++)
-                {
-                    var otherSlot = InventorySlots[j];
-                    if (otherSlot.IsEmpty || otherSlot.Item == null) continue;
-                    
-                    // Même nom et même couleur ?
-                    if (Program.AreItemsStackable(slot.Item, otherSlot.Item))
-                    {
-                        // Fusionner
-                        slot.Count += otherSlot.Count;
-                        otherSlot.Clear();
-                    }
-                }
-            }
-
-            // Compacter les slots vides
-            var compacted = InventorySlots.Where(s => !s.IsEmpty).ToList();
-            while (compacted.Count < InventorySlots.Count)
-                compacted.Add(new InventorySlot());
-            InventorySlots = compacted;
         }
 
         private static bool AreColorsCompatible(Item a, Item b)
@@ -2583,15 +2546,6 @@ namespace Soulfract
                 }
                 if (!added) break;
             }
-        }
-
-        public static List<Item> ConvertToOldInventory()
-        {
-            var res = new List<Item>();
-            foreach (var slot in InventorySlots)
-                if (!slot.IsEmpty && slot.Item != null)
-                    res.Add(new Item(slot.Item.Name, slot.Count, slot.Item.DisplayColor, slot.Item.Icon));
-            return res;
         }
 
         public static void CloseInventory(int playerIndex = 0)

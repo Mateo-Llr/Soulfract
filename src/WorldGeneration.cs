@@ -74,7 +74,6 @@ namespace Soulfract
         private const float DEEP_OCEAN_THRESHOLD = 0.15f;
         private const float OCEAN_THRESHOLD = 0.32f;
         private const float BEACH_THRESHOLD = 0.38f;
-        private const float LOWLANDS_THRESHOLD = 0.48f;
         private const float HIGHLANDS_THRESHOLD = 0.70f;
         private const float MOUNTAIN_THRESHOLD = 0.85f;
         private const float PEAK_THRESHOLD = 0.94f;

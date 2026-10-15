@@ -121,7 +121,6 @@ namespace Soulfract
         const float DELAY_BEFORE_BUTTON = 0.9f;
 
 		// pause après la fin du texte avant le bouton
-        static Texture2D _deathSkullTexture = new Texture2D();
 
 		//  Dessine l'écran de mort en espace écran (appelé après EndMode2D). Vignette qui
         // s'assombrit sur les bords, crâne avec pop au centre, message en rouge qui
@@ -496,14 +495,6 @@ namespace Soulfract
 			}
 		}
 
-		private static void PrintSection(string title, string icon)
-		{
-			Console.ForegroundColor = ConsoleColor.Cyan;
-			Console.WriteLine($"\n  {icon}  {title}");
-			Console.WriteLine(new string('─', 60));
-			Console.ResetColor();
-		}
-
 		public static void ShowSavingIcon()
 		{
 			_savingDisplayTimer = SAVING_DISPLAY_DURATION;
@@ -539,5 +530,13 @@ namespace Soulfract
             }
             return false;
         }
+
+		private static void RequestClosePauseMenu(GameState target, Action extraAction = null)
+		{
+			if (_pauseMenuClosing) return;
+			_pauseMenuClosing = true;
+			_pausePendingState = target;
+			_pausePendingAction = extraAction;
+		}
     }
 }

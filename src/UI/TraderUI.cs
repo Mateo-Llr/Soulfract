@@ -32,7 +32,6 @@ namespace Soulfract
         // Fond totalement opaque
         private static readonly Color COLOR_BG = new Color(20, 22, 28, 255);
         private static readonly Color COLOR_BORDER = new Color(80, 70, 50, 200);
-        private static readonly Color COLOR_SLOT_BG = new Color(50, 53, 60, 255);
         private static readonly Color COLOR_SLOT_HOVER = new Color(70, 73, 80, 255);
         private static readonly Color COLOR_ACCENT = new Color(210, 180, 100, 255);
 

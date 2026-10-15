@@ -49,12 +49,10 @@ namespace Soulfract
         private static readonly Color COLOR_BUTTON = new Color(80, 140, 80, 255);
         private static readonly Color COLOR_BUTTON_HOVER = new Color(100, 180, 100, 255);
         private static readonly Color COLOR_BUTTON_DISABLED = new Color(60, 70, 60, 200);
-        private static readonly Color COLOR_RECIPE_BG = new Color(40, 43, 52, 220);
         private static readonly Color COLOR_RECIPE_HOVER = new Color(60, 63, 72, 220);
         private static readonly Color COLOR_RECIPE_SELECTED = new Color(210, 180, 100, 80);
         private static readonly Color COLOR_RECIPE_LEARNED = new Color(100, 200, 100, 60);
         private static readonly Color COLOR_RECIPE_UNKNOWN = new Color(60, 50, 50, 120);
-        private static readonly Color COLOR_RECIPE_LOCKED = new Color(40, 40, 50, 100);
         
         // Textures
         private static Texture2D _cauldronBack = default;

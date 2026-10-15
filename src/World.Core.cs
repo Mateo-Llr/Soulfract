@@ -4562,7 +4562,7 @@ float stackY = baseY - (lvl - 1) * ts;
 				if (Program.MountedAnimal == entity) continue; // dessinée avec le joueur (voir plus bas), pour l'ordre de superposition
 				if (entity.IsMounted && entity.Rider != null) continue; // monture PNJ dessinée via le cavalier
 				Vector2 entityVisualPos = entity.VisualWorldPos;
-				if (!ShouldRenderEntity(entityVisualPos)) continue;
+				if (!ShouldRenderEntity(entity)) continue;
 				if (!IsEntityNearScreen(entityVisualPos))
 					continue;
 				{
@@ -5254,7 +5254,7 @@ underwearTexture: capturedExtraUnderwear,
 				{
 					if (!entity.IsAlive) continue;
 					Vector2 entityDebugPos = entity.VisualWorldPos;
-					if (!ShouldRenderEntity(entityDebugPos)) continue;
+					if (!ShouldRenderEntity(entity)) continue;
 					Rectangle hitboxRect = GetEntityCollisionHitbox(entityDebugPos, entity.Species, ts);
 					Rectangle damageHitboxRect = GetEntityDamageHitbox(entity, ts);
 					Raylib.DrawRectangleLinesEx(hitboxRect, 2, Color.Red);

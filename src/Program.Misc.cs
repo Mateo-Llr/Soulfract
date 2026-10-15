@@ -80,26 +80,6 @@ namespace Soulfract
 
 		private static float _cameraSmoothingSpeed = 8f;
 
-		private static Vector2 SmoothCameraTarget(Vector2 target, float amount)
-		{
-			amount = Math.Clamp(amount, 0f, 1f);
-			if (!_preciseCameraTargetInitialized ||
-				Math.Abs(_preciseCameraTargetX - _smoothedCameraTarget.X) > 0.01 ||
-				Math.Abs(_preciseCameraTargetY - _smoothedCameraTarget.Y) > 0.01)
-			{
-				_preciseCameraTargetX = _smoothedCameraTarget.X;
-				_preciseCameraTargetY = _smoothedCameraTarget.Y;
-				_preciseCameraTargetInitialized = true;
-			}
-
-			_preciseCameraTargetX += ((double)target.X - _preciseCameraTargetX) * amount;
-			_preciseCameraTargetY += ((double)target.Y - _preciseCameraTargetY) * amount;
-			_smoothedCameraTarget = new Vector2(
-				(float)_preciseCameraTargetX,
-				(float)_preciseCameraTargetY);
-			return _smoothedCameraTarget;
-		}
-
 		private static void ApplyPreciseCameraTransform(ref Camera2D camera)
 		{
 			double expectedAnchorX = _preciseCameraTargetInitialized ? Math.Round(_preciseCameraTargetX) : double.NaN;
@@ -418,32 +398,13 @@ namespace Soulfract
 
 		private static float carVelY = 0f;
 
-		private const float CAR_ACCEL = 2500f;
-
-		// Accélération (pixels/s²)
-		private const float CAR_FRICTION = 0.93f;
-
-		// Coefficient de frottement (multiplicateur par frame)
 		private const float CAR_MAX_SPEED = 900f;
 
 		// Vitesse maximale (pixels/s)
-		private const float CAR_TURN_SPEED = 360f;
-
-		// Vitesse de rotation (degrés/s)
 		
 		// Inertie angulaire pour la voiture
 		private static float _carAngularVelocity = 0f;
 
-		private const float CAR_ANGULAR_ACCEL = 800f;
-
-		// Accélération angulaire (degrés/s²)
-		private const float CAR_ANGULAR_FRICTION = 0.92f;
-
-		// Friction (multiplicateur par frame)
-		private const float CAR_MAX_ANGULAR_SPEED = 360f;
-
-		// Vitesse angulaire max (degrés/s)
-		
 		private static float _explorationTimer = 0f;
 
 		private const float EXPLORATION_INTERVAL = 0.5f;
@@ -1062,47 +1023,11 @@ namespace Soulfract
 			Console.ResetColor();
 		}
 
-		private static void PrintInlineProgress(bool isError = false)
-		{
-			if (isError)
-			{
-				Console.ForegroundColor = ConsoleColor.Red;
-				Console.Write("X");
-			}
-			else
-			{
-				Console.ForegroundColor = ConsoleColor.Green;
-				Console.Write(".");
-			}
-			Console.ResetColor();
-		}
-
 		static ToolType ParseToolType(string t) => t?.ToLower() switch
         {
             "axe"=>ToolType.Axe, "pickaxe"=>ToolType.Pickaxe, "shovel"=>ToolType.Shovel,
             "hoe"=>ToolType.Hoe, "scythe"=>ToolType.Scythe, "hammer"=>ToolType.Hammer, _=>ToolType.None
         };
-
-		private static bool AreColorsEqual(List<Color?>? a, List<Color?>? b)
-		{
-			if (a == null && b == null) return true;
-			if (a == null || b == null) return false;
-			if (a.Count != b.Count) return false;
-			for (int i = 0; i < a.Count; i++)
-			{
-				if (a[i] == null && b[i] == null) continue;
-				if (a[i] == null || b[i] == null) return false;
-				if (!a[i].Value.Equals(b[i].Value)) return false;
-			}
-			return true;
-		}
-
-		private static bool AreMetadataEqual(string? a, string? b)
-        {
-            a = a?.Trim() ?? string.Empty;
-            b = b?.Trim() ?? string.Empty;
-            return a.Equals(b, StringComparison.OrdinalIgnoreCase);
-        }
 
 		private static string FormatMetaPair(float cur, float max)
         {

@@ -20,7 +20,6 @@ namespace Soulfract
         public const float MAX_SPEED = 450f;
         private const float ANGULAR_ACCEL = 450f;
         private const float MAX_ANGULAR_SPEED = 200f;
-        private const float TURN_SPEED = 360f;
         private const float ANGULAR_FRICTION = 0.88f;
         public const float CAR_WIDTH = 48f;
         public const float CAR_HEIGHT = 96f;

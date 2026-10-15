@@ -14,6 +14,11 @@ namespace Soulfract
     public static partial class Program
     {
 
+		public static Texture2D _questionIcon;
+
+		// Vitesse d'animation de la bouche des PNJ humains pendant un dialogue.
+		private const double MOUTH_FLAP_SPEED = 9.0;
+
 		public static Texture2D LootbagTexture = new Texture2D();
 
 		public static Texture2D EyesTexture = new Texture2D();
@@ -498,42 +503,6 @@ namespace Soulfract
 			Rectangle srcRect = new Rectangle(0, 0, tex.Width, tex.Height);
 			Rectangle destRect = new Rectangle(x, y, size, size);
 			Raylib.DrawTexturePro(tex, srcRect, destRect, Vector2.Zero, 0, Color.White);
-		}
-
-		private static void DrawPedalWithPressure(Texture2D tex, float x, float y, float size, string label, float pressure)
-		{
-			// Ombre portée (plus sombre si enfoncé)
-			byte shadowAlpha = (byte)(80 + pressure * 80);
-			Raylib.DrawRectangleRounded(
-				new Rectangle(x + 4, y + 4, size, size), 
-				0.15f, 8, 
-				new Color((byte)0, (byte)0, (byte)0, shadowAlpha)
-			);
-			
-			// Texture de la pédale
-			Rectangle srcRect = new Rectangle(0, 0, tex.Width, tex.Height);
-			Rectangle destRect = new Rectangle(x, y, size, size);
-			Raylib.DrawTexturePro(tex, srcRect, destRect, Vector2.Zero, 0, Color.White);
-			
-			// Indicateur de pression (barre de progression)
-			if (pressure > 0.05f)
-			{
-				float barWidth = size * 0.7f;
-				float barHeight = 4f;
-				float barX = x + (size - barWidth) / 2f;
-				float barY = y + size + 6f;
-				
-				Raylib.DrawRectangleRounded(
-					new Rectangle(barX, barY, barWidth, barHeight), 
-					0.5f, 4, 
-					new Color(50, 50, 50, 180)
-				);
-				Raylib.DrawRectangleRounded(
-					new Rectangle(barX, barY, barWidth * pressure, barHeight), 
-					0.5f, 4, 
-					new Color(100, 255, 100, 220)
-				);
-			}
 		}
 
 		static void UpdateSelectAnimation(float dt)

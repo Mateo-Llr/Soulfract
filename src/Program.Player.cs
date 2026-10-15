@@ -392,17 +392,6 @@ namespace Soulfract
 		// (null si aucune réassignation n'est en cours).
 		private static (GameAction action, int index)? _rebindingAction = null;
 
-		private static bool AreMetaEqual(Dictionary<string, string> a, Dictionary<string, string> b)
-        {
-            if (a.Count != b.Count) return false;
-            foreach (var kv in a)
-            {
-                if (!b.TryGetValue(kv.Key, out var v) || !string.Equals(v, kv.Value, StringComparison.OrdinalIgnoreCase))
-                    return false;
-            }
-            return true;
-        }
-
 		private static bool IsSpoilKey(string key) => string.Equals(key, "spoil", StringComparison.OrdinalIgnoreCase)
             || string.Equals(key, "spoiled", StringComparison.OrdinalIgnoreCase);
 

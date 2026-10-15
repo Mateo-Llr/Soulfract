@@ -15,8 +15,6 @@ namespace Soulfract
         //  MULTIJOUEUR : coordonnées du conteneur actuellement ouvert (pour SyncContainer/
         // RequestContainerData). (-1,-1) = conteneur non networké (ex: coffre de bateau).
         private static readonly Dictionary<int, (int tileX, int tileY, bool underground)> _currentContainerPosByPlayer = new();
-        private static DraggedItem _draggedItem = new DraggedItem();
-
         private static int SLOT_SIZE => UIManager.ItemSlotSize;
         private static int SLOT_STEP => UIManager.ItemSlotStep;
         private static int ITEM_SIZE => UIManager.ItemContentSize;

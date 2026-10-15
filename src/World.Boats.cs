@@ -573,11 +573,5 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			return false;
 		}
 
-		private static bool IsBoatNeighborSameType(int relX, int relY, int targetId, Boat boat)
-		{
-			if (!boat.Tiles.ContainsKey((relX, relY))) return false;
-			int neighborObjId = boat.GetObjectIdAt(relX, relY);
-			return neighborObjId != 0 && neighborObjId == targetId;
-		}
     }
 }
