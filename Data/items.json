@@ -1189,6 +1189,16 @@
       "coveredZones": ["Face"]
     },
     {
+      "id": "tengu_mask",
+      "type": "armor",
+      "stackSize": 1,
+      "value": 70,
+      "runeSlots": 1,
+      "rarity": "rare",
+      "armorCategory": "mask",
+      "coveredZones": ["Face"]
+    },
+    {
       "id": "skullmask",
       "type": "armor",
       "stackSize": 1,

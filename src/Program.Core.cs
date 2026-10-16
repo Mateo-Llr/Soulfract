@@ -320,7 +320,7 @@ void main()
 			SkillSystem.OnGlobalLevelUp += (newLevel) =>
 			{
 				PlayLevelUpSound();
-				SpawnLevelUpParticles(GetPlayerPosition());
+				SpawnLevelUpParticles(GetPlayerVisualPosition(GetPlayerPosition()));
 			};
 			
 			Console.WriteLine("╔════════════════════════════════════════════════════════════════════╗");
@@ -391,7 +391,7 @@ void main()
 					}
 					ApplyPreciseCameraTransform(ref camera);
 				bool debugPanelClickConsumed = _showDebug && Renderer.HandleDebugMenuInput();
-				if (_mainMenuFadePhase == MainMenuFadePhase.None && !debugPanelClickConsumed && !CharacterAnimationEditorUI.IsOpen)
+				if (_mainMenuFadePhase == MainMenuFadePhase.None && !debugPanelClickConsumed && !CharacterAnimationEditorUI.IsOpen && !_isSoulArrivalCinematic && !IsSoulMaterializing)
 					HandleInput(camera, dt);
                     
                     ChatSystem.Update();
@@ -409,17 +409,19 @@ void main()
                         TryConnectLocalPlayers();
                     UpdateAdditionalLocalPlayers(dt, hitboxDim, camera);
                     if (_fadeOutOverlayActive) UpdateLoadingFadeOutOverlay(dt);
+					UpdateSoulMaterialization(dt);
                     if (_mainMenuFadePhase != MainMenuFadePhase.None) UpdateMainMenuFade(dt);
 
                     if (_gameState == GameState.Loading) UpdateLoadingScreen(dt);
 					else if (_gameState == GameState.MainMenu && !CharacterAnimationEditorUI.IsOpen && !_isSelectingSave && !_isMultiplayerMenu && !_isJoinCharacterCreation) UpdateMainMenu();
                     else if (_isMultiplayerMenu && !_isJoinCharacterCreation) UpdateMultiplayerMenu();
                     else if (_gameState == GameState.Options) UpdateOptionsMenu();
+					else if (_isSoulArrivalCinematic) UpdateSoulArrivalCinematic(dt);
 					else if (_gameState == GameState.Playing && _mainMenuFadePhase == MainMenuFadePhase.None && !_fadeOutOverlayActive && !debugPanelClickConsumed)
 						UpdateGameplay(dt, ref _playerPos, ref facing, hitboxDim, ref craftSelected, ref camera);
 
-					Weather.SetPaused(_gameState != GameState.Playing);
-					AmbientAudio.SetPaused(_gameState != GameState.Playing);
+					Weather.SetPaused(_gameState != GameState.Playing || _isSoulArrivalCinematic);
+					AmbientAudio.SetPaused(_gameState != GameState.Playing || _isSoulArrivalCinematic);
 					Draw(_playerPos, facing, hitboxDim, camera, craftSelected, _showDebug);
 					OrganizeScreenshots();
 				}
@@ -447,6 +449,7 @@ void main()
 				SettingsManager.Save();
 				TraderUI.Close();
 				InventoryRenderer.CloseInventory();
+				UnloadSoulArrivalSceneTextures();
 				ContainerUI.Close();
 				ArmorStandUI.Close();
 				TamedAnimalUI.Close();
@@ -1098,6 +1101,7 @@ void main()
 				}
 				if (QuestDialogUI.IsOpen)
 				{
+					CancelStoryGuideDialog(); // Échap abandonne aussi la conversation en pages du Veilleur
 					QuestDialogUI.Close();
 					return;
 				}
@@ -1225,7 +1229,7 @@ void main()
 					int fObjectId = tileInfo.objectId;
 					if (fTileX != -1 && fTileY != -1)
 					{
-						float dist = Vector2.Distance(_playerPos, new Vector2(fTileX * TileSize + TileSize/2f, fTileY * TileSize + TileSize/2f));
+						float dist = Vector2.Distance(GetPlayerFeetPosition(_playerPos), new Vector2(fTileX * TileSize + TileSize/2f, fTileY * TileSize + TileSize/2f));
 						if (dist < MAX_INTERACTION_DISTANCE)
 						{
 							var tileData = WorldTileRegistry.GetTile(fObjectId);
@@ -1250,7 +1254,7 @@ void main()
 									AddNotification(new Notification(" Pousse fertilisée !", new Color(170, 220, 120, 255), 1.5f));
 									Vector2 fertilPos = new Vector2(fTileX * TileSize + TileSize / 2f, fTileY * TileSize + TileSize / 2f);
 									PlayFertilizerSound();
-									SpawnFertilizerParticles(fertilPos);
+									SpawnFertilizerParticles(World.GetEntityGroundPosition(fertilPos));
 									_rightClickConsumed = true;
 								}
 							}
@@ -1439,7 +1443,7 @@ void main()
 						if (groundId == 27) // farmland sec
 						{
 							// Vérifier la distance
-							float dist = Vector2.Distance(_playerPos, new Vector2(tileX * TileSize + TileSize/2f, tileY * TileSize + TileSize/2f));
+							float dist = Vector2.Distance(GetPlayerFeetPosition(_playerPos), new Vector2(tileX * TileSize + TileSize/2f, tileY * TileSize + TileSize/2f));
 							if (dist < MAX_INTERACTION_DISTANCE)
 							{
 								if (waterLiquidType == "milk")
@@ -1455,7 +1459,7 @@ void main()
 									World.WaterFarmland(tileX, tileY);
 									currentWater--;
 									SetLiquidContainerCharges(heldItemForWater, "water", currentWater);
-									SpawnWateringCanParticles(new Vector2(tileX * TileSize + TileSize / 2f, tileY * TileSize + TileSize / 2f));
+									SpawnWateringCanParticles(GetVisualTileCenter(tileX, tileY));
 									AddNotification(new Notification($" Terre arrosée ! ({currentWater}/{maxWaterCharges})", new Color(100, 200, 255, 255), 1.5f));
 								}
 								_rightClickConsumed = true;
@@ -1526,7 +1530,7 @@ void main()
 										// Effets sonores et particules
 										Vector2 fertilPos = new Vector2(fTileX * TileSize + TileSize / 2f, fTileY * TileSize + TileSize / 2f);
 										PlayFertilizerSound();
-										SpawnFertilizerParticles(fertilPos);
+										SpawnFertilizerParticles(World.GetEntityGroundPosition(fertilPos));
 										_rightClickConsumed = true;
 									}
 								}
@@ -1624,9 +1628,7 @@ void main()
 						float yOffset = -height * ts / 4;
 						float objX = tileX * ts + ts/2f;
 						float objY = tileY * ts + yOffset + ts/2f;
-						int playerTileX = (int)(_playerPos.X / ts);
-						int playerTileY = (int)(_playerPos.Y / ts);
-						int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+						int playerHeight = GetPlayerGroundHeight(_playerPos);
 						float playerYOffset = -playerHeight * ts / 4;
 						Vector2 playerVisualPos = new Vector2(_playerPos.X, _playerPos.Y + playerYOffset);
 						if (Vector2.DistanceSquared(playerVisualPos, new Vector2(objX, objY)) < (ts * 2f) * (ts * 2f))
@@ -1948,6 +1950,7 @@ void main()
 				if (WorldSeed < 1) WorldSeed = 1;
 			}
 			PerlinNoise.SetSeed(WorldSeed);
+			World.ClearSpawnProtection(); // la zone protégée de l'ancien monde ne doit pas fuiter dans le nouveau
 			
 			QuestManager.ClearPersistedQuests();
 			World.CurrentSaveName = _currentSaveName;
@@ -2001,6 +2004,65 @@ void main()
 				}
 			}
 
+			// RECHERCHE STRICTE : on cherche d'abord un point de départ dont tout le voisinage est en
+			// plaine, loin de tout village (déjà généré ou prévu par la graine). Le pré-filtre
+			// n'utilise que le bruit (aucun chunk généré), seuls les candidats retenus sont vérifiés
+			// pour de bon (sol praticable, aucune maison/champ dans la zone tampon).
+			// Si rien ne convient, on retombe sur l'ancienne recherche (première plaine trouvée).
+			{
+				const int strictStepTiles = 4;
+				const int strictMaxRing = 120; // 120 * 4 = 480 tuiles autour de l'origine
+				int strictCandidates = 0;
+				Console.WriteLine(" Recherche d'un spawn dégagé (plaine, loin des villages)...");
+
+				bool TryStrictCandidate(int tileX, int tileY)
+				{
+					if (strictCandidates >= 40) return false; // garde-fou : chaque vérification génère des chunks
+					if (!World.IsSpawnAreaNaturallySuitable(tileX, tileY)) return false;
+					strictCandidates++;
+
+					// La protection est posée AVANT de générer les chunks : arbres et maisons
+					// ne seront donc jamais créés dans la zone.
+					World.SetSpawnProtection(tileX, tileY);
+					ForceChunkGenerationAt(tileX * TileSize, tileY * TileSize);
+					if (World.IsSpawnAreaVerified(tileX, tileY))
+					{
+						startX = tileX * TileSize;
+						startY = tileY * TileSize;
+						spawnBiome = Biome.Plains;
+						validSpawn = true;
+						Console.WriteLine($" Spawn dégagé trouvé à ({startX:F0}, {startY:F0}) après {strictCandidates} candidat(s) vérifié(s)");
+						return true;
+					}
+					World.ClearSpawnProtection();
+					return false;
+				}
+
+				for (int ring = 0; ring <= strictMaxRing && !validSpawn; ring++)
+				{
+					int k = ring * strictStepTiles;
+					if (ring == 0)
+					{
+						TryStrictCandidate(0, 0);
+						continue;
+					}
+					for (int i = -ring; i <= ring && !validSpawn; i++)
+					{
+						int o = i * strictStepTiles;
+						if (TryStrictCandidate(o, -k)) break;
+						if (TryStrictCandidate(o, k)) break;
+						if (i > -ring && i < ring)
+						{
+							if (TryStrictCandidate(-k, o)) break;
+							if (TryStrictCandidate(k, o)) break;
+						}
+					}
+				}
+
+				if (!validSpawn)
+					Console.WriteLine(" Aucun spawn dégagé trouvé, repli sur la première plaine disponible.");
+			}
+
 			// Recherche exhaustive en spirale autour de l'origine
 			for (int r = 0; r <= searchRadius; r += step)
 			{
@@ -2023,15 +2085,19 @@ void main()
 						// FORCER la génération des chunks autour de la position testée
 						ForceChunkGenerationAt(testX, testY);
 						
-						Biome testBiome = World.GetBiomeAt(testX, testY);
+						int candidateTileX = (int)MathF.Floor(testX / TileSize);
+						int candidateTileY = (int)MathF.Floor(testY / TileSize);
+						float snappedX = candidateTileX * TileSize;
+						float snappedY = candidateTileY * TileSize;
+						Biome testBiome = World.GetBiomeAt(candidateTileX, candidateTileY);
 						
 						if (r % 500 == 0 && (dx == r || dy == r))
 							Console.WriteLine($"   Recherche à distance {r}... Biome actuel: {WorldGeneration.GetBiomeDisplayName(testBiome)}");
 						
 						if (testBiome == Biome.Plains)
 						{
-							startX = testX;
-							startY = testY;
+							startX = snappedX;
+							startY = snappedY;
 							spawnBiome = testBiome;
 							validSpawn = true;
 							Console.WriteLine($" Plaine trouvée à ({startX:F0}, {startY:F0})");
@@ -2052,7 +2118,7 @@ void main()
 				{
 					for (int y = -100; y <= 100; y++)
 					{
-						Biome testBiome = World.GetBiomeAt(x * Program.TileSize, y * Program.TileSize);
+						Biome testBiome = World.GetBiomeAt(x, y);
 						if (testBiome == Biome.Plains)
 						{
 							startX = x * Program.TileSize;
@@ -2074,7 +2140,39 @@ void main()
 				ForceChunkGenerationAt(0, 0);
 			}
 
-			_playerPos = new Vector2(startX, startY);
+			int spawnTileX = (int)MathF.Floor(startX / TileSize);
+			int spawnTileY = (int)MathF.Floor(startY / TileSize);
+			ForceChunkGenerationAt(spawnTileX * TileSize, spawnTileY * TileSize);
+
+			// Zone protégée autour du socle : plus aucun arbre/maison/champ n'y sera généré, y compris
+			// dans les chunks créés plus tard. On dégage aussi ce qui aurait déjà été généré (repli
+			// sur l'ancienne recherche, ou chunks voisins déjà chargés pendant la recherche).
+			World.SetSpawnProtection(spawnTileX, spawnTileY);
+			int clearedObjects = World.ClearSpawnArea(spawnTileX, spawnTileY, World.SPAWN_CLEAR_RADIUS, SoulAnchorTileId);
+			Console.WriteLine($" Zone du socle dégagée : {clearedObjects} objet(s) retiré(s) dans un rayon de {World.SPAWN_CLEAR_RADIUS} tuiles.");
+
+			WorldTileData? soulAnchor = WorldTileRegistry.GetTile(SoulAnchorTileId);
+			int anchorWidth = Math.Max(1, soulAnchor?.Size?.Width ?? 1);
+			int anchorHeight = Math.Max(1, soulAnchor?.Size?.Height ?? 1);
+			int anchorX = spawnTileX - anchorWidth / 2;
+			int anchorY = spawnTileY + anchorHeight / 2;
+			int anchorTopY = anchorY - anchorHeight + 1;
+			for (int x = anchorX; x < anchorX + anchorWidth; x++)
+			{
+				for (int y = anchorTopY; y <= anchorY; y++)
+				{
+					int objectId = World.GetObjectIdAt(x, y);
+					if (objectId != 0 && objectId != SoulAnchorTileId)
+						World.RemovePlacedObject(x, y);
+				}
+			}
+			World.AddPlacedObject(anchorX, anchorY, SoulAnchorTileId);
+
+			// Sentier à moitié effacé qui part du socle et mène au campement du Veilleur (tente, feu,
+			// caisses, PNJ qui explique la situation). Sans emplacement valide, le monde n'a juste pas de camp.
+			World.TryBuildStoryCamp(spawnTileX, spawnTileY, SoulAnchorTileId);
+
+			_playerPos = new Vector2(spawnTileX * TileSize, spawnTileY * TileSize);
 			_playerFacing = 1f;
 			
 			_playerEntity = new Entity(_playerPos, "human", true);
@@ -2084,7 +2182,9 @@ void main()
 			_smoothedCameraTarget = GetPlayerCameraTarget(_playerPos);
 			_cameraNeedsImmediateCenter = true;
 
-			Biome finalBiome = World.GetBiomeAt(_playerPos.X, _playerPos.Y);
+			Biome finalBiome = World.GetBiomeAt(
+				_playerPos.X / TileSize,
+				_playerPos.Y / TileSize);
 			Console.WriteLine($" Position de spawn finale: ({_playerPos.X:F0}, {_playerPos.Y:F0}) - {WorldGeneration.GetBiomeDisplayName(finalBiome)}");
 			_worldSpawnPos = _playerPos;
 
@@ -2179,6 +2279,19 @@ void main()
 			WorldWeaponsBreak = saveData.WeaponsBreak;
 			WorldFoodSpoil = saveData.FoodSpoils;
 			PerlinNoise.SetSeed(WorldSeed);
+			_worldSpawnPos = new Vector2(saveData.WorldSpawnX, saveData.WorldSpawnY);
+			if (!float.IsFinite(_worldSpawnPos.X) || !float.IsFinite(_worldSpawnPos.Y)
+				|| (_worldSpawnPos == Vector2.Zero
+					&& (saveData.PlayerPosX != 0f || saveData.PlayerPosY != 0f)))
+			{
+				_worldSpawnPos = new Vector2(saveData.PlayerPosX, saveData.PlayerPosY);
+				Console.WriteLine($" Position de spawn absente ou invalide dans la sauvegarde, repli sur la position du joueur ({_worldSpawnPos})");
+			}
+			// La zone protégée n'est pas sauvegardée : on la recalcule depuis la position du socle
+			// pour que les chunks pas encore générés respectent aussi la zone dégagée.
+			World.SetSpawnProtection(
+				(int)MathF.Floor(_worldSpawnPos.X / TileSize),
+				(int)MathF.Floor(_worldSpawnPos.Y / TileSize));
 			_crabCompanion = null;
 			_crabRespawnCooldown = 0f;
 			
@@ -2959,11 +3072,18 @@ void main()
 			RitualCircleUI.Update();
 			TraderUI.Update();
 
+			// Conversation en pages du Veilleur : nettoie son état si elle est interrompue.
+			UpdateStoryGuideDialog();
+
 			//  SYSTÈME DE QUÊTES : gestion des clics sur la fenêtre de dialogue de quête
 			if (QuestDialogUI.IsOpen)
 			{
 				string? questAction = QuestDialogUI.Update(Raylib.GetMousePosition());
-				if (questAction == "accept")
+				if (questAction == "story_complete")
+				{
+					CompleteStoryGuideDialog();
+				}
+				else if (questAction == "accept")
 				{
 					var giver = QuestDialogUI.GetCurrentNpc();
 					if (giver != null)
@@ -3090,7 +3210,7 @@ void main()
 					var npc = QuestDialogUI.GetCurrentNpc();
 					if (npc != null)
 					{
-						TryOpenVillagerDialog(npc);
+						OpenVillagerChoiceDialog(npc); // retour à la bulle de choix (sans relancer la conversation du Veilleur)
 					}
 				}
 				else if (!string.IsNullOrEmpty(questAction) && questAction.StartsWith("social_"))
@@ -3102,8 +3222,14 @@ void main()
 					}
 					else
 					{
-						npc.RememberRandomSocialContact();
 						string topic = questAction.Substring("social_".Length);
+						if (topic == "village" && !npc.HasStableVillageHome)
+						{
+							QuestDialogUI.OpenSocialChat(npc);
+							return;
+						}
+
+						npc.RememberRandomSocialContact();
 						string response = topic switch
 						{
 							"village" => npc.GetSocialReply("village"),
@@ -3209,9 +3335,7 @@ void main()
 						var rightArmBottom = skeleton.FirstOrDefault(p => p.Name == "rarmbottom");
 						if (rightArmBottom != null)
 						{
-							int playerTileX = (int)(playerPos.X / TileSize);
-							int playerTileY = (int)(playerPos.Y / TileSize);
-							int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+							int playerHeight = GetPlayerGroundHeight(playerPos);
 							float playerYOffset = -playerHeight * TileSize / 4;
 							Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
 							Vector2 handPos = GetHandWorldPosition(playerVisualPos, facing, skeleton, _animState, _animFrame, _animProg);
@@ -3256,9 +3380,7 @@ void main()
 						float yOffset = -height * ts / 4;
 						float objX = tileX * ts + ts/2f;
 						float objY = tileY * ts + yOffset + ts/2f;
-						int playerTileX = (int)(_playerPos.X / ts);
-						int playerTileY = (int)(_playerPos.Y / ts);
-						int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+						int playerHeight = GetPlayerGroundHeight(_playerPos);
 						float playerYOffset = -playerHeight * ts / 4;
 						Vector2 playerVisualPos = new Vector2(_playerPos.X, _playerPos.Y + playerYOffset);
 						if (Vector2.DistanceSquared(playerVisualPos, new Vector2(objX, objY)) < (ts * 2f) * (ts * 2f))
@@ -3425,9 +3547,7 @@ void main()
 				bool holdingFishingRod = heldItem != null && GameData.GetToolType(heldItem.Name) == ToolType.Fishing;
 				if (holdingFishingRod)
 				{
-					int playerTileX = (int)(playerPos.X / TileSize);
-					int playerTileY = (int)(playerPos.Y / TileSize);
-					int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+					int playerHeight = GetPlayerGroundHeight(playerPos);
 					float playerYOffset = -playerHeight * TileSize / 4;
 					Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
 
@@ -3989,6 +4109,13 @@ void main()
 			{
 				goto SkipMovementAndInteraction;
 			}
+			if (IsSoulMaterializing)
+			{
+				_animState = "idle";
+				_animFrame = 0;
+				_animProg = 0f;
+				goto SkipMovementAndInteraction;
+			}
 
 			if (ChatSystem.IsOpen && !_isSitting && PlayerCurrentCar == null && MountedAnimal == null)
 			{
@@ -4221,17 +4348,20 @@ void main()
 							move = Vector2.Zero;
 						}
 						Vector2 movementStart = playerPos;
-						int currentTileX = (int)(playerPos.X / TileSize);
-						int currentTileY = (int)(playerPos.Y / TileSize);
+						int currentTileX = (int)MathF.Floor(playerPos.X / TileSize);
+						int currentTileY = (int)MathF.Floor(playerPos.Y / TileSize);
 						int currentHeight = World.GetHeightAt(currentTileX, currentTileY);
-						int newTileX = (int)((playerPos.X + move.X) / TileSize);
+						int newTileX = (int)MathF.Floor((playerPos.X + move.X) / TileSize);
 						int newHeightX = World.GetHeightAt(newTileX, currentTileY);
 						if (Math.Abs(currentHeight - newHeightX) <= 1)
 							if (_noClipEnabled || !World.IsColliding(playerPos + new Vector2(move.X, 0), hitboxDim, destroyedObjects))
 								playerPos.X += move.X;
 						
 						// Mouvement vertical
-						int newTileY = (int)((playerPos.Y + move.Y) / TileSize);
+						currentTileX = (int)MathF.Floor(playerPos.X / TileSize);
+						currentTileY = (int)MathF.Floor(playerPos.Y / TileSize);
+						currentHeight = World.GetHeightAt(currentTileX, currentTileY);
+						int newTileY = (int)MathF.Floor((playerPos.Y + move.Y) / TileSize);
 						int newHeightY = World.GetHeightAt(currentTileX, newTileY);
 						if (Math.Abs(currentHeight - newHeightY) <= 1)
 							if (_noClipEnabled || !World.IsColliding(playerPos + new Vector2(0, move.Y), hitboxDim, destroyedObjects))
@@ -4347,7 +4477,7 @@ void main()
 							if (dropTileX != -1 && dropTileY != -1)
 							{
 								float distanceToDropTile = Vector2.Distance(
-									new Vector2((int)(playerPos.X / TileSize) * TileSize + TileSize / 2f, (int)(playerPos.Y / TileSize) * TileSize + TileSize / 2f),
+									new Vector2((int)(GetPlayerFeetPosition(playerPos).X / TileSize) * TileSize + TileSize / 2f, (int)(GetPlayerFeetPosition(playerPos).Y / TileSize) * TileSize + TileSize / 2f),
 									new Vector2(dropTileX * TileSize + TileSize / 2f, dropTileY * TileSize + TileSize / 2f)
 								);
 								if (distanceToDropTile <= MAX_INTERACTION_DISTANCE)
@@ -4436,9 +4566,7 @@ void main()
 				}
 				else
 				{
-					int playerTileX = (int)(playerPos.X / TileSize);
-					int playerTileY = (int)(playerPos.Y / TileSize);
-					int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+					int playerHeight = GetPlayerGroundHeight(playerPos);
 					float playerYOffset = -playerHeight * TileSize / 4;
 					float visualYOffset = World.IsUnderwater ? -_underwaterElevation : 0f;
 					camera.Target = new Vector2(playerPos.X, playerPos.Y + playerYOffset + visualYOffset);
@@ -4748,7 +4876,7 @@ void main()
 					foreach (var ngi in NetworkManager.GetRemoteGroundItems())
 					{
 						visibleIds.Add(ngi.NetId);
-						float dist = Vector2.Distance(_playerPos, new Vector2(ngi.PosX, ngi.PosY));
+						float dist = Vector2.Distance(GetPlayerFeetPosition(_playerPos), new Vector2(ngi.PosX, ngi.PosY));
 						if (dist < 40f && !_pendingNetworkPickups.Contains(ngi.NetId))
 						{
 							_pendingNetworkPickups.Add(ngi.NetId);
@@ -4774,16 +4902,16 @@ void main()
 					float relevantRadius = MathF.Max(gi.PickupRadius, 12f);
 					float reachableRadius = relevantRadius + MathF.Abs(dt) * gi.GroundVelocity.Length();
 					bool canAttract = gi.TimeSinceDrop + dt > gi.PickupCooldown
-						&& Vector2.DistanceSquared(gi.Position, _playerPos) < reachableRadius * reachableRadius
+						&& Vector2.DistanceSquared(gi.Position, GetPlayerFeetPosition(_playerPos)) < reachableRadius * reachableRadius
 						&& HasSpaceForItem(gi.ItemId);
-					gi.Update(dt, _playerPos, canAttract);
-					if (canAttract && gi.CanPickup(_playerPos))
+					gi.Update(dt, GetPlayerFeetPosition(_playerPos), canAttract);
+					if (canAttract && gi.CanPickup(GetPlayerFeetPosition(_playerPos)))
 					{
 						if (!string.IsNullOrWhiteSpace(gi.LootbagPayload))
 						{
 							RestoreLootbagPayload(gi.LootbagPayload);
 							GroundItems.RemoveAt(i);
-							SpawnPickupParticles(gi.Position);
+							SpawnPickupParticles(World.GetEntityGroundPosition(gi.Position));
 						}
 						else if (GameData.ItemDatabase.TryGetValue(gi.ItemId, out var itemData))
 						{
@@ -4810,7 +4938,7 @@ void main()
 							if (remaining <= 0)
 							{
 								GroundItems.RemoveAt(i);
-								SpawnPickupParticles(gi.Position);
+								SpawnPickupParticles(World.GetEntityGroundPosition(gi.Position));
 							}
 							else
 							{
@@ -5381,6 +5509,18 @@ void main()
 		{
 			if (QuestDialogUI.IsOpen)
 				return true;
+
+			if (BestiaryUI.IsOpen)
+			{
+				Rectangle bestiaryRect = new Rectangle(
+					BestiaryUI.GetWindowX(),
+					BestiaryUI.GetWindowY(),
+					BestiaryUI.GetWindowWidth(),
+					BestiaryUI.GetWindowHeight()
+				);
+				if (Raylib.CheckCollisionPointRec(mousePos, bestiaryRect))
+					return true;
+			}
 			
 			// Vérifier le conteneur (coffre) - PRIORITÉ 1
 			if (ContainerUI.IsOpen)
@@ -5836,7 +5976,7 @@ void main()
 					if (heldWaterItem != null && GetItemId(heldWaterItem.Name) == GameData.GetItemId("bucket"))
 					{
 						ParseBucketContent(heldWaterItem.Metadata, out string oceanBucketType, out int oceanBucketCharges);
-						float distToWaterBucket = Vector2.Distance(playerPos, new Vector2(waterTileX * ts + ts / 2f, waterTileY * ts + ts / 2f));
+						float distToWaterBucket = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(waterTileX * ts + ts / 2f, waterTileY * ts + ts / 2f));
 						if (distToWaterBucket <= MAX_INTERACTION_DISTANCE)
 						{
 							if (oceanBucketType == "milk")
@@ -5858,7 +5998,7 @@ void main()
 
 					if (isWaterContainer)
 					{
-						float distToWater = Vector2.Distance(playerPos, new Vector2(waterTileX * ts + ts / 2f, waterTileY * ts + ts / 2f));
+						float distToWater = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(waterTileX * ts + ts / 2f, waterTileY * ts + ts / 2f));
 						if (distToWater <= MAX_INTERACTION_DISTANCE)
 						{
 							int maxWater = GetWaterCapacityForItem(heldWaterItem);
@@ -6053,7 +6193,7 @@ void main()
 			{
 				const string flowerMetaKey = "potted_flower";
 				string plantedFlowerId = World.GetTileMeta(tileX, tileY, flowerMetaKey);
-				float potDist = Vector2.Distance(playerPos, new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
+				float potDist = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
 				if (potDist <= MAX_INTERACTION_DISTANCE)
 				{
 					if (!string.IsNullOrEmpty(plantedFlowerId))
@@ -6110,7 +6250,7 @@ void main()
                     if (canPlant)
                     {
                         //  Vérifier la distance
-                        float plantDist = Vector2.Distance(playerPos, new Vector2(tileX * ts + ts/2f, tileY * ts + ts/2f));
+                        float plantDist = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
                         if (plantDist <= MAX_INTERACTION_DISTANCE)
                         {
                             int cropId = heldData.CropId;
@@ -6135,7 +6275,7 @@ void main()
 			// culture mûre, tandis que le clic gauche reste le geste de casse/récolte.
 			if (tileData.IsCrop)
 			{
-				float cropDist = Vector2.Distance(playerPos, new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
+				float cropDist = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
 				if (cropDist > MAX_INTERACTION_DISTANCE)
 					return false;
 
@@ -6258,7 +6398,7 @@ void main()
 			if (overlayId == 6000)
 			{
 				// Vérifier la distance
-				float dist = Vector2.Distance(playerPos, new Vector2(tileX * ts + ts/2f, tileY * ts + ts/2f));
+				float dist = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
 				if (dist <= MAX_INTERACTION_DISTANCE)
 				{
 					// Récolter le miel
@@ -6475,7 +6615,7 @@ void main()
 			// ========== PORTAILS DE TÉLÉPORTATION ==========
 			if (objectId == 119)
 			{
-				float portalDist = Vector2.Distance(playerPos, new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
+				float portalDist = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
 				if (portalDist > MAX_INTERACTION_DISTANCE)
 					return false;
 
@@ -6525,7 +6665,7 @@ void main()
 				{
 					// La porte de sortie "explose" en un nuage de gravats au moment où on la franchit.
 					Vector2 doorWorldPos = new Vector2(tileX * TileSize + TileSize / 2f, tileY * TileSize + TileSize / 2f);
-					SpawnTileBreakParticles(doorWorldPos, new Color(120, 112, 104, 255));
+					SpawnTileBreakParticles(GetVisualTileCenter(tileX, tileY), new Color(120, 112, 104, 255));
 
 					moved = World.TryExitDungeon(tileX, tileY, out Vector2 spawnPos);
 					if (moved)
@@ -7002,6 +7142,7 @@ void main()
 								_isInWorldCreation = false;
 								_currentSaveName = _newWorldName;
 								_gameState = GameState.Playing;
+								BeginSoulArrivalCinematic();
 								return;
 							}
 						}
@@ -7167,6 +7308,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 						_isInWorldCreation = false;
 						_currentSaveName = _newWorldName;
 						_gameState = GameState.Playing;
+						BeginSoulArrivalCinematic();
 					}
 				}
 			}
@@ -7241,7 +7383,11 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
                  int craftSelected, bool showDebug)
 		{
 			Raylib.BeginDrawing();
-			if (_gameState == GameState.Loading)
+			if (_isSoulArrivalCinematic)
+			{
+				DrawSoulArrivalCinematic();
+			}
+			else if (_gameState == GameState.Loading)
 			{
 				DrawLoadingScreen(playerPos, facing, hitboxDim, camera, craftSelected, showDebug);
 			}
@@ -7394,6 +7540,8 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					isCarrying, _isPlayerInWater, _headAngle, _isSitting ? _sittingPosition : null, _playerDepth,
 					playersToRender: remotePlayersToRender, spellProjectiles: _spellProjectiles,
 					drawPlayer: !captureWorldForReveal || _worldRevealAlpha >= 0.82f);
+				if (showDebug)
+					DrawAttackDebugZone(playerPos, mouseWorldPos, facing, heldItem);
 				PerfStats.EndSection(PerfStats.Section.WorldDraw);
 				//  PORTAGE DE CRÉATURES : dessinée désormais à l'intérieur même de World.cs / EntityRenderer,
 				// entre le bras gauche et le bras droit du joueur, pour un rendu correctement superposé.
@@ -7964,9 +8112,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				
 				if (showDebug)
 				{
-					int playerTileX = (int)(playerPos.X / TileSize);
-					int playerTileY = (int)(playerPos.Y / TileSize);
-					int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+					int playerHeight = GetPlayerGroundHeight(playerPos);
 					float playerYOffset = -playerHeight * TileSize / 4;
 					float playerBaseY = playerPos.Y + playerYOffset + FeetOffsetY;
 					Rectangle playerHitboxWorld = new Rectangle(playerPos.X - hitboxDim.X / 2f, playerBaseY - hitboxDim.Y, hitboxDim.X, hitboxDim.Y);
@@ -8360,6 +8506,32 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 		};
 	}
 
+	static Vector2 GetVisualTileCenter(int tileX, int tileY)
+	{
+		int ts = TileSize;
+		Vector2 tileCenter = new(tileX * ts + ts / 2f, tileY * ts + ts / 2f);
+		return World.GetEntityGroundPosition(tileCenter);
+	}
+
+	static float GetPlacementDistanceFromPlayerFeet(Vector2 playerPos, int tileX, int tileY)
+	{
+		return Vector2.Distance(
+			World.GetEntityGroundPosition(GetPlayerFeetPosition(playerPos)),
+			GetVisualTileCenter(tileX, tileY));
+	}
+
+	static float GetPlacementDistanceFromPlayerTile(Vector2 playerPos, int tileX, int tileY)
+	{
+		int ts = TileSize;
+		Vector2 playerFeet = GetPlayerFeetPosition(playerPos);
+		Vector2 playerTileCenter = new(
+			MathF.Floor(playerFeet.X / ts) * ts + ts / 2f,
+			MathF.Floor(playerFeet.Y / ts) * ts + ts / 2f);
+		return Vector2.Distance(
+			World.GetEntityGroundPosition(playerTileCenter),
+			GetVisualTileCenter(tileX, tileY));
+	}
+
 	static void DrawPlacementGhost(Camera2D camera, Item heldItem, ItemData itemData)
 	{
 		itemData.PlaceableId = ResolvePlaceableId(heldItem, itemData);
@@ -8401,10 +8573,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				if (!canPlantGhost) return;
 				if (World.GetObjectIdAt(seedTileX, seedTileY) != 0) return;
 				
-				float distanceToTile = Vector2.Distance(
-					new Vector2((int)(_playerPos.X / ts) * ts + ts / 2f, (int)(_playerPos.Y / ts) * ts + ts / 2f),
-					new Vector2(seedTileX * ts + ts / 2f, seedTileY * ts + ts / 2f)
-				);
+				float distanceToTile = GetPlacementDistanceFromPlayerTile(_playerPos, seedTileX, seedTileY);
 				if (distanceToTile > MAX_INTERACTION_DISTANCE) return;
 				
 				// Récupérer la texture du stade final (adulte pour une culture ; pour un arbre
@@ -8623,6 +8792,9 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			// ─────────────────────────────────────────────────────────
 			(int tileX, int tileY, float dist, int _) = FindTileUnderMouse(mouseWorld, ts);
 			if (tileX == -1 || tileY == -1) return;
+
+			if (GetPlacementDistanceFromPlayerTile(_playerPos, tileX, tileY) > MAX_INTERACTION_DISTANCE)
+				return;
 
 			if (World.GetObjectIdAt(tileX, tileY) != 0) return;
 
@@ -10743,11 +10915,13 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			var activeButtons = uiItems.Where(x => x.enabled).ToList();
 			if (activeButtons.Count == 0) return;
 
-			int buttonSize = 40;
-			int spacing = 8;
-			int totalWidth = activeButtons.Count * (buttonSize + spacing) - spacing;
-			int startX = 20;
-			int startY = ScreenHeight - buttonSize - 20;
+			int startX = UIManager.ScaleInt(12);
+			int spacing = Math.Clamp(ScreenWidth / 160, 2, UIManager.ScaleInt(6));
+			int availableWidth = Math.Max(activeButtons.Count * UIManager.ScaleInt(24),
+				ScreenWidth - startX * 2 - spacing * (activeButtons.Count - 1));
+			int buttonSize = Math.Clamp(availableWidth / activeButtons.Count,
+				UIManager.ScaleInt(24), UIManager.ScaleInt(48));
+			int startY = ScreenHeight - buttonSize - UIManager.ScaleInt(12);
 
 			// ==== CONNEXIONS (en arrière‑plan) ====
 			if (_uiBarConnectionTex.Id != 0 && activeButtons.Count > 1)
@@ -10778,48 +10952,69 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 
 				Rectangle destRect = new Rectangle(x, y, buttonSize, buttonSize);
 
-				// 1. Fond (uniquement si la texture de slot est absente ou si on veut un fallback)
-				Texture2D slotTex = isOpen() ? _uiBarSlotOpenTex : _uiBarSlotTex;
+				// 1. Slot de fond
+				Texture2D slotTex = _uiBarSlotTex;
 				if (slotTex.Id == 0)
 				{
-					// Fallback : rectangle coloré en fond
-					Raylib.DrawRectangle(x, y, buttonSize, buttonSize, isOpen() ? new Color(60, 80, 60, 200) : new Color(40, 40, 50, 200));
+					Raylib.DrawRectangle(x, y, buttonSize, buttonSize, new Color(40, 40, 50, 200));
 				}
 
-				// 2. Icône (dessinée en premier, donc derrière le slot)
-				Texture2D iconTex = GetUIBarButtonTexture(id);
-				if (iconTex.Id != 0)
-				{
-					float scaleX = destRect.Width / iconTex.Width;
-					float scaleY = destRect.Height / iconTex.Height;
-					float scale = Math.Max(scaleX, scaleY);
-					float drawW = iconTex.Width * scale;
-					float drawH = iconTex.Height * scale;
-					float drawX = destRect.X + (destRect.Width - drawW) / 2;
-					float drawY = destRect.Y + (destRect.Height - drawH) / 2;
-					Rectangle src = new Rectangle(0, 0, iconTex.Width, iconTex.Height);
-					Rectangle dest = new Rectangle(drawX, drawY, drawW, drawH);
-					Raylib.DrawTexturePro(iconTex, src, dest, Vector2.Zero, 0, Color.White);
-				}
-
-				// 3. Slot (par‑dessus l’icône)
 				if (slotTex.Id != 0)
 				{
-					float scaleX = destRect.Width / slotTex.Width;
-					float scaleY = destRect.Height / slotTex.Height;
-					float scale = Math.Max(scaleX, scaleY);
+					float scale = Math.Min(destRect.Width / slotTex.Width, destRect.Height / slotTex.Height);
 					float drawW = slotTex.Width * scale;
 					float drawH = slotTex.Height * scale;
 					float drawX = destRect.X + (destRect.Width - drawW) / 2;
 					float drawY = destRect.Y + (destRect.Height - drawH) / 2;
-					Rectangle src = new Rectangle(0, 0, slotTex.Width, slotTex.Height);
-					Rectangle dest = new Rectangle(drawX, drawY, drawW, drawH);
-					Raylib.DrawTexturePro(slotTex, src, dest, Vector2.Zero, 0, Color.White);
+					Raylib.DrawTexturePro(slotTex,
+						new Rectangle(0, 0, slotTex.Width, slotTex.Height),
+						new Rectangle(drawX, drawY, drawW, drawH),
+						Vector2.Zero, 0, Color.White);
 				}
-				else
+
+				// 2. Icône
+				Texture2D iconTex = GetUIBarButtonTexture(id);
+				Rectangle iconRect = destRect;
+				if (iconTex.Id != 0)
 				{
-					// Si pas de slot, on dessine une bordure pour délimiter le bouton
-					Raylib.DrawRectangleLines(x, y, buttonSize, buttonSize, isOpen() ? Color.Green : Color.Gray);
+					float scale = Math.Min(destRect.Width / iconTex.Width, destRect.Height / iconTex.Height);
+					float drawW = iconTex.Width * scale;
+					float drawH = iconTex.Height * scale;
+					float drawX = destRect.X + (destRect.Width - drawW) / 2;
+					float drawY = destRect.Y + (destRect.Height - drawH) / 2;
+					iconRect = new Rectangle(drawX, drawY, drawW, drawH);
+				}
+
+				// 3. Bordure de sélection autour des pixels opaques de l’icône active
+				if (isOpen())
+				{
+					Texture2D outlineTex = GetUIBarButtonOutlineTexture(id, iconTex);
+					if (outlineTex.Id != 0)
+					{
+						float outlineOffsetX = iconRect.Width / iconTex.Width;
+						float outlineOffsetY = iconRect.Height / iconTex.Height;
+						for (int offsetY = -1; offsetY <= 1; offsetY++)
+						{
+							for (int offsetX = -1; offsetX <= 1; offsetX++)
+							{
+								if (offsetX == 0 && offsetY == 0) continue;
+								Rectangle outlineRect = new Rectangle(
+									iconRect.X + offsetX * outlineOffsetX,
+									iconRect.Y + offsetY * outlineOffsetY,
+									iconRect.Width,
+									iconRect.Height);
+								Raylib.DrawTexturePro(outlineTex,
+									new Rectangle(0, 0, outlineTex.Width, outlineTex.Height),
+									outlineRect, Vector2.Zero, 0, Color.White);
+							}
+						}
+					}
+				}
+
+				if (iconTex.Id != 0)
+				{
+					Rectangle src = new Rectangle(0, 0, iconTex.Width, iconTex.Height);
+					Raylib.DrawTexturePro(iconTex, src, iconRect, Vector2.Zero, 0, Color.White);
 				}
 
 				// Détection de clic
@@ -11289,7 +11484,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					if (canPlantHere)
 					{
 						// Vérifier la distance
-						float plantDist = Vector2.Distance(playerPos, new Vector2(bestTileX * ts + ts/2f, bestTileY * ts + ts/2f));
+						float plantDist = GetPlacementDistanceFromPlayerFeet(playerPos, bestTileX, bestTileY);
 						if (plantDist <= MAX_INTERACTION_DISTANCE)
 						{
 							int cropId = heldData.CropId;
@@ -11322,14 +11517,10 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				}
 			}
 
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
-			Vector2 attackDir = mouseWorld - playerVisualPos;
-			if (attackDir.Length() < 0.01f) attackDir = new Vector2(facing, 0);
-			attackDir = Vector2.Normalize(attackDir);
+			int playerTileX = (int)(GetPlayerFeetPosition(playerPos).X / ts);
+			int playerTileY = (int)(GetPlayerFeetPosition(playerPos).Y / ts);
+			Vector2 attackDir = GetPlayerAttackDirection(playerPos, mouseWorld, facing);
+			float attackRadius = GetAttackRadius(heldItem);
 			_swingDirection = attackDir;
 			_swingAngle = MathF.Atan2(attackDir.Y, attackDir.X) * 180f / MathF.PI;
 			_swingTimer = 0.25f;
@@ -11338,8 +11529,11 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			attackAnim = 0.35f;
 			attackCooldown = 0.5f;
 
+			if (heldItem != null && GameData.GetToolType(heldItem.Name) == ToolType.Scythe)
+				HarvestScythePlants(GetPlayerAttackOrigin(playerPos), attackDir, attackRadius);
+
 			// ========== PVP : joueurs adverses touchés par le coup (consentement mutuel) ==========
-			var pvpTargets = GetPvpTargetsInAttackCone(playerPos, attackDir, ATTACK_RADIUS, ATTACK_ANGLE);
+			var pvpTargets = GetPvpTargetsInAttackCone(playerPos, attackDir, attackRadius, ATTACK_ANGLE);
 			if (pvpTargets.Count > 0)
 			{
 				PlayPunchSound();
@@ -11373,7 +11567,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			// host au lieu de modifier l'entité localement (le host reste seul autoritaire).
 			if (NetworkManager.IsClient)
 			{
-				var hitDtos = GetRemoteEntitiesInAttackCone(playerPos, attackDir, ATTACK_RADIUS, ATTACK_ANGLE);
+				var hitDtos = GetRemoteEntitiesInAttackCone(playerPos, attackDir, attackRadius, ATTACK_ANGLE);
 				if (hitDtos.Count > 0)
 				{
 					PlayPunchSound();
@@ -11396,7 +11590,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			}
 			else
 			{
-			var hitEntities = GetEntitiesInAttackCone(playerPos, attackDir, ATTACK_RADIUS, ATTACK_ANGLE);
+			var hitEntities = GetEntitiesInAttackCone(playerPos, attackDir, attackRadius, ATTACK_ANGLE);
 			//  Une créature en l'air (oiseau en vol, boss volant non posé...) ne peut pas être
 			// touchée par une simple attaque de corps à corps : elle est hors de portée tant
 			// qu'elle n'a pas atterri (voir Entity.IsAirborne / IsInvulnerable).
@@ -11423,7 +11617,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					}
 					else
 					{
-						AddFloatingDamage(playerPos, damage, damage >= 8, isEnemy: true);
+						AddFloatingDamage(GetPlayerVisualPosition(playerPos), damage, damage >= 8, isEnemy: true);
 					}
 					if (!entity.IsAlive)
 					{
@@ -11527,6 +11721,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			
 			int heightAtTarget = World.GetHeightAt(bestTileX, bestTileY);
 			float drawY = bestTileY * ts - (heightAtTarget * ts / 4);
+			Vector2 targetTileWorldPos = new(bestTileX * ts + ts / 2f, bestTileY * ts + ts / 2f);
 			
 			//  BOIRE : interagir face à une case d'eau (mêmes IDs que la détection
 			// de flottaison des bateaux) restaure la soif, à main vide ou avec un
@@ -11886,7 +12081,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 								//  PARTICULES DE DESTRUCTION DE L'OBJET SUR LE BATEAU
 								Color boatTileColor = boatTileData != null ? 
 									new Color(150, 100, 60, 200) : new Color(150, 100, 60, 200);
-								SpawnTileBreakParticles(boatObjectWorldPos, boatTileColor);
+								SpawnTileBreakParticles(World.GetEntityGroundPosition(boatObjectWorldPos), boatTileColor);
 								
 								// Supprimer l'objet du bateau
 								playerBoat.SetObjectAt(relX, relY, 0);
@@ -11933,6 +12128,9 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				var tileData = WorldTileRegistry.GetTile(objId);
 				if (tileData != null && tileData.IsCrop)
 				{
+					if (heldItem != null && GameData.GetToolType(heldItem.Name) == ToolType.Scythe)
+						return;
+
 					var cropData = World.GetCropDataAt(bestTileX, bestTileY);
 					if (cropData != null)
 					{
@@ -11949,7 +12147,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 								AddNotification(new Notification($" Item de récolte introuvable : {tileData.HarvestItemId}", new Color(220, 100, 100, 255), 2f));
 								return;
 							}
-							Program.GiveItemToPlayer(harvestItemId, qty, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f));
+							Program.GiveItemToPlayer(harvestItemId, qty, targetTileWorldPos);
 
 							if (tileData.RegrowsAfterHarvest)
 							{
@@ -11996,13 +12194,16 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			if (tileDataObj == null) return;
 			if (tileDataObj.Collectable)
 			{
+				if (heldItem != null && GameData.GetToolType(heldItem.Name) == ToolType.Scythe)
+					return;
+
 				string collectKey = $"{bestTileX}_{bestTileY}";
 				if (!destroyedObjects.Contains(collectKey))
 				{
 					AchievementManager.Progress(AchievementType.GatherResources);
 					foreach (var (id, qty) in WorldTileRegistry.GetDrops(tileId))
 					{
-						Program.GiveItemToPlayer(id, qty, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+						Program.GiveItemToPlayer(id, qty, targetTileWorldPos, pickupCooldown: 0f);
 					}
 					World.RemovePlacedObject(bestTileX, bestTileY);
 					attackCooldown = 0.1f;
@@ -12024,8 +12225,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				// Seule la pelle, la houe et l'arrosoir peuvent interagir avec le sol
 				if (toolType != ToolType.Shovel && 
 					toolType != ToolType.Hoe && 
-					toolType != ToolType.WateringCan &&
-					toolType != ToolType.Scythe)  // La faux pour récolter les cultures
+					toolType != ToolType.WateringCan)
 				{
 					return;  //  Les autres outils ne creusent pas le sol
 				}
@@ -12066,8 +12266,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					string plantedFlowerId = World.GetTileMeta(bestTileX, bestTileY, flowerMetaKey);
 								if (int.TryParse(plantedFlowerId, out int flowerItemId))
 					{
-						Program.GiveItemToPlayer(flowerItemId, 1,
-							new Vector2(bestTileX * ts + ts / 2f, drawY + ts / 2f), pickupCooldown: 0f);
+						Program.GiveItemToPlayer(flowerItemId, 1, targetTileWorldPos, pickupCooldown: 0f);
 					}
 					World.RemoveTileMeta(bestTileX, bestTileY, flowerMetaKey);
 				}
@@ -12087,7 +12286,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 									int itemId = GetItemId(slot.Item.Name);
 									if (itemId > 0 && GameData.ItemDatabase.TryGetValue(itemId, out var itemData))
 									{
-										Program.GiveItemToPlayer(itemId, slot.Count, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+										Program.GiveItemToPlayer(itemId, slot.Count, targetTileWorldPos, pickupCooldown: 0f);
 									}
 								}
 							}
@@ -12107,27 +12306,27 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 							if (standData.Head != null)
 							{
 								int itemId = GetItemId(standData.Head.Name);
-								Program.GiveItemToPlayer(itemId, 1, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+								Program.GiveItemToPlayer(itemId, 1, targetTileWorldPos, pickupCooldown: 0f);
 							}
 							if (standData.Body != null)
 							{
 								int itemId = GetItemId(standData.Body.Name);
-								Program.GiveItemToPlayer(itemId, 1, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+								Program.GiveItemToPlayer(itemId, 1, targetTileWorldPos, pickupCooldown: 0f);
 							}
 							if (standData.Legs != null)
 							{
 								int itemId = GetItemId(standData.Legs.Name);
-								Program.GiveItemToPlayer(itemId, 1, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+								Program.GiveItemToPlayer(itemId, 1, targetTileWorldPos, pickupCooldown: 0f);
 							}
 							if (standData.MainHand != null)
 							{
 								int itemId = GetItemId(standData.MainHand.Name);
-								Program.GiveItemToPlayer(itemId, 1, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+								Program.GiveItemToPlayer(itemId, 1, targetTileWorldPos, pickupCooldown: 0f);
 							}
 							if (standData.OffHand != null)
 							{
 								int itemId = GetItemId(standData.OffHand.Name);
-								Program.GiveItemToPlayer(itemId, 1, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+								Program.GiveItemToPlayer(itemId, 1, targetTileWorldPos, pickupCooldown: 0f);
 							}
 							standData.Clear();
 							chunk.SetArmorStandAt(bestTileX, bestTileY, standData);
@@ -12142,7 +12341,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					if (mineralItemId != 0)
 					{
 						int qty = Random.Shared.Next(1, 3);
-						Program.GiveItemToPlayer(mineralItemId, qty, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+						Program.GiveItemToPlayer(mineralItemId, qty, targetTileWorldPos, pickupCooldown: 0f);
 					}
 					World.RemoveOverlay(bestTileX, bestTileY);
 				}
@@ -12166,7 +12365,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				{
 					int beeWaxId = GameData.GetItemId("bee_wax");
 					if (beeWaxId > 0)
-						Program.GiveItemToPlayer(beeWaxId, 1, new Vector2(bestTileX * ts + ts / 2f, drawY + ts / 2f), pickupCooldown: 0f);
+						Program.GiveItemToPlayer(beeWaxId, 1, targetTileWorldPos, pickupCooldown: 0f);
 					World.RemoveTileMeta(bestTileX, bestTileY, "beehive");
 				}
 
@@ -12178,7 +12377,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				objectHPs.Remove(objKey);
 				foreach (var (id, qty) in WorldTileRegistry.GetDrops(tileId))
 				{
-					Program.GiveItemToPlayer(id, qty, new Vector2(bestTileX * ts + ts/2f, drawY + ts/2f), pickupCooldown: 0f);
+					Program.GiveItemToPlayer(id, qty, targetTileWorldPos, pickupCooldown: 0f);
 				}
 			}
 		}
@@ -12441,10 +12640,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			
 			// Vérification de la distance (limite 3 blocs)
 			Vector2 playerPos = Program.GetPlayerPosition();
-			float distanceToTile = Vector2.Distance(
-				new Vector2((int)(playerPos.X / ts) * ts + ts / 2f, (int)(playerPos.Y / ts) * ts + ts / 2f),
-				new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f)
-			);
+			float distanceToTile = GetPlacementDistanceFromPlayerTile(playerPos, tileX, tileY);
 			if (distanceToTile > MAX_INTERACTION_DISTANCE)
 			{
 				return;

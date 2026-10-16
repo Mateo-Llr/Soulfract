@@ -612,12 +612,6 @@ namespace Soulfract
 				
 				if (oldItemId != 0)
 				{
-					var tileData = WorldTileRegistry.GetTile(oldItemId);
-					if (tileData != null && tileData.IsCrop)
-					{
-						_farmlandMoisture.Remove((x, y));
-						SetGroundTile_Apply(x, y, 27); // remet le sol en terre sèche (sans réplication)
-					}
 					if (oldItemId == 114)
 					{
 						UnregisterBenchSeatsAt((x, y));

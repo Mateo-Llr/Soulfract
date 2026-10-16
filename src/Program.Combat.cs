@@ -132,6 +132,8 @@ namespace Soulfract
 
 		public const float ATTACK_RADIUS = 60f;
 
+		public const float SCYTHE_ATTACK_RADIUS = 120f;
+
 		public const float ATTACK_ANGLE = 75f;
 
 		public const float ATTACK_KNOCKBACK = 80f;
@@ -141,6 +143,171 @@ namespace Soulfract
 		static float _attackSwingProgress = 0f;
 
 		static float _attackSwingSpeed = 3.5f;
+
+		private static Vector2 GetPlayerAttackOrigin(Vector2 playerPos)
+		{
+			int ts = TileSize;
+			Vector2 visualPos = GetPlayerVisualPosition(playerPos);
+			Vector2 playerDim = new Vector2(ts * 1.6f, ts * 0.5f);
+			float baseY = visualPos.Y + FeetOffsetY;
+			return new Vector2(visualPos.X, baseY - playerDim.Y / 2f);
+		}
+
+		private static Vector2 GetPlayerAttackDirection(Vector2 playerPos, Vector2 targetPos, float facing)
+		{
+			Vector2 direction = targetPos - GetPlayerAttackOrigin(playerPos);
+			if (direction.LengthSquared() < 0.0001f)
+				direction = new Vector2(facing, 0f);
+			return Vector2.Normalize(direction);
+		}
+
+		public static float GetAttackRadius(Item? heldItem)
+		{
+			return heldItem != null && GameData.GetToolType(heldItem.Name) == ToolType.Scythe
+				? SCYTHE_ATTACK_RADIUS
+				: ATTACK_RADIUS;
+		}
+
+		private static bool IsPointInAttackCone(Vector2 point, Vector2 origin, Vector2 attackDirection, float range, float coneAngle)
+		{
+			Vector2 toPoint = point - origin;
+			if (toPoint.LengthSquared() > range * range) return false;
+			if (toPoint.LengthSquared() < 0.0001f) return true;
+
+			float angleToPoint = MathF.Atan2(toPoint.Y, toPoint.X);
+			float attackAngle = MathF.Atan2(attackDirection.Y, attackDirection.X);
+			float angleDelta = angleToPoint - attackAngle;
+			float angleDifference = MathF.Abs(MathF.Atan2(MathF.Sin(angleDelta), MathF.Cos(angleDelta)));
+			return angleDifference <= coneAngle * MathF.PI / 360f;
+		}
+
+		private static void HarvestScythePlants(Vector2 attackOrigin, Vector2 attackDirection, float attackRadius)
+		{
+			int ts = TileSize;
+			int minTileX = (int)MathF.Floor((attackOrigin.X - attackRadius) / ts);
+			int maxTileX = (int)MathF.Floor((attackOrigin.X + attackRadius) / ts);
+			int heightMargin = ((World.MAX_HEIGHT_LEVELS + 3) / 4) * ts;
+			int maxVegetationHeight = ts;
+			foreach (var definition in WorldTileRegistry.Tiles.Values)
+			{
+				if (!definition.IsCrop
+					&& !definition.Collectable
+					&& !string.Equals(definition.Material, "grass", StringComparison.OrdinalIgnoreCase))
+					continue;
+				if (!string.Equals(definition.MiningTool, "scythe", StringComparison.OrdinalIgnoreCase))
+					continue;
+				maxVegetationHeight = Math.Max(maxVegetationHeight, ts * (definition.Size?.Height ?? 1));
+			}
+
+			int minTileY = (int)MathF.Floor((attackOrigin.Y - attackRadius) / ts);
+			int maxTileY = (int)MathF.Floor(
+				(attackOrigin.Y + attackRadius + heightMargin + maxVegetationHeight) / ts);
+			List<(int x, int y, int id)> targets = new();
+
+			for (int tileY = minTileY; tileY <= maxTileY; tileY++)
+			{
+				for (int tileX = minTileX; tileX <= maxTileX; tileX++)
+				{
+					int objectId = World.GetObjectIdAt(tileX, tileY);
+					if (objectId == 0) continue;
+					var tileData = WorldTileRegistry.GetTile(objectId);
+					if (tileData == null
+						|| (!tileData.IsCrop && !tileData.Collectable
+							&& !string.Equals(tileData.Material, "grass", StringComparison.OrdinalIgnoreCase))
+						|| !string.Equals(tileData.MiningTool, "scythe", StringComparison.OrdinalIgnoreCase))
+						continue;
+
+					if (tileData.IsCrop)
+					{
+						var cropData = World.GetCropDataAt(tileX, tileY);
+						if (cropData == null || cropData.AccumulatedGrowthTime < tileData.GrowthTime)
+							continue;
+					}
+
+					int height = World.GetHeightAt(tileX, tileY);
+					int drawWidth = ts * (tileData.Size?.Width ?? 1);
+					int drawHeight = ts * (tileData.Size?.Height ?? 1);
+					float drawX = tileX * ts + (tileData.Size != null ? tileData.DrawOffset?.X ?? 0 : 0);
+					float drawY = tileY * ts - height * ts / 4f;
+					if (tileData.Size != null)
+						drawY = drawY - drawHeight + ts;
+					Vector2 renderedPlantCenter = new(drawX + drawWidth / 2f, drawY + drawHeight / 2f);
+					if (IsPointInAttackCone(renderedPlantCenter, attackOrigin, attackDirection, attackRadius, ATTACK_ANGLE))
+						targets.Add((tileX, tileY, objectId));
+				}
+			}
+
+			foreach (var target in targets)
+			{
+				Vector2 tileCenter = new(target.x * ts + ts / 2f, target.y * ts + ts / 2f);
+				if (World.GetObjectIdAt(target.x, target.y) != target.id) continue;
+
+				var tileData = WorldTileRegistry.GetTile(target.id);
+				if (tileData == null) continue;
+
+				if (tileData.IsCrop)
+				{
+					var cropData = World.GetCropDataAt(target.x, target.y);
+					if (cropData == null || cropData.AccumulatedGrowthTime < tileData.GrowthTime)
+						continue;
+
+					int harvestItemId = GameData.GetItemId(tileData.HarvestItemId);
+					if (harvestItemId <= 0)
+					{
+						AddNotification(new Notification($" Item de récolte introuvable : {tileData.HarvestItemId}", new Color(220, 100, 100, 255), 2f));
+						continue;
+					}
+
+					AchievementManager.Progress(AchievementType.GatherResources);
+					int quantity = Random.Shared.Next(tileData.HarvestMinQty, tileData.HarvestMaxQty + 1);
+					GiveItemToPlayer(harvestItemId, quantity, tileCenter, pickupCooldown: 0f);
+					if (tileData.RegrowsAfterHarvest)
+						World.BeginCropRegrowth(target.x, target.y, tileData, cropData);
+					else
+						World.RemovePlacedObject(target.x, target.y);
+				}
+				else
+				{
+					AchievementManager.Progress(AchievementType.GatherResources);
+					foreach (var (itemId, quantity) in WorldTileRegistry.GetDrops(target.id))
+						GiveItemToPlayer(itemId, quantity, tileCenter, pickupCooldown: 0f);
+
+					World.RemovePlacedObject(target.x, target.y);
+					PlayTileSound(tileData, true);
+				}
+
+				SpawnTileBreakParticles(World.GetEntityGroundPosition(tileCenter), new Color(110, 165, 80, 220));
+			}
+		}
+
+		public static void DrawAttackDebugZone(Vector2 playerPos, Vector2 mouseWorld, float facing, Item? heldItem)
+		{
+			DrawAttackCone(GetPlayerAttackOrigin(playerPos), GetPlayerAttackDirection(playerPos, mouseWorld, facing), GetAttackRadius(heldItem),
+				new Color(100, 230, 130, 36), new Color(120, 255, 150, 220));
+		}
+
+		private static void DrawAttackCone(Vector2 origin, Vector2 attackDirection, float radius, Color fillColor, Color outlineColor)
+		{
+			float angle = MathF.Atan2(attackDirection.Y, attackDirection.X);
+			float halfAngle = ATTACK_ANGLE * MathF.PI / 360f;
+			const int segments = 24;
+			Vector2 previousPoint = origin + new Vector2(MathF.Cos(angle - halfAngle), MathF.Sin(angle - halfAngle)) * radius;
+
+			for (int i = 1; i <= segments; i++)
+			{
+				float pointAngle = angle - halfAngle + (halfAngle * 2f * i / segments);
+				Vector2 point = origin + new Vector2(MathF.Cos(pointAngle), MathF.Sin(pointAngle)) * radius;
+				Raylib.DrawTriangle(origin, previousPoint, point, fillColor);
+				Raylib.DrawLineEx(previousPoint, point, 2f, outlineColor);
+				previousPoint = point;
+			}
+
+			Vector2 firstEdge = origin + new Vector2(MathF.Cos(angle - halfAngle), MathF.Sin(angle - halfAngle)) * radius;
+			Vector2 lastEdge = origin + new Vector2(MathF.Cos(angle + halfAngle), MathF.Sin(angle + halfAngle)) * radius;
+			Raylib.DrawLineEx(origin, firstEdge, 2f, outlineColor);
+			Raylib.DrawLineEx(origin, lastEdge, 2f, outlineColor);
+			Raylib.DrawCircleV(origin, 4f, Color.White);
+		}
 
 		private static Vector2 GetViewportMouseWorldPosition(Camera2D camera, Rectangle viewport)
 		{
@@ -340,6 +507,7 @@ namespace Soulfract
 		// masquer son apparition soudaine (voir SpawnEyeBossWave).
 		private static void SpawnEyeBossMobSpawnParticles(Vector2 pos)
 		{
+			pos = World.GetEntityGroundPosition(pos);
 			int count = 16;
 			for (int i = 0; i < count; i++)
 			{
@@ -399,22 +567,7 @@ namespace Soulfract
 		{
 			var hitEntities = new List<Entity>();
 			int ts = Program.TileSize;
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
-			Vector2 playerDim = new Vector2(ts * 1.6f, ts * 0.5f);
-			Rectangle playerHitbox = new Rectangle(
-				playerVisualPos.X - playerDim.X / 2f,
-				playerVisualPos.Y - playerDim.Y / 2f,
-				playerDim.X,
-				playerDim.Y
-			);
-			Vector2 attackOrigin = new Vector2(
-				playerHitbox.X + playerHitbox.Width / 2,
-				playerHitbox.Y + playerHitbox.Height / 2
-			);
+			Vector2 attackOrigin = GetPlayerAttackOrigin(playerPos);
 			foreach (var entity in entities)
 			{
 				if (!entity.IsAlive) continue;
@@ -436,18 +589,8 @@ namespace Soulfract
 					float closestY = Math.Clamp(attackOrigin.Y, entityHitbox.Y, entityHitbox.Y + entityHitbox.Height);
 					closestPoint = new Vector2(closestX, closestY);
 				}
-				Vector2 toClosest = closestPoint - attackOrigin;
-				float distanceSq = toClosest.LengthSquared();
-				float attackRangeSq = attackRange * attackRange;
-				if (distanceSq > attackRangeSq) continue;
-				if (toClosest.LengthSquared() > 0.0001f)
-				{
-					float angleToEntity = MathF.Atan2(toClosest.Y, toClosest.X) * 180f / MathF.PI;
-					float attackDirAngle = MathF.Atan2(attackDir.Y, attackDir.X) * 180f / MathF.PI;
-					float angleDiff = Math.Abs(angleToEntity - attackDirAngle);
-					angleDiff = Math.Min(angleDiff, 360 - angleDiff);
-					if (angleDiff > attackConeAngle / 2f) continue;
-				}
+				if (!IsPointInAttackCone(closestPoint, attackOrigin, attackDir, attackRange, attackConeAngle))
+					continue;
 				hitEntities.Add(entity);
 			}
 			return hitEntities;
@@ -461,12 +604,7 @@ namespace Soulfract
 			var hits = new List<LocalPlayer>();
 			if (!Program.LocalPvpEnabled) return hits; // il faut soi-même avoir activé le PVP pour pouvoir frapper
 			int ts = Program.TileSize;
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 attackOrigin = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
-			float attackRangeSq = attackRange * attackRange;
+			Vector2 attackOrigin = GetPlayerAttackOrigin(playerPos);
 			foreach (var rp in NetworkManager.GetRemotePlayersAsLocalPlayers())
 			{
 				if (!rp.Connected || !rp.PvpEnabled) continue; // la cible doit aussi avoir activé le PVP
@@ -480,17 +618,8 @@ namespace Soulfract
 					float closestY = Math.Clamp(attackOrigin.Y, damageHitbox.Y, damageHitbox.Y + damageHitbox.Height);
 					closestPoint = new Vector2(closestX, closestY);
 				}
-				Vector2 toTarget = closestPoint - attackOrigin;
-				float distanceSq = toTarget.LengthSquared();
-				if (distanceSq > attackRangeSq) continue;
-				if (toTarget.LengthSquared() > 0.0001f)
-				{
-					float angleToTarget = MathF.Atan2(toTarget.Y, toTarget.X) * 180f / MathF.PI;
-					float attackDirAngle = MathF.Atan2(attackDir.Y, attackDir.X) * 180f / MathF.PI;
-					float angleDiff = Math.Abs(angleToTarget - attackDirAngle);
-					angleDiff = Math.Min(angleDiff, 360 - angleDiff);
-					if (angleDiff > attackConeAngle / 2f) continue;
-				}
+				if (!IsPointInAttackCone(closestPoint, attackOrigin, attackDir, attackRange, attackConeAngle))
+					continue;
 				hits.Add(rp);
 			}
 			return hits;
@@ -503,22 +632,7 @@ namespace Soulfract
 		{
 			var hitEntities = new List<EntityDto>();
 			int ts = Program.TileSize;
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
-			Vector2 playerDim = new Vector2(ts * 1.6f, ts * 0.5f);
-			Rectangle playerHitbox = new Rectangle(
-				playerVisualPos.X - playerDim.X / 2f,
-				playerVisualPos.Y - playerDim.Y / 2f,
-				playerDim.X,
-				playerDim.Y
-			);
-			Vector2 attackOrigin = new Vector2(
-				playerHitbox.X + playerHitbox.Width / 2,
-				playerHitbox.Y + playerHitbox.Height / 2
-			);
+			Vector2 attackOrigin = GetPlayerAttackOrigin(playerPos);
 			foreach (var dto in NetworkManager.GetRemoteEntities())
 			{
 				if (dto.HP <= 0) continue;
@@ -539,18 +653,8 @@ namespace Soulfract
 					float closestY = Math.Clamp(attackOrigin.Y, entityHitbox.Y, entityHitbox.Y + entityHitbox.Height);
 					closestPoint = new Vector2(closestX, closestY);
 				}
-				Vector2 toClosest = closestPoint - attackOrigin;
-				float distanceSq = toClosest.LengthSquared();
-				float attackRangeSq = attackRange * attackRange;
-				if (distanceSq > attackRangeSq) continue;
-				if (toClosest.LengthSquared() > 0.0001f)
-				{
-					float angleToEntity = MathF.Atan2(toClosest.Y, toClosest.X) * 180f / MathF.PI;
-					float attackDirAngle = MathF.Atan2(attackDir.Y, attackDir.X) * 180f / MathF.PI;
-					float angleDiff = Math.Abs(angleToEntity - attackDirAngle);
-					angleDiff = Math.Min(angleDiff, 360 - angleDiff);
-					if (angleDiff > attackConeAngle / 2f) continue;
-				}
+				if (!IsPointInAttackCone(closestPoint, attackOrigin, attackDir, attackRange, attackConeAngle))
+					continue;
 				hitEntities.Add(dto);
 			}
 			return hitEntities;
@@ -808,6 +912,7 @@ public static void DamagePlayerTarget(int amount, int targetConnectionId, string
 			World.IsUnderground = false;
 			World.ForceExitDungeon();
 			_cameraNeedsImmediateCenter = true;
+			BeginSoulMaterialization();
 		}
 
 		// ═══════════════════════════════════════════════════════════════════

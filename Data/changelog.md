@@ -1276,10 +1276,35 @@
 - [CHANGED] Timbres des voix des PNJ améliorés avec des harmoniques et des formants inspirés de la voix humaine
 - [FIXED] Le bouton de vérification devient « Mettre à jour » lorsqu'une mise à jour du jeu est disponible
 - [FIXED] Progression réelle du téléchargement affichée pour les mises à jour du jeu et du lanceur
+
+### 15 octobre
+
+- [ADDED] Introduction cinématique à la création d'un monde : narration vocale, âme personnalisée et arrivée sur son socle
+- [FIXED] Masquage des couches planétaires par le canal alpha des sprites dynamiques, rétablissant leurs motifs et supprimant les carrés autour des planètes
+- [FIXED] Coordonnées de rendu du shader spatial corrigées pour afficher les nébuleuses animées bleues et violettes au lieu d'un fond violet uniforme
+- [ADDED] Décor spatial de l'introduction enrichi de planètes texturées en couches avec déplacement parallactique
+- [CHANGED] Variantes de biomes, de motifs planétaires, d'ombres et de teintes des géantes gazeuses renouvelées aléatoirement à chaque introduction
+- [CHANGED] Taille des planètes en arrière-plan réduite pour mieux laisser ressortir la planète centrale
+- [CHANGED] Remplacement de l'icône dessinée de l'âme narratrice par l'animation en boucle de la spritesheet `star21pxwhite`
+- [CHANGED] Étoile narratrice affichée également sur la dernière page de l'introduction
+- [CHANGED] Personnage agrandi dans la scène d'incarnation et âme abaissée au niveau du torse
+- [CHANGED] Âme rendue comme une lumière douce à cœur intense et bords dégradés, sans contour circulaire net
+- [CHANGED] Rendu lumineux de l'âme partagé entre la scène d'incarnation et l'apparition du joueur en jeu
+- [FIXED] Trajectoire de descente de l'âme raccordée à son orbite pour supprimer le saut lors du passage en mouvement circulaire
+- [ADDED] Tuile « Socle des âmes » placée au point d'apparition des nouveaux mondes
+- [CHANGED] Apparition et réapparition décalées d'une demi-tuile en haut à gauche sur le socle des âmes
+- [CHANGED] Apparition du joueur et réapparition après une mort animées : l'âme tombe, gravite autour du torse puis fusionne avec une silhouette blanche avant de révéler les couleurs du personnage
+- [ADDED] Traînée lumineuse de l'âme fondée sur ses positions récentes, avec des traces qui s'espacent selon sa vitesse et s'effacent progressivement
+- [FIXED] Rendu de l'âme dans la cinématique replacé au niveau du torse et suppression de son halo dédoublé
+- [FIXED] Le joueur apparaît dans une plaine, conformément au biome recherché pour le point de départ
+- [FIXED] Réinitialisation des émotes et de l'animation à l'apparition pour empêcher le joueur de commencer en pleine danse
 - [FIXED] Les PNJ éloignés alternent leurs mises à jour d'IA au lieu que les mêmes restent figés
 - [FIXED] Les poursuites sans chemin cessent l'animation de course et respectent le délai avant le prochain calcul de chemin
 - [FIXED] L'état d'occupation d'une maison reste cohérent lorsqu'un de ses habitants déménage
 - [FIXED] Les PNJ rentrent et se déplacent dans toute leur maison avec des destinations intérieures réparties entre habitants
+- [FIXED] Les dégâts de saut des slimes se déclenchent au contact des hitboxes de collision rouges de F3 (et non des hitboxes de dégâts bleues), au plus une fois par saut
+- [CHANGED] Apparences des moutons : suppression des teintes pastel, retour des taches marron et ajout de variantes entièrement blanches, à corps noir/laine blanche, à tête noire/laine blanche ou à corps blanc/laine noire
+- [FIXED] Restauration de la position du socle des âmes au chargement d'une partie pour que les réapparitions après une mort y ramènent le joueur
 - [FIXED] Les PNJ endormis restent visibles dans leur maison, même lorsque leur position de lit déborde de sa tuile
 - [FIXED] Les collisions entre entités ne réveillent plus immédiatement les PNJ endormis
 - [FIXED] Les PNJ ne réinitialisent plus leur chemin à chaque image pendant une tentative de discussion et reprennent un état cohérent lorsqu'ils parlent
@@ -1295,6 +1320,40 @@
 - [CLEANUP] Suppression de constantes et couleurs privées sans aucune référence active
 - [CLEANUP] Retrait d'anciens rendus HUD/inventaire/artisanat et helpers qui n'étaient plus appelés
 - [CLEANUP] Suppression de helpers publics obsolètes ou sans appelant (barre de charge, visée, inventaire legacy, description de profession)
+- [CLEANUP] Découpage du code des PNJ entre interactions, jeu de cartes, créatures, objets et écran de mort
+- [CHANGED] Regroupement du rendu, de l'animation et du chargement des ressources de l'écran de mort
+- [CLEANUP] Réorganisation des membres partiels de `Program` selon leurs responsabilités (interface, rendu, magie et créatures)
+
+### 16 octobre
+
+- [CHANGED] Les disques spatiaux uniformes des biomes, liquides et géantes gazeuses sont générés en cercle à partir de leur couleur, sans charger les textures d'aplat correspondantes
+- [FIXED] Le Veilleur se couche à l'intérieur de sa tente, à la position calculée depuis sa hitbox au lieu d'un point décalé sous celle-ci
+- [CHANGED] Prompts d'interaction générés à partir des capacités des objets (conteneur, meuble utilisable, station, récolte) ; les feux de camp et le pot déclarent leurs actions dans les données
+- [FIXED] L'action de transport n'est affichée que pour les meubles effectivement transportables
+- [FIXED] Drops des tuiles replacés en coordonnées monde logiques pour éviter un double décalage dû à l'altitude
+- [CHANGED] Amélioration du rendu de l'eau
+- [CHANGED] Suppression des remous dessinés manuellement sous les entités ; le sillage shader est désormais généré pour les entités nageant dans l'eau
+- [FIXED] Rendu des entités conservé en bas de l'écran malgré les grandes hauteurs ; portée et visée des attaques alignées sur les positions visuelles du terrain
+- [FIXED] Flèches de debug F3 rouges et vertes alignées sur la hauteur visuelle du terrain
+- [FIXED] Portée de placement et aperçu des objets recalculés avec la hauteur visuelle des tuiles
+- [FIXED] Effets de montée de niveau, particules de tuiles et indicateurs de dégâts alignés sur les hauteurs du terrain
+- [CHANGED] La faux récolte les végétaux naturels (herbe, fleurs, roseaux...) dans un cône d'attaque deux fois plus long, affiché en mode F3
+- [FIXED] Récolte de la faux déclenchée à chaque attaque et portée évaluée sur les sprites des plantes, pas leur tuile de sol
+- [FIXED] La faux n'altère plus les tuiles de sol
+- [FIXED] Recherche des végétaux de la faux étendue vers les ancres logiques décalées par les hauteurs de terrain
+- [FIXED] La faux récolte les cultures mûres, retire celles qui ne repoussent pas et laisse repousser celles comme le coton après leur récolte
+- [FIXED] Zone d'attaque F3 unifiée avec le cône réel de frappe et de récolte, portée adaptée à l'équipement
+- [FIXED] Une culture plantée ne consomme plus immédiatement l'humidité du sol avant son premier changement de stade
+- [FIXED] Retirer une plante ne sèche plus instantanément la terre humide en dessous
+- [CHANGED] Dialogue du Veilleur sans fermeture entre les pages, avec une option Continuer au style habituel et des choix de conversation après l'introduction
+- [FIXED] Les PNJ sans maison stable attribuée ne proposent plus de parler du village
+- [CHANGED] Refonte du rendu du bestiaire selon la mise en page d'ItemMenuUI, avec aperçus cadrés, filtres intégrés et fiches d'espèces harmonisées
+- [FIXED] Les interfaces bloquent les interactions du monde uniquement lorsque le curseur est au-dessus de leur zone
+- [CHANGED] Barre d'interfaces agrandie jusqu'à 48 px et adaptée à la largeur de l'écran ; l'épaisseur de la bordure active suit l'échelle des textures 24×24
+- [FIXED] La bordure blanche de l'interface active suit les pixels opaques de l'icône et ignore ses marges transparentes
+- [FIXED] Le contour des objets collectables suit leur silhouette transparente sur un pixel de texture, diagonales comprises
+- [FIXED] Le contour des objets collectables suit également leur balancement et leur rotation dans le vent
+- [ADDED] Ajout du masque Tengu
 
 ---
 

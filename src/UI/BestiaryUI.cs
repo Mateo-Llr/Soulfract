@@ -4,6 +4,7 @@ using Raylib_cs;
 using System.Numerics;
 using System.Linq;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Soulfract
 {
@@ -13,32 +14,31 @@ namespace Soulfract
         private static Vector2 _windowPos = UIManager.ScalePosition(200, 100);
         private static Vector2 _dragOffset = Vector2.Zero;
         private static bool _isDragging = false;
+        private static bool _isDraggingScrollbar = false;
         private static int _selectedIndex = -1;
         private static int _scrollOffset = 0;
         private static string _searchFilter = "";
         private static string _selectedCategory = "Tout";
         private static bool _isSearching = false;
-        private static float _searchBlinkTimer = 0f;
-        private static int _hoveredItemIndex = -1;
+        private static int _detailScrollOffset = 0;
 
         // Données
         private static List<SpeciesEntry> _speciesEntries = new();
 
         // Constantes de mise en page
-        private static int WINDOW_WIDTH => UIManager.ScaleInt(820);
-        private static int WINDOW_HEIGHT => UIManager.ScaleInt(600);
+        private static int WINDOW_WIDTH => UIManager.ScaleInt(780);
+        private static int WINDOW_HEIGHT => UIManager.ScaleInt(580);
         private static int HEADER_HEIGHT => UIManager.ScaleInt(45);
-        private const int GRID_COLUMNS = 4;       // 4 espèces par ligne
-        private static int ITEM_WIDTH => UIManager.ScaleInt(80);
+        private const int GRID_COLUMNS = 5;
+        private static int ITEM_WIDTH => UIManager.ScaleInt(64);
         private static int ITEM_HEIGHT => UIManager.ScaleInt(80);
-        private static int ITEM_PADDING => UIManager.ScaleInt(8);
+        private static int ITEM_PADDING => UIManager.ScaleInt(6);
         private static int CLOSE_BUTTON_SIZE => UIManager.ScaleInt(25);
         private static int GRID_WIDTH => UIManager.ScaleInt(380);
         private static int GRID_TOP_OFFSET => UIManager.ScaleInt(82);
 
         // Couleurs et textures (réutilisées de ItemMenuUI)
         private static readonly Color COLOR_BG = new Color(25, 28, 35, 240);
-        private static readonly Color COLOR_HEADER = new Color(35, 38, 48, 255);
         private static readonly Color COLOR_BORDER = new Color(80, 70, 50, 200);
         private static readonly Color COLOR_ACCENT = new Color(210, 180, 100, 255);
         private static readonly Color COLOR_ITEM_NORMAL = new Color(45, 48, 55, 200);
@@ -57,6 +57,10 @@ namespace Soulfract
 
         public static bool IsOpen => _isOpen;
         public static bool IsTextInputFocused => _isSearching;
+        public static int GetWindowX() => (int)_windowPos.X;
+        public static int GetWindowY() => (int)_windowPos.Y;
+        public static int GetWindowWidth() => WINDOW_WIDTH;
+        public static int GetWindowHeight() => WINDOW_HEIGHT;
 
         // Structure interne pour l'affichage
         private class SpeciesEntry
@@ -78,14 +82,16 @@ namespace Soulfract
             _searchFilter = "";
             _selectedCategory = "Tout";
             _isSearching = false;
-            _hoveredItemIndex = -1;
+            _detailScrollOffset = 0;
         }
 
         public static void Close()
         {
             _isOpen = false;
             _isDragging = false;
+            _isDraggingScrollbar = false;
             _isSearching = false;
+            _detailScrollOffset = 0;
         }
 
         private static void BuildSpeciesList()
@@ -118,7 +124,6 @@ namespace Soulfract
             _windowPos.Y = Math.Clamp(_windowPos.Y, 0, sh - visibleMargin);
 
             var filtered = GetFilteredEntries();
-            bool mouseInWindow = Raylib.CheckCollisionPointRec(mousePos, new Rectangle(_windowPos.X, _windowPos.Y, WINDOW_WIDTH, WINDOW_HEIGHT));
             bool clickOnInteractive = false;
 
             // Bouton fermer
@@ -142,17 +147,18 @@ namespace Soulfract
                 TextInput.Reset("bestiary-search");
             }
 
-            // Catégories (onglets latéraux)
+            // Filtres de catégorie
             var categoryOptions = GetCategoryOptions();
             for (int i = 0; i < categoryOptions.Count; i++)
             {
                 string category = categoryOptions[i];
-                Rectangle categoryRect = GetCategoryTabRect(i, (int)_windowPos.X, (int)_windowPos.Y);
+                Rectangle categoryRect = GetCategoryTabRect(i, categoryOptions.Count, (int)_windowPos.X, (int)_windowPos.Y);
                 if (Raylib.IsMouseButtonPressed(MouseButton.Left) && Raylib.CheckCollisionPointRec(mousePos, categoryRect))
                 {
                     _selectedCategory = category;
                     _scrollOffset = 0;
                     _selectedIndex = -1;
+                    _detailScrollOffset = 0;
                     clickOnInteractive = true;
                 }
             }
@@ -185,7 +191,8 @@ namespace Soulfract
                         Rectangle itemRect = new Rectangle(itemX, itemY, ITEM_WIDTH, ITEM_HEIGHT);
                         if (Raylib.CheckCollisionPointRec(mousePos, itemRect))
                         {
-                            // On sélectionne l'élément
+                            if (_selectedIndex != index)
+                                _detailScrollOffset = 0;
                             _selectedIndex = index;
                             clickOnInteractive = true;
                             break;
@@ -195,7 +202,10 @@ namespace Soulfract
                 }
                 // Si clic dans la grille mais hors item, désélectionner
                 if (!clickOnInteractive)
+                {
                     _selectedIndex = -1;
+                    _detailScrollOffset = 0;
+                }
             }
 
             // Molette de défilement
@@ -207,6 +217,22 @@ namespace Soulfract
                     int step = (int)(wheel * (ITEM_HEIGHT + ITEM_PADDING) * 2);
                     _scrollOffset -= step;
                     _scrollOffset = Math.Clamp(_scrollOffset, 0, Math.Max(0, totalHeight - gridH));
+                }
+            }
+
+            if (_selectedIndex >= 0 && _selectedIndex < filtered.Count)
+            {
+                Rectangle detailRect = GetDetailPanelRect((int)_windowPos.X, (int)_windowPos.Y);
+                if (Raylib.CheckCollisionPointRec(mousePos, detailRect))
+                {
+                    float wheel = Raylib.GetMouseWheelMove();
+                    if (wheel != 0)
+                    {
+                        int detailHeight = GetDetailContentHeight(filtered[_selectedIndex]);
+                        int detailViewportHeight = (int)detailRect.Height - UIManager.ScaleInt(24);
+                        _detailScrollOffset -= (int)(wheel * UIManager.ScaleInt(36));
+                        _detailScrollOffset = Math.Clamp(_detailScrollOffset, 0, Math.Max(0, detailHeight - detailViewportHeight));
+                    }
                 }
             }
 
@@ -224,23 +250,23 @@ namespace Soulfract
 
                 if (Raylib.IsMouseButtonPressed(MouseButton.Left) && Raylib.CheckCollisionPointRec(mousePos, thumbRect))
                 {
-                    _isDragging = true;
+                    _isDraggingScrollbar = true;
                     clickOnInteractive = true;
                 }
-                if (_isDragging && Raylib.IsMouseButtonDown(MouseButton.Left))
+                if (_isDraggingScrollbar && Raylib.IsMouseButtonDown(MouseButton.Left))
                 {
                     float relativeY = (mousePos.Y - scrollbarY) / (scrollbarHeight - thumbHeight);
                     relativeY = Math.Clamp(relativeY, 0f, 1f);
                     _scrollOffset = (int)(relativeY * maxScroll);
                 }
                 if (Raylib.IsMouseButtonReleased(MouseButton.Left))
-                    _isDragging = false;
+                    _isDraggingScrollbar = false;
             }
 
             // Drag de la fenêtre depuis la barre du haut uniquement
             Rectangle headerRect = new Rectangle(_windowPos.X, _windowPos.Y, WINDOW_WIDTH, HEADER_HEIGHT);
             bool isOnHeader = Raylib.CheckCollisionPointRec(mousePos, headerRect);
-            if (Raylib.IsMouseButtonPressed(MouseButton.Left) && isOnHeader && !clickOnInteractive && !_isDragging)
+            if (Raylib.IsMouseButtonPressed(MouseButton.Left) && isOnHeader && !clickOnInteractive && !_isDragging && !_isDraggingScrollbar)
             {
                 _isDragging = true;
                 _dragOffset = mousePos - _windowPos;
@@ -253,8 +279,14 @@ namespace Soulfract
             // Gestion de la recherche
             if (_isSearching)
             {
-                _searchBlinkTimer += Raylib.GetFrameTime();
+                string previousSearch = _searchFilter;
                 TextInput.Update(ref _searchFilter, "bestiary-search", searchRect, 30);
+                if (!string.Equals(previousSearch, _searchFilter, System.StringComparison.Ordinal))
+                {
+                    _selectedIndex = -1;
+                    _scrollOffset = 0;
+                    _detailScrollOffset = 0;
+                }
                 if (Raylib.IsKeyPressed(KeyboardKey.Enter))
                 {
                     _isSearching = false;
@@ -275,7 +307,6 @@ namespace Soulfract
             int y = (int)_windowPos.Y;
             Vector2 mousePos = Raylib.GetMousePosition();
 
-            // Panneau principal
             Rectangle panelRect = new Rectangle(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
             Rectangle shadowRect = new Rectangle(x + 4, y + 4, WINDOW_WIDTH, WINDOW_HEIGHT);
             Raylib.DrawRectangleRounded(shadowRect, 0.1f, 12, new Color(0, 0, 0, 100));
@@ -289,42 +320,36 @@ namespace Soulfract
                 Raylib.DrawRectangleRoundedLines(panelRect, 0.1f, 12, 2, COLOR_BORDER);
             }
 
-            // Bouton fermer
             Rectangle closeBtn = new Rectangle(x + WINDOW_WIDTH - UIManager.ScaleInt(35), y + UIManager.ScaleInt(10), CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE);
             bool hoverClose = Raylib.CheckCollisionPointRec(mousePos, closeBtn);
             Raylib.DrawRectangleRounded(closeBtn, 0.2f, 6, hoverClose ? new Color(140, 60, 60, 255) : new Color(80, 40, 40, 200));
             FontManager.DrawText("X", (int)closeBtn.X + UIManager.ScaleInt(8), (int)closeBtn.Y + UIManager.ScaleInt(5), UIManager.ScaleInt(16), new Color(173, 119, 87, 255));
-            if (hoverClose && Raylib.IsMouseButtonPressed(MouseButton.Left)) Close();
+            FontManager.DrawText("BESTIAIRE", x + UIManager.ScaleInt(24), y + UIManager.ScaleInt(12), UIManager.ScaleInt(22), COLOR_ACCENT);
 
-            // Titre
-            FontManager.DrawText("BESTIAIRE", x + 24, y + 12, 22, COLOR_ACCENT);
-
-            // Barre de recherche
             Rectangle searchRect = new Rectangle(x + UIManager.ScaleInt(24), y + HEADER_HEIGHT + UIManager.ScaleInt(10), UIManager.ScaleInt(200), UIManager.ScaleInt(28));
             DrawSearchBar(searchRect);
-            TextInput.DrawSingleLine(_searchFilter, "bestiary-search", searchRect, 13, COLOR_TEXT,
+            TextInput.DrawSingleLine(_searchFilter, "bestiary-search", searchRect, UIManager.ScaleInt(13), COLOR_TEXT,
                 new Color(90, 110, 150, 220), COLOR_ACCENT, 8, placeholder: "Rechercher...");
 
-            // Catégories (lateral)
             var categoryOptions = GetCategoryOptions();
             for (int i = 0; i < categoryOptions.Count; i++)
             {
                 string category = categoryOptions[i];
-                Rectangle categoryRect = GetCategoryTabRect(i, x, y);
+                Rectangle categoryRect = GetCategoryTabRect(i, categoryOptions.Count, x, y);
                 bool hover = Raylib.CheckCollisionPointRec(mousePos, categoryRect);
                 Color bg = category == _selectedCategory
-                    ? new Color(210, 180, 100, 200)
-                    : (hover ? new Color(70, 73, 80, 200) : new Color(50, 53, 60, 200));
+                    ? new Color(210, 180, 100, 255)
+                    : (hover ? new Color(70, 73, 80, 255) : new Color(50, 53, 60, 200));
                 Raylib.DrawRectangleRounded(categoryRect, 0.2f, 6, bg);
                 Raylib.DrawRectangleRoundedLines(categoryRect, 0.2f, 6, 1, COLOR_BORDER);
-                // Texte court
                 string label = GetCategoryShortLabel(category);
-                int tw = FontManager.MeasureText(label, 12);
-                FontManager.DrawText(label, (int)(categoryRect.X + (categoryRect.Width - tw) / 2f), (int)(categoryRect.Y + 22), 12,
+                int fontSize = UIManager.ScaleInt(10);
+                int textWidth = FontManager.MeasureText(label, fontSize);
+                FontManager.DrawText(label, (int)(categoryRect.X + (categoryRect.Width - textWidth) / 2f),
+                    (int)(categoryRect.Y + (categoryRect.Height - fontSize) / 2f), fontSize,
                     category == _selectedCategory ? Color.White : COLOR_TEXT_LIGHT);
             }
 
-            // Grille des espèces
             var filtered = GetFilteredEntries();
             int gridX = x + UIManager.ScaleInt(12);
             int gridY = y + HEADER_HEIGHT + GRID_TOP_OFFSET;
@@ -335,7 +360,6 @@ namespace Soulfract
             int rows = (int)Math.Ceiling((double)itemCount / GRID_COLUMNS);
             int totalHeight = rows * (ITEM_HEIGHT + ITEM_PADDING) + ITEM_PADDING;
 
-            // Scissor pour la grille
             Raylib.BeginScissorMode(gridX, gridY, gridW, gridH);
 
             int firstVisibleRow = Math.Max(0, _scrollOffset / (ITEM_HEIGHT + ITEM_PADDING));
@@ -358,62 +382,28 @@ namespace Soulfract
                     bool isHovered = Raylib.CheckCollisionPointRec(mousePos, itemRect);
                     bool isSelected = (index == _selectedIndex);
 
-                    // Fond de l'emplacement
-                    DrawItemSlot(itemRect, isSelected, isHovered);
+                    Rectangle slotRect = new Rectangle(itemX, itemY, ITEM_WIDTH, ITEM_WIDTH);
+                    DrawItemSlot(slotRect, isSelected, isHovered);
+                    DrawSpeciesPreview(entry, slotRect, 0.48f);
 
-                    // Miniature : on dessine une petite représentation de l'entité
-                    // L'échelle dépend de la taille réelle de l'espèce : les grands animaux
-                    // sont rendus plus petits pour rentrer dans la case, et les petits plus grands.
-                    Vector2 miniPos = new Vector2(itemX + ITEM_WIDTH / 2f, itemY + ITEM_HEIGHT / 2f + 4f);
-                    float speciesScale = entry.Info.Scale > 0f ? entry.Info.Scale : 1f;
-                    float miniScale = Math.Clamp(0.42f / Math.Max(0.7f, speciesScale), 0.40f, 1.00f);
-                    // On crée une Entity temporaire pour le rendu
-                    var tempEntity = new Entity(miniPos, entry.Key, false)
-                    {
-                        Tint = Color.White,
-                        HairColor = Color.Black,
-                        Scale = 1f
-                    };
-                    // Forcer l'animation idle
-                    tempEntity.AnimState = "idle";
-                    // On dessine avec un squelette
-                    if (SpeciesData.Skeletons.TryGetValue(entry.Key, out var skeleton))
-                    {
-                        EntityRenderer.DrawEntity(
-                            entry.Key,
-                            "idle", 0, 0f,
-                            1f, miniPos,
-                            Color.White,
-                            new Texture2D(), new Texture2D(), Color.Black,
-                            SpeciesData.Skeletons,
-                            eyes: new Texture2D(),
-                            mouth: new Texture2D(),
-                            customScale: miniScale,
-                            equipment: null,
-                            isCarrying: false,
-                            inWater: false,
-                            attackSwingProgress: 0f
-                        );
-                    }
-                    else
-                    {
-                        // Fallback : cercle coloré
-                        Raylib.DrawCircle((int)miniPos.X, (int)miniPos.Y, 18, new Color(100, 150, 200, 200));
-                        Raylib.DrawCircleLines((int)miniPos.X, (int)miniPos.Y, 18, Color.White);
-                    }
-
-                    // Nom (tronqué)
                     string name = entry.DisplayName;
-                    int maxChars = 12;
-                    if (name.Length > maxChars) name = name.Substring(0, maxChars) + "..";
-                    int tw = FontManager.MeasureText(name, 11);
-                    FontManager.DrawText(name, (int)(itemX + (ITEM_WIDTH - tw) / 2f), (int)(itemY + ITEM_HEIGHT - 16), 11, COLOR_TEXT_LIGHT);
+                    int fontSize = UIManager.ScaleInt(10);
+                    int nameWidth = FontManager.MeasureText(name, fontSize);
+                    while (nameWidth > ITEM_WIDTH - UIManager.ScaleInt(2) && name.Length > 3)
+                    {
+                        name = name.Substring(0, name.Length - 2);
+                        nameWidth = FontManager.MeasureText(name + "...", fontSize);
+                    }
+                    if (name != entry.DisplayName) name += "...";
+                    nameWidth = FontManager.MeasureText(name, fontSize);
+                    FontManager.DrawText(name, (int)(itemX + (ITEM_WIDTH - nameWidth) / 2f),
+                        itemY + ITEM_WIDTH + UIManager.ScaleInt(2), fontSize,
+                        isSelected ? COLOR_ACCENT : COLOR_TEXT_LIGHT);
                 }
             }
 
             Raylib.EndScissorMode();
 
-            // Barre de défilement
             if (totalHeight > gridH)
             {
                 int scrollbarX = gridX + gridW - 12;
@@ -426,107 +416,28 @@ namespace Soulfract
                 Rectangle thumbRect = new Rectangle(scrollbarX, thumbY, 8, thumbHeight);
                 Raylib.DrawRectangleRounded(new Rectangle(scrollbarX, scrollbarY, 8, scrollbarHeight), 0.25f, 4, COLOR_SCROLL_TRACK);
                 bool thumbHovered = Raylib.CheckCollisionPointRec(mousePos, thumbRect);
-                Color thumbColor = (thumbHovered || _isDragging) ? COLOR_SCROLL_THUMB_HOVER : COLOR_SCROLL_THUMB;
+                Color thumbColor = (thumbHovered || _isDraggingScrollbar) ? COLOR_SCROLL_THUMB_HOVER : COLOR_SCROLL_THUMB;
                 Raylib.DrawRectangleRounded(new Rectangle(scrollbarX, thumbY, 8, thumbHeight), 0.25f, 4, thumbColor);
             }
 
-            // Panneau de détails (si un élément est sélectionné)
             if (_selectedIndex >= 0 && _selectedIndex < filtered.Count)
             {
                 var entry = filtered[_selectedIndex];
-                int detailX = x + gridW + 16;
-                int detailY = y + HEADER_HEIGHT + 10;
-                int detailW = WINDOW_WIDTH - gridW - 36;
-                int detailH = WINDOW_HEIGHT - HEADER_HEIGHT - 80;
-
-                DrawDescriptionPanel(new Rectangle(detailX, detailY, detailW, detailH));
-
-                // Grande miniature
-                int iconSize = 80;
-                int iconX = detailX + 20;
-                int iconY = detailY + 20;
-                Raylib.DrawRectangleRounded(new Rectangle(iconX, iconY, iconSize, iconSize), 0.1f, 6, new Color(50, 53, 60, 255));
-                // Dessin de l'entité en grand
-                Vector2 bigPos = new Vector2(iconX + iconSize / 2f, iconY + iconSize / 2f + 4f);
-                if (SpeciesData.Skeletons.TryGetValue(entry.Key, out _))
-                {
-                    EntityRenderer.DrawEntity(
-                        entry.Key,
-                        "idle", 0, 0f,
-                        1f, bigPos,
-                        Color.White,
-                        new Texture2D(), new Texture2D(), Color.Black,
-                        SpeciesData.Skeletons,
-                        eyes: new Texture2D(),
-                        mouth: new Texture2D(),
-                        customScale: 1.4f,
-                        equipment: null,
-                        isCarrying: false,
-                        inWater: false,
-                        attackSwingProgress: 0f
-                    );
-                }
-                else
-                {
-                    Raylib.DrawCircle((int)bigPos.X, (int)bigPos.Y, 30, new Color(100, 150, 200, 200));
-                    Raylib.DrawCircleLines((int)bigPos.X, (int)bigPos.Y, 30, Color.White);
-                }
-
-                // Nom et informations
-                int nameX = detailX + iconSize + 40;
-                FontManager.DrawText(entry.DisplayName, nameX, detailY + 20, 24, COLOR_ACCENT);
-
-                // Catégorie
-                FontManager.DrawText($"Type: {entry.Info.Type ?? "Inconnu"}", nameX, detailY + 50, 14, COLOR_TEXT_LIGHT);
-
-                // Stats
-                int statsY = detailY + 90;
-                DrawInfoLine(detailX + 20, ref statsY, "PV max", entry.Info.MaxHp.ToString(), COLOR_TEXT_LIGHT);
-                DrawInfoLine(detailX + 20, ref statsY, "Vitesse", $"{entry.Info.Speed:F0}", COLOR_TEXT_LIGHT);
-                DrawInfoLine(detailX + 20, ref statsY, "Vitesse de course", $"{entry.Info.RunSpeed:F0}", COLOR_TEXT_LIGHT);
-                DrawInfoLine(detailX + 20, ref statsY, "Attaque", entry.Info.Attack.ToString(), COLOR_TEXT_LIGHT);
-                DrawInfoLine(detailX + 20, ref statsY, "Comportement", entry.Info.Behavior ?? "Inconnu", COLOR_TEXT_LIGHT);
-                DrawInfoLine(detailX + 20, ref statsY, "Portée de vision", $"{entry.Info.VisionRange} tuiles", COLOR_TEXT_LIGHT);
-                DrawInfoLine(detailX + 20, ref statsY, "Montable", entry.Info.Mountable ? "Oui" : "Non", COLOR_TEXT_LIGHT);
-                DrawInfoLine(detailX + 20, ref statsY, "Apprivoisable", entry.Info.PreferredFoodId != 0 ? "Oui" : "Non", COLOR_TEXT_LIGHT);
-
-                // Butins
-                if (entry.Info.Drops.Count > 0)
-                {
-                    statsY += 6;
-                    FontManager.DrawText("Butins:", detailX + 20, statsY, 14, COLOR_ACCENT);
-                    statsY += 20;
-                    foreach (var drop in entry.Info.Drops)
-                    {
-                        if (int.TryParse(drop.Key, out int itemId) && GameData.ItemDatabase.TryGetValue(itemId, out var itemData))
-                        {
-                            string qtyText = drop.Value.MinQty == drop.Value.MaxQty ? drop.Value.MinQty.ToString() : $"{drop.Value.MinQty}-{drop.Value.MaxQty}";
-                            string dropText = $"{itemData.Name} x{qtyText}";
-                            FontManager.DrawText(dropText, detailX + 30, statsY, 13, COLOR_TEXT_LIGHT);
-                            statsY += 18;
-                        }
-                        else
-                        {
-                            string qtyText = drop.Value.MinQty == drop.Value.MaxQty ? drop.Value.MinQty.ToString() : $"{drop.Value.MinQty}-{drop.Value.MaxQty}";
-                            FontManager.DrawText($"ID {drop.Key} x{qtyText}", detailX + 30, statsY, 13, COLOR_TEXT_LIGHT);
-                            statsY += 18;
-                        }
-                    }
-                }
-                else
-                {
-                    statsY += 6;
-                    FontManager.DrawText("Aucun butin", detailX + 20, statsY, 14, new Color(160, 160, 160, 200));
-                }
+                Rectangle detailRect = GetDetailPanelRect(x, y);
+                DrawDescriptionPanel(detailRect);
+                DrawSelectedSpeciesDetails(entry, detailRect);
             }
             else
             {
-                // Aucune sélection
-                int detailX = x + gridW + 16;
-                int detailY = y + HEADER_HEIGHT + 10;
-                int detailW = WINDOW_WIDTH - gridW - 36;
-                int detailH = WINDOW_HEIGHT - HEADER_HEIGHT - 80;
-                FontManager.DrawText("Sélectionnez une espèce", detailX + 20, detailY + detailH / 2 - 10, 16, COLOR_TEXT);
+                Rectangle detailRect = GetDetailPanelRect(x, y);
+                DrawDescriptionPanel(detailRect);
+                string emptyText = filtered.Count == 0 ? "Aucune espèce trouvée" : "Sélectionnez une espèce";
+                int fontSize = UIManager.ScaleInt(14);
+                int textWidth = FontManager.MeasureText(emptyText, fontSize);
+                FontManager.DrawText(emptyText,
+                    (int)(detailRect.X + (detailRect.Width - textWidth) / 2f),
+                    (int)(detailRect.Y + (detailRect.Height - fontSize) / 2f),
+                    fontSize, COLOR_TEXT_LIGHT);
             }
         }
 
@@ -552,41 +463,199 @@ namespace Soulfract
         private static bool MatchesSearch(SpeciesEntry entry)
         {
             if (string.IsNullOrEmpty(_searchFilter)) return true;
-            return entry.DisplayName.ToLower().Contains(_searchFilter.ToLower());
+            return entry.DisplayName.Contains(_searchFilter, System.StringComparison.OrdinalIgnoreCase) ||
+                   entry.Key.Contains(_searchFilter, System.StringComparison.OrdinalIgnoreCase) ||
+                   entry.Category.Contains(_searchFilter, System.StringComparison.OrdinalIgnoreCase);
         }
 
         private static List<string> GetCategoryOptions()
         {
-            var categories = new HashSet<string> { "Tout" };
-            foreach (var entry in _speciesEntries)
-            {
-                if (!string.IsNullOrEmpty(entry.Category))
-                    categories.Add(entry.Category);
-            }
-            return categories.ToList();
+            return new[] { "Tout" }
+                .Concat(_speciesEntries
+                    .Select(entry => entry.Category)
+                    .Where(category => !string.IsNullOrWhiteSpace(category))
+                    .Distinct(System.StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(category => category, System.StringComparer.OrdinalIgnoreCase))
+                .ToList();
         }
 
         private static string GetCategoryShortLabel(string category)
         {
             return category switch
             {
-                "biped" => "Bipède",
-                "quadruped" => "Quadrupède",
-                "flying" => "Volant",
-                "spider" => "Arachnide",
-                "worm" => "Ver",
-                _ => category.Length > 4 ? category.Substring(0, 4) : category
+                "Tout" => "Tout",
+                "biped" => "Bipèdes",
+                "quadruped" => "Quadrupèdes",
+                "flying" => "Volants",
+                "spider" => "Arachnides",
+                "worm" => "Vers",
+                _ => category
             };
         }
 
-        private static Rectangle GetCategoryTabRect(int index, int windowX, int windowY)
+        private static Rectangle GetCategoryTabRect(int index, int count, int windowX, int windowY)
         {
-            const int tabWidth = 58;
-            const int tabHeight = 58;
-            const int tabSpacing = 1;
-            int tabX = windowX + WINDOW_WIDTH - 16;
-            int tabY = windowY + 42;
-            return new Rectangle(tabX, tabY + index * (tabHeight + tabSpacing), tabWidth, tabHeight);
+            int tabSpacing = UIManager.ScaleInt(4);
+            int firstTabX = windowX + UIManager.ScaleInt(24 + 200 + 12);
+            int availableWidth = WINDOW_WIDTH - UIManager.ScaleInt(24 + 200 + 12 + 48);
+            int tabWidth = Math.Min(UIManager.ScaleInt(68),
+                (availableWidth - tabSpacing * Math.Max(0, count - 1)) / Math.Max(1, count));
+            int tabHeight = UIManager.ScaleInt(28);
+            int tabY = windowY + HEADER_HEIGHT + UIManager.ScaleInt(10);
+            return new Rectangle(firstTabX + index * (tabWidth + tabSpacing), tabY, tabWidth, tabHeight);
+        }
+
+        private static Rectangle GetDetailPanelRect(int windowX, int windowY)
+        {
+            int detailX = windowX + GRID_WIDTH + UIManager.ScaleInt(16);
+            int detailY = windowY + HEADER_HEIGHT + UIManager.ScaleInt(10);
+            int detailWidth = WINDOW_WIDTH - GRID_WIDTH - UIManager.ScaleInt(36);
+            int detailHeight = WINDOW_HEIGHT - HEADER_HEIGHT - UIManager.ScaleInt(80);
+            return new Rectangle(detailX, detailY, detailWidth, detailHeight);
+        }
+
+        private static int GetDetailContentHeight(SpeciesEntry entry)
+        {
+            int rows = Math.Max(1, entry.Info.Drops.Count);
+            return UIManager.ScaleInt(90 + 8 + 178 + 8 + 38 + 8 + 20 + rows * 20);
+        }
+
+        private static void DrawSelectedSpeciesDetails(SpeciesEntry entry, Rectangle detailRect)
+        {
+            int padding = UIManager.ScaleInt(12);
+            int viewportHeight = (int)detailRect.Height - padding * 2;
+            int contentHeight = GetDetailContentHeight(entry);
+            int maxScroll = Math.Max(0, contentHeight - viewportHeight);
+            _detailScrollOffset = Math.Clamp(_detailScrollOffset, 0, maxScroll);
+
+            int contentX = (int)detailRect.X + padding;
+            int contentY = (int)detailRect.Y + padding - _detailScrollOffset;
+            int contentWidth = (int)detailRect.Width - padding * 2;
+
+            Raylib.BeginScissorMode(contentX, (int)detailRect.Y + padding, contentWidth, viewportHeight);
+
+            int portraitSize = UIManager.ScaleInt(88);
+            Rectangle portraitRect = new Rectangle(contentX, contentY, portraitSize, portraitSize);
+            DrawItemSlot(portraitRect, false, false);
+            DrawSpeciesPreview(entry, portraitRect, 1.05f);
+
+            int headingX = contentX + portraitSize + UIManager.ScaleInt(12);
+            int headingWidth = contentWidth - portraitSize - UIManager.ScaleInt(12);
+            string name = FitText(entry.DisplayName, headingWidth, UIManager.ScaleInt(18));
+            FontManager.DrawText(name, headingX, contentY + UIManager.ScaleInt(12), UIManager.ScaleInt(18), COLOR_ACCENT);
+            FontManager.DrawText(GetCategoryShortLabel(entry.Category), headingX, contentY + UIManager.ScaleInt(42),
+                UIManager.ScaleInt(12), COLOR_TEXT_LIGHT);
+
+            int statsY = contentY + portraitSize + UIManager.ScaleInt(10);
+            int columnGap = UIManager.ScaleInt(6);
+            int columnWidth = (contentWidth - columnGap) / 2;
+            int cardHeight = UIManager.ScaleInt(40);
+            int rowGap = UIManager.ScaleInt(4);
+            DrawInfoCard(new Rectangle(contentX, statsY, columnWidth, cardHeight), "PV max", entry.Info.MaxHp.ToString());
+            DrawInfoCard(new Rectangle(contentX + columnWidth + columnGap, statsY, columnWidth, cardHeight), "Attaque", entry.Info.Attack.ToString());
+            statsY += cardHeight + rowGap;
+            DrawInfoCard(new Rectangle(contentX, statsY, columnWidth, cardHeight), "Vitesse", $"{entry.Info.Speed:F0}");
+            DrawInfoCard(new Rectangle(contentX + columnWidth + columnGap, statsY, columnWidth, cardHeight), "Course", $"{entry.Info.RunSpeed:F0}");
+            statsY += cardHeight + rowGap;
+            DrawInfoCard(new Rectangle(contentX, statsY, columnWidth, cardHeight), "Vision", $"{entry.Info.VisionRange} tuiles");
+            DrawInfoCard(new Rectangle(contentX + columnWidth + columnGap, statsY, columnWidth, cardHeight), "Montable", entry.Info.Mountable ? "Oui" : "Non");
+            statsY += cardHeight + rowGap;
+            DrawInfoCard(new Rectangle(contentX, statsY, columnWidth, cardHeight), "Apprivoisable", entry.Info.PreferredFoodId != 0 ? "Oui" : "Non");
+            float speciesSize = entry.Info.Scale > 0f ? entry.Info.Scale : 1f;
+            DrawInfoCard(new Rectangle(contentX + columnWidth + columnGap, statsY, columnWidth, cardHeight), "Taille", $"{speciesSize:F1}x");
+
+            statsY += cardHeight + UIManager.ScaleInt(8);
+            Rectangle behaviorRect = new Rectangle(contentX, statsY, contentWidth, UIManager.ScaleInt(38));
+            Raylib.DrawRectangleRounded(behaviorRect, 0.12f, 6, new Color(40, 43, 50, 180));
+            FontManager.DrawText("Comportement", (int)behaviorRect.X + UIManager.ScaleInt(8),
+                (int)behaviorRect.Y + UIManager.ScaleInt(4), UIManager.ScaleInt(10), COLOR_ACCENT);
+            FontManager.DrawText(FitText(entry.Info.Behavior ?? "Inconnu", contentWidth - UIManager.ScaleInt(16), UIManager.ScaleInt(12)),
+                (int)behaviorRect.X + UIManager.ScaleInt(8), (int)behaviorRect.Y + UIManager.ScaleInt(19),
+                UIManager.ScaleInt(12), COLOR_TEXT_LIGHT);
+
+            statsY += (int)behaviorRect.Height + UIManager.ScaleInt(8);
+            FontManager.DrawText("Butins", contentX, statsY, UIManager.ScaleInt(13), COLOR_ACCENT);
+            statsY += UIManager.ScaleInt(20);
+            if (entry.Info.Drops.Count == 0)
+            {
+                FontManager.DrawText("Aucun butin", contentX, statsY, UIManager.ScaleInt(11), COLOR_TEXT_LIGHT);
+            }
+            else
+            {
+                foreach (var drop in entry.Info.Drops)
+                {
+                    string quantity = drop.Value.MinQty == drop.Value.MaxQty
+                        ? drop.Value.MinQty.ToString()
+                        : $"{drop.Value.MinQty}-{drop.Value.MaxQty}";
+                    string itemName = int.TryParse(drop.Key, out int itemId) &&
+                                      GameData.ItemDatabase.TryGetValue(itemId, out var itemData)
+                        ? itemData.Name
+                        : $"ID {drop.Key}";
+                    FontManager.DrawText(FitText($"{itemName}  x{quantity}", contentWidth, UIManager.ScaleInt(11)),
+                        contentX + UIManager.ScaleInt(4), statsY, UIManager.ScaleInt(11), COLOR_TEXT_LIGHT);
+                    statsY += UIManager.ScaleInt(20);
+                }
+            }
+
+            Raylib.EndScissorMode();
+
+            if (contentHeight > viewportHeight)
+            {
+                int trackWidth = UIManager.ScaleInt(6);
+                int trackX = (int)detailRect.X + (int)detailRect.Width - padding - trackWidth;
+                int trackY = (int)detailRect.Y + padding;
+                float thumbHeight = Math.Max(UIManager.ScaleInt(18),
+                    (float)viewportHeight * viewportHeight / contentHeight);
+                float thumbY = trackY + (_detailScrollOffset / (float)maxScroll) * (viewportHeight - thumbHeight);
+                Raylib.DrawRectangleRounded(new Rectangle(trackX, trackY, trackWidth, viewportHeight), 0.25f, 4, COLOR_SCROLL_TRACK);
+                Raylib.DrawRectangleRounded(new Rectangle(trackX, thumbY, trackWidth, thumbHeight), 0.25f, 4, COLOR_SCROLL_THUMB);
+            }
+        }
+
+        private static void DrawSpeciesPreview(SpeciesEntry entry, Rectangle bounds, float previewScale)
+        {
+            Vector2 position = new(bounds.X + bounds.Width / 2f, bounds.Y + bounds.Height / 2f + UIManager.ScaleInt(2));
+            float speciesScale = entry.Info.Scale > 0f ? entry.Info.Scale : 1f;
+            float customScale = Math.Clamp(previewScale / Math.Max(0.7f, speciesScale), 0.25f, 1.5f);
+            EntityRenderer.DrawEntity(
+                entry.Key,
+                "idle", 0, 0f,
+                1f, position,
+                Color.White,
+                new Texture2D(), new Texture2D(), Color.Black,
+                SpeciesData.Skeletons,
+                eyes: new Texture2D(),
+                mouth: new Texture2D(),
+                customScale: customScale,
+                equipment: null,
+                isCarrying: false,
+                inWater: false,
+                attackSwingProgress: 0f
+            );
+        }
+
+        private static void DrawInfoCard(Rectangle rect, string label, string value)
+        {
+            Raylib.DrawRectangleRounded(rect, 0.12f, 6, new Color(40, 43, 50, 180));
+            int fontSize = UIManager.ScaleInt(10);
+            int valueFontSize = UIManager.ScaleInt(13);
+            int labelWidth = FontManager.MeasureText(label, fontSize);
+            int valueWidth = FontManager.MeasureText(value, valueFontSize);
+            FontManager.DrawText(label, (int)(rect.X + (rect.Width - labelWidth) / 2f),
+                (int)rect.Y + UIManager.ScaleInt(4), fontSize, COLOR_TEXT_LIGHT);
+            FontManager.DrawText(value, (int)(rect.X + (rect.Width - valueWidth) / 2f),
+                (int)rect.Y + UIManager.ScaleInt(19), valueFontSize, COLOR_ACCENT);
+        }
+
+        private static string FitText(string text, int maxWidth, int fontSize)
+        {
+            if (FontManager.MeasureText(text, fontSize) <= maxWidth)
+                return text;
+
+            string ellipsis = "...";
+            while (text.Length > 0 && FontManager.MeasureText(text + ellipsis, fontSize) > maxWidth)
+                text = text.Substring(0, text.Length - 1);
+            return text + ellipsis;
         }
 
         private static void DrawItemSlot(Rectangle rect, bool isSelected, bool isHovered)
@@ -717,12 +786,5 @@ namespace Soulfract
             return new Texture2D();
         }
 
-        private static void DrawInfoLine(int x, ref int y, string label, string value, Color valueColor)
-        {
-            FontManager.DrawText($"{label}:", x, y, 13, COLOR_ACCENT);
-            int labelW = FontManager.MeasureText($"{label}:", 13);
-            FontManager.DrawText(value, x + labelW + 8, y, 13, valueColor);
-            y += 20;
-        }
     }
 }

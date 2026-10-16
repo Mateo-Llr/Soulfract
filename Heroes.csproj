@@ -17,9 +17,9 @@
 	  <AssemblyDescription>Un jeu de survie et d'aventure en monde ouvert procédural</AssemblyDescription>
 	  <AssemblyCompany>Mateo Llr</AssemblyCompany>
 	  <Product>Soulfract</Product>
-	  <Version>1.0.17</Version>
-	  <FileVersion>1.0.17.0</FileVersion>
-	  <InformationalVersion>1.0.17</InformationalVersion>
+	  <Version>1.0.18</Version>
+	  <FileVersion>1.0.18.0</FileVersion>
+	  <InformationalVersion>1.0.18</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

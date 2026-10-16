@@ -28,6 +28,7 @@ namespace Soulfract
         private readonly record struct Prosody(float Pitch, float Volume, int Effort, int Length, int Glide);
 
         private static readonly Dictionary<SoundKey, Sound> Sounds = new();
+        private static readonly List<Sound> PlayingSounds = new();
         private static readonly Random Rng = new();
         private static int _nextTake;
         private static float _melody; // marche aléatoire lente de la mélodie
@@ -69,6 +70,7 @@ namespace Soulfract
 
         public static void Update(Entity npc, string text, int visibleCharCount, ref int processedCharacters)
         {
+            PlayingSounds.RemoveAll(sound => !Raylib.IsSoundPlaying(sound));
             int visible = Math.Clamp(visibleCharCount, processedCharacters, text.Length);
             int voice = (int)(unchecked((uint)npc.NetId.GetHashCode()) % (uint)Profiles.Length);
 
@@ -109,6 +111,8 @@ namespace Soulfract
                 Raylib.SetSoundVolume(sound, Math.Clamp(volume, 0f, 0.8f));
                 Raylib.SetSoundPitch(sound, 1f + (Rng.NextSingle() - 0.5f) * 0.06f);
                 Raylib.PlaySound(sound);
+                if (!PlayingSounds.Contains(sound))
+                    PlayingSounds.Add(sound);
             }
 
             processedCharacters = visible;
@@ -159,8 +163,12 @@ namespace Soulfract
 
         public static void Stop()
         {
-            foreach (Sound sound in Sounds.Values)
-                Raylib.StopSound(sound);
+            foreach (Sound sound in PlayingSounds)
+            {
+                if (Raylib.IsSoundPlaying(sound))
+                    Raylib.StopSound(sound);
+            }
+            PlayingSounds.Clear();
         }
 
         public static void Unload()

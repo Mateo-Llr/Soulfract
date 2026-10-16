@@ -602,7 +602,6 @@ namespace Soulfract
 			_serverPvpOnIcon = TryLoad("assets/gui/server_pvp_on.png");
 			_serverPvpOffIcon = TryLoad("assets/gui/server_pvp_off.png");
 			_uiBarSlotTex = TryLoad("assets/gui/ui_bar_slot.png");
-			_uiBarSlotOpenTex = TryLoad("assets/gui/ui_bar_slot_open.png");
 			_uiBarConnectionTex = TryLoad("assets/gui/ui_bar_connection.png");
 			RadialSlotTexture = TryLoad("assets/gui/hotbar_slot.png");
 			RadialSlotOnTexture = TryLoad("assets/gui/hotbar_slot_on.png");

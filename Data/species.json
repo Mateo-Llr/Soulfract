@@ -2610,7 +2610,27 @@
       "presetChance": 1.0,
       "colorPresets": [
         {
-          "name": "patches",
+          "name": "white",
+          "weight": 2.0,
+          "colorMin": [255, 255, 255],
+          "colorMax": [255, 255, 255],
+          "features": {
+            "fur_body": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [255, 255, 255],
+              "colorMax": [255, 255, 255]
+            },
+            "fur_head": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [255, 255, 255],
+              "colorMax": [255, 255, 255]
+            }
+          }
+        },
+        {
+          "name": "brown_patches",
           "weight": 1.0,
           "features": {
             "fur_body": {
@@ -2628,20 +2648,62 @@
           }
         },
         {
-          "name": "solid",
+          "name": "black_body_white_wool",
           "weight": 1.0,
+          "colorMin": [0, 0, 0],
+          "colorMax": [0, 0, 0],
           "features": {
             "fur_body": {
               "enabled": true,
               "variant": 1,
-              "colorMin": [210, 205, 190],
-              "colorMax": [170, 140, 110]
+              "colorMin": [255, 255, 255],
+              "colorMax": [255, 255, 255]
             },
             "fur_head": {
               "enabled": true,
               "variant": 1,
-              "colorMin": [205, 190, 170],
-              "colorMax": [150, 120, 90]
+              "colorMin": [255, 255, 255],
+              "colorMax": [255, 255, 255]
+            }
+          }
+        },
+        {
+          "name": "black_head_white_wool",
+          "weight": 1.0,
+          "colorMin": [255, 255, 255],
+          "colorMax": [255, 255, 255],
+          "features": {
+            "fur_body": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [255, 255, 255],
+              "colorMax": [255, 255, 255]
+            },
+            "fur_head": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [0, 0, 0],
+              "colorMax": [0, 0, 0]
+            }
+          }
+        },
+        {
+          "name": "white_body_black_wool",
+          "weight": 1.0,
+          "colorMin": [255, 255, 255],
+          "colorMax": [255, 255, 255],
+          "features": {
+            "fur_body": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [0, 0, 0],
+              "colorMax": [0, 0, 0]
+            },
+            "fur_head": {
+              "enabled": true,
+              "variant": 1,
+              "colorMin": [0, 0, 0],
+              "colorMax": [0, 0, 0]
             }
           }
         }

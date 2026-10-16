@@ -368,6 +368,7 @@ namespace Soulfract
         private Vector2 _slimeJumpTargetPos;
         private float _slimeHeight = 0f;
         private float _slimeLandingTimer = 0f;
+        private bool _slimeHasDealtDamageThisJump;
 
         private const float SLIME_ARC_HEIGHT = 60f;
         private const float SLIME_CHARGE_DURATION = 0.35f;   // temps d'élan avant le saut
@@ -594,6 +595,19 @@ namespace Soulfract
         private bool _assigningWorkplace = false;
         private bool IsFarmerOnShift => Profession == ProfessionType.Farmer && _workBreakCooldown <= 0f && WorkZoneId >= 0;
         public bool IsVillager => Species == "human" && !IsPlayer;
+
+        /// <summary>Nom du PNJ du campement de départ (voir World.TryBuildStoryCamp).</summary>
+        public const string StoryGuideName = "Orwen le Veilleur";
+
+        /// <summary>
+        /// Le Veilleur du campement de départ : il vit autour de son feu (promenade, caisses, nuit
+        /// dans sa tente) au lieu de la routine de village. Identifié par son nom (aucun champ de
+        /// sauvegarde supplémentaire n'est nécessaire) ; il redevient un PNJ ordinaire s'il est
+        /// apprivoisé / recruté.
+        /// </summary>
+        public bool IsStoryGuide => Species == "human" && !IsPlayer && !IsTamed
+            && (string.Equals(FirstName, StoryGuideName, StringComparison.Ordinal)
+                || string.Equals(CustomName, StoryGuideName, StringComparison.Ordinal));
         public bool IsVillageGuard => IsVillager && Profession == ProfessionType.Guard && !IsTamed;
         public Entity? CombatTargetEntity => _combatTargetEntity;
         public Equipment? Equipment { get; set; }
@@ -3184,6 +3198,13 @@ namespace Soulfract
             if (!canDoRoutine)
                 return; // occupé (discussion...) : Decide() sera rappelé au prochain tick
 
+            // Le Veilleur ne suit pas la routine de village : il vit autour de son camp.
+            if (IsStoryGuide)
+            {
+                DecideStoryCampIdle();
+                return;
+            }
+
             if (Profession == ProfessionType.Farmer && IsInsideAssignedHouse()
                 && !_farmerSupplyPreparedToday)
             {
@@ -4202,6 +4223,194 @@ namespace Soulfract
             return Pathfinder.FindPath(WorldPos, destination, Program.GetDestroyedObjects(), 12, Species).Count > 0;
         }
 
+        // ==================== CAMPEMENT DU VEILLEUR ====================
+        // Le Veilleur (voir World.TryBuildStoryCamp) se promène autour du feu, va fouiller ses
+        // caisses et passe la nuit dans sa tente (HomeBuildingId = TentHomeBuildingId, déjà géré
+        // par le système de sommeil des tentes). Rien de tout cela n'est sauvegardé : les objets
+        // du camp sont simplement redécouverts autour de HomePosition.
+        private Vector2 _campFirePos = Vector2.Zero;
+        private readonly List<(int x, int y)> _campChests = new();
+        private float _campScanTimer = 0f;
+        private (int x, int y)? _campChestTile = null;
+        private Vector2 _campChestApproach = Vector2.Zero;
+        private float _campChestTimeout = 0f;
+        private float _campChestWorkTimer = 0f;
+
+        private void RefreshStoryCampObjects()
+        {
+            if (_campScanTimer > 0f) return;
+            _campScanTimer = 30f;
+
+            int ts = Program.TileSize;
+            Vector2 anchor = HomePosition != Vector2.Zero ? HomePosition : WorldPos;
+            int ax = (int)MathF.Floor(anchor.X / ts);
+            int ay = (int)MathF.Floor(anchor.Y / ts);
+
+            _campChests.Clear();
+            _campFirePos = Vector2.Zero;
+            int bestFireDistSq = int.MaxValue;
+
+            for (int dx = -8; dx <= 8; dx++)
+            {
+                for (int dy = -8; dy <= 8; dy++)
+                {
+                    int objectId = World.GetObjectIdAt(ax + dx, ay + dy);
+                    if (objectId == 32 || objectId == 18) // feu de camp
+                    {
+                        int d = dx * dx + dy * dy;
+                        if (d < bestFireDistSq)
+                        {
+                            bestFireDistSq = d;
+                            _campFirePos = new Vector2((ax + dx + 0.5f) * ts, (ay + dy + 0.5f) * ts);
+                        }
+                    }
+                    else if (objectId == 107 || objectId == 108 || objectId == 115) // tonneau, caisse, boîte
+                    {
+                        _campChests.Add((ax + dx, ay + dy));
+                    }
+                }
+            }
+        }
+
+        // Point praticable au hasard autour du feu (ou de la tente si le feu a disparu).
+        private Vector2 PickStoryCampTarget(float minTiles, float maxTiles)
+        {
+            int ts = Program.TileSize;
+            Vector2 center = _campFirePos != Vector2.Zero ? _campFirePos : (HomePosition != Vector2.Zero ? HomePosition : WorldPos);
+            HashSet<string> destroyed = Program.GetDestroyedObjects();
+
+            for (int attempt = 0; attempt < 14; attempt++)
+            {
+                float angle = (float)(Random.Shared.NextDouble() * Math.PI * 2.0);
+                float dist = (minTiles + (float)Random.Shared.NextDouble() * (maxTiles - minTiles)) * ts;
+                Vector2 candidate = center + new Vector2(MathF.Cos(angle) * dist, MathF.Sin(angle) * dist);
+                int tx = (int)MathF.Floor(candidate.X / ts);
+                int ty = (int)MathF.Floor(candidate.Y / ts);
+                var ground = WorldTileRegistry.GetTile(World.GetGroundTileIdAt(tx, ty));
+                if (ground == null || !ground.Walkable || World.GetObjectIdAt(tx, ty) != 0)
+                    continue;
+                if (!Pathfinder.IsWorldPositionWalkable(candidate, destroyed, Species))
+                    continue;
+                if (HasCaveRouteTo(candidate))
+                    return candidate;
+            }
+            return WorldPos;
+        }
+
+        private bool TryStartStoryCampChestErrand()
+        {
+            if (_campChests.Count == 0) return false;
+
+            int ts = Program.TileSize;
+            HashSet<string> destroyed = Program.GetDestroyedObjects();
+            var offsets = new[] { (0, 1), (-1, 0), (1, 0), (0, -1) }; // on se place de préférence devant la caisse
+
+            foreach (var chest in _campChests.OrderBy(_ => Random.Shared.Next()))
+            {
+                foreach (var (ox, oy) in offsets)
+                {
+                    int tx = chest.x + ox;
+                    int ty = chest.y + oy;
+                    if (World.GetObjectIdAt(tx, ty) != 0) continue;
+                    var ground = WorldTileRegistry.GetTile(World.GetGroundTileIdAt(tx, ty));
+                    if (ground == null || !ground.Walkable) continue;
+
+                    Vector2 approach = new((tx + 0.5f) * ts, (ty + 0.5f) * ts);
+                    if (!Pathfinder.IsWorldPositionWalkable(approach, destroyed, Species)) continue;
+                    if (!HasCaveRouteTo(approach)) continue;
+
+                    _campChestTile = chest;
+                    _campChestApproach = approach;
+                    _campChestTimeout = 18f;
+                    _campChestWorkTimer = 0f;
+                    SetGoal(NpcAiState.WalkToTarget, approach, 16f);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void CancelStoryCampChestErrand()
+        {
+            _campChestTile = null;
+            _campChestWorkTimer = 0f;
+        }
+
+        // Appelée à chaque frame : gère l'arrivée devant la caisse et la courte "fouille".
+        private void UpdateStoryCampChest(float dt)
+        {
+            _campScanTimer -= dt;
+            if (!_campChestTile.HasValue) return;
+
+            if (_isSleeping || IsTalking || IsInPlayerDialogue || Program.GetDarknessAlpha() > 0.6f)
+            {
+                CancelStoryCampChestErrand();
+                return;
+            }
+
+            var chest = _campChestTile.Value;
+
+            if (_campChestWorkTimer > 0f)
+            {
+                _campChestWorkTimer -= dt;
+                Speed = 0f;
+                AnimState = "idle";
+                if (_campChestWorkTimer <= 0f)
+                {
+                    CancelStoryCampChestErrand();
+                    ReleaseCurrentGoalLock();
+                    Speed = BaseSpeed;
+                    AiState = NpcAiState.Idle;
+                    AiTarget = WorldPos;
+                    AiTimer = RandomRange(1.5f, 3.5f);
+                }
+                return;
+            }
+
+            _campChestTimeout -= dt;
+            if (Vector2.DistanceSquared(WorldPos, _campChestApproach) < 28f * 28f)
+            {
+                _campChestWorkTimer = RandomRange(2.5f, 4f);
+                SetGoal(NpcAiState.Idle, WorldPos, _campChestWorkTimer + 0.3f, "idle");
+                Speed = 0f;
+                float dirX = (chest.x + 0.5f) * Program.TileSize - WorldPos.X;
+                if (MathF.Abs(dirX) > 4f)
+                    Facing = MathF.Sign(dirX); // se tourne vers la caisse
+                return;
+            }
+
+            if (_campChestTimeout <= 0f)
+                CancelStoryCampChestErrand();
+        }
+
+        //  Décision de fond du Veilleur pendant la journée.
+        private void DecideStoryCampIdle()
+        {
+            RefreshStoryCampObjects();
+
+            var choice = WeightedChoice(
+                (0, _campChests.Count > 0 ? 0.30f : 0f),  // fouiller une caisse
+                (1, 0.35f),                                // se promener dans le camp
+                (2, 0.15f),                                // se poser près du feu
+                (3, 0.20f));                               // rester là à ne rien faire
+
+            switch (choice)
+            {
+                case 0:
+                    if (TryStartStoryCampChestErrand()) return;
+                    goto case 1;
+                case 1:
+                    SetGoal(NpcAiState.WalkToTarget, PickStoryCampTarget(1.5f, 5.5f), RandomRange(4f, 9f));
+                    return;
+                case 2:
+                    SetGoal(NpcAiState.WalkToTarget, PickStoryCampTarget(1.3f, 2.2f), RandomRange(3f, 6f));
+                    return;
+                default:
+                    SetGoal(NpcAiState.Idle, WorldPos, RandomRange(3f, 9f), "idle");
+                    return;
+            }
+        }
+
         private Vector2 PickCaveTentRoutineTarget()
         {
             const int maxAttempts = 12;
@@ -4287,8 +4496,10 @@ namespace Soulfract
             // sans qu'un chemin vert la double, c'est le signe d'un bug de pathfinding).
             if (AiTarget != Vector2.Zero && AiTarget != WorldPos)
             {
-                Raylib.DrawLineEx(WorldPos, AiTarget, 2, Color.Red);
-                Raylib.DrawCircle((int)AiTarget.X, (int)AiTarget.Y, 5, Color.Red);
+                Vector2 visualPos = World.GetEntityGroundPosition(WorldPos);
+                Vector2 visualTarget = World.GetEntityGroundPosition(AiTarget);
+                Raylib.DrawLineEx(visualPos, visualTarget, 2, Color.Red);
+                Raylib.DrawCircle((int)visualTarget.X, (int)visualTarget.Y, 5, Color.Red);
             }
 
             if (_currentPath.Count > 0)
@@ -4307,16 +4518,23 @@ namespace Soulfract
                 // beaucoup si _pathRecalcTimer n'a pas encore expiré). On trace donc explicitement
                 // le premier segment depuis WorldPos (position réelle actuelle) vers ce premier
                 // nœud, plutôt que de partir du nœud lui-même.
-                Raylib.DrawLineEx(WorldPos, _currentPath[0], 3, Color.Green);
+                Raylib.DrawLineEx(
+                    World.GetEntityGroundPosition(WorldPos),
+                    World.GetEntityGroundPosition(_currentPath[0]),
+                    3, Color.Green);
                 for (int i = 0; i < _currentPath.Count - 1; i++)
                 {
-                    Raylib.DrawLineEx(_currentPath[i], _currentPath[i + 1], 3, Color.Green);
+                    Raylib.DrawLineEx(
+                        World.GetEntityGroundPosition(_currentPath[i]),
+                        World.GetEntityGroundPosition(_currentPath[i + 1]),
+                        3, Color.Green);
                 }
 
                 Vector2 debugEnd = useLogicalTargetForDebug && AiTarget != Vector2.Zero
                     ? AiTarget
                     : _currentPath[_currentPath.Count - 1];
-                Raylib.DrawCircle((int)debugEnd.X, (int)debugEnd.Y, 5, Color.Yellow);
+                Vector2 visualDebugEnd = World.GetEntityGroundPosition(debugEnd);
+                Raylib.DrawCircle((int)visualDebugEnd.X, (int)visualDebugEnd.Y, 5, Color.Yellow);
             }
         }
 
@@ -4601,7 +4819,9 @@ namespace Soulfract
                         int poisonDamage = (int)Program.GetPoisonDamagePerTick();
                         CurrentHP -= poisonDamage;
                         OnHit();
-                        Program.AddFloatingDamage(new Vector2(WorldPos.X, WorldPos.Y - 20f), poisonDamage, false, isEnemy: true);
+                        Program.AddFloatingDamage(
+                            World.GetEntityGroundPosition(WorldPos) - new Vector2(0f, 20f),
+                            poisonDamage, false, isEnemy: true);
                     }
                 }
                 if (_poisonTimer <= 0f)
@@ -5074,7 +5294,13 @@ namespace Soulfract
                     //  SYSTÈME DE FAIM : monte lentement avec le temps (~11 min pour atteindre le
                     // seuil avec les valeurs par défaut). Uniquement pour les villageois non apprivoisés
                     // (les compagnons du joueur ne gèrent pas leur propre faim ici).
-                    Hunger = Math.Min(HUNGER_MAX, Hunger + dt * 0.15f);
+                    if (IsStoryGuide)
+                        Hunger = 0f; // il vit de ses provisions : pas de voyage jusqu'à un marchand lointain
+                    else
+                        Hunger = Math.Min(HUNGER_MAX, Hunger + dt * 0.15f);
+
+                    if (IsStoryGuide)
+                        UpdateStoryCampChest(dt);
 
                     //  Priorité Food (50) : passe devant la routine (40) mais cède face à une discussion
                     // en cours (Social, 70) ou tout ce qui est plus urgent (combat, fuite...).
@@ -6898,7 +7124,9 @@ namespace Soulfract
             else
                 knockbackDirection = new Vector2(Facing, 0f);
             target.ApplyKnockback(knockbackDirection, 35f);
-            Program.AddFloatingDamage(new Vector2(target.WorldPos.X, target.WorldPos.Y - 20f), damage, damage >= 10);
+            Program.AddFloatingDamage(
+                World.GetEntityGroundPosition(target.WorldPos) - new Vector2(0f, 20f),
+                damage, damage >= 10);
 
             if (!target.IsAlive)
             {
@@ -6931,7 +7159,8 @@ namespace Soulfract
             Rectangle targetDamageHitbox = _combatTargetEntity != null
                 ? World.GetEntityDamageHitbox(_combatTargetEntity, Program.TileSize)
                 : World.GetEntityDamageHitbox(targetPos, "human", Program.TileSize);
-            float distToPlayer = World.GetDistanceToDamageHitbox(WorldPos, targetDamageHitbox);
+            float distToPlayer = World.GetDistanceToDamageHitbox(
+                World.GetEntityGroundPosition(WorldPos), targetDamageHitbox);
             _combatRangeChangeTimer -= dt;
             if (_combatRangeChangeTimer <= 0f)
             {
@@ -7140,11 +7369,13 @@ namespace Soulfract
         // tourner autour de la cible et s'arrêter pour tirer une flèche.
         void RangedCombatBehavior(float dt, HashSet<string> destroyed, Vector2 playerPos)
         {
-            float distToPlayer = Vector2.Distance(WorldPos, playerPos);
+            float distToPlayer = Vector2.Distance(
+                World.GetEntityGroundPosition(WorldPos),
+                World.GetEntityGroundPosition(playerPos));
 
             if (_rangedShootCooldown > 0f) _rangedShootCooldown -= dt;
 
-            Vector2 dirToPlayer = playerPos - WorldPos;
+            Vector2 dirToPlayer = World.GetEntityGroundPosition(playerPos) - World.GetEntityGroundPosition(WorldPos);
             if (dirToPlayer.Length() > 0.01f) dirToPlayer = Vector2.Normalize(dirToPlayer);
             else dirToPlayer = new Vector2(Facing, 0);
             Facing = dirToPlayer.X >= 0 ? 1f : -1f;
@@ -7160,7 +7391,9 @@ namespace Soulfract
                 {
                     _rangedTelegraphing = false;
                     Vector2 shootDir = dirToPlayer;
-                    Program.SpawnHostileArrow(WorldPos, shootDir, RANGED_ARROW_SPEED, Attack, _combatTargetEntity, this, AiTargetConnectionId);
+                    Program.SpawnHostileArrow(
+                        World.GetEntityGroundPosition(WorldPos), shootDir, RANGED_ARROW_SPEED, Attack,
+                        _combatTargetEntity, this, AiTargetConnectionId);
                     _rangedShootCooldown = (float)(Random.Shared.NextDouble() * 0.6f + 1.0f); // 1–1.6s
                     // Après avoir tiré, on se replace un peu avant de retirer.
                     _combatDecisionTimer = 0.6f;
@@ -7221,7 +7454,9 @@ namespace Soulfract
             if (!IsBoss || !string.Equals(Species, "Khamsin", StringComparison.OrdinalIgnoreCase)) return;
 
             float hpPercent = Math.Clamp((float)CurrentHP / Math.Max(1, MaxHP), 0f, 1f);
-            float distToPlayer = Vector2.Distance(WorldPos, playerPos);
+            float distToPlayer = Vector2.Distance(
+                World.GetEntityGroundPosition(WorldPos),
+                World.GetEntityGroundPosition(playerPos));
 
             if (_khBossState == KhamsinBossState.Telegraph)
             {
@@ -7360,7 +7595,7 @@ namespace Soulfract
 
             if (distToPlayer > 70f)
             {
-                Vector2 dir = playerPos - WorldPos;
+                Vector2 dir = World.GetEntityGroundPosition(playerPos) - World.GetEntityGroundPosition(WorldPos);
                 if (dir.Length() > 0.01f)
                     dir = Vector2.Normalize(dir);
                 else
@@ -7405,7 +7640,7 @@ namespace Soulfract
             _khBossState = KhamsinBossState.Telegraph;
             _khTelegraphTimer = KH_DASH_TELEGRAPH_DURATION;
             _khHasTeleported = false;
-            Vector2 direction = playerPos - WorldPos;
+            Vector2 direction = World.GetEntityGroundPosition(playerPos) - World.GetEntityGroundPosition(WorldPos);
             if (direction.Length() > 0.01f)
                 direction = Vector2.Normalize(direction);
             else
@@ -7466,6 +7701,7 @@ namespace Soulfract
             int count = (int)Math.Round(36f + intensity * 28f);
             float spreadX = 34f + intensity * 18f;
             float spreadY = 56f + intensity * 28f;
+            pos = World.GetEntityGroundPosition(pos);
             float baseHeight = pos.Y - 36f;
 
             for (int i = 0; i < count; i++)
@@ -7495,7 +7731,9 @@ namespace Soulfract
             if (!IsGenie) return;
 
             float hpPercent = Math.Clamp((float)CurrentHP / Math.Max(1, MaxHP), 0f, 1f);
-            float distToPlayer = Vector2.Distance(WorldPos, playerPos);
+            Vector2 entityGroundPos = World.GetEntityGroundPosition(WorldPos);
+            Vector2 playerGroundPos = World.GetEntityGroundPosition(playerPos);
+            float distToPlayer = Vector2.Distance(entityGroundPos, playerGroundPos);
 
             UpdateGenieHazardZones(dt, playerPos);
             UpdateGenieClones(dt);
@@ -7689,7 +7927,8 @@ namespace Soulfract
             float desiredDist = _gePhase >= 3 ? 170f : 210f;
             if (distToPlayer > desiredDist + 40f)
             {
-                Vector2 dir = Vector2.Normalize(playerPos - WorldPos == Vector2.Zero ? new Vector2(1, 0) : playerPos - WorldPos);
+                Vector2 direction = playerGroundPos - entityGroundPos;
+                Vector2 dir = Vector2.Normalize(direction == Vector2.Zero ? new Vector2(1, 0) : direction);
                 Vector2 move = dir * Math.Min(RunSpeed, 160f) * dt;
                 Vector2 newPosX = WorldPos + new Vector2(move.X, 0);
                 if (!World.IsCollidingEntity(newPosX, destroyed, Species)) WorldPos.X += move.X;
@@ -7700,7 +7939,8 @@ namespace Soulfract
             }
             else if (distToPlayer < desiredDist - 40f)
             {
-                Vector2 dir = Vector2.Normalize(WorldPos - playerPos == Vector2.Zero ? new Vector2(1, 0) : WorldPos - playerPos);
+                Vector2 direction = entityGroundPos - playerGroundPos;
+                Vector2 dir = Vector2.Normalize(direction == Vector2.Zero ? new Vector2(1, 0) : direction);
                 Vector2 move = dir * Math.Min(RunSpeed, 130f) * dt;
                 Vector2 newPosX = WorldPos + new Vector2(move.X, 0);
                 if (!World.IsCollidingEntity(newPosX, destroyed, Species)) WorldPos.X += move.X;
@@ -7858,7 +8098,8 @@ namespace Soulfract
             float speed = 230f + (1f - hpPercent) * 130f;
             Color color = new Color(230, 190, 255, 255); // violet-doré, distinct des projectiles de Khamsin
 
-            Vector2 toPlayer = playerPos - WorldPos;
+            Vector2 toPlayer = World.GetEntityGroundPosition(playerPos) - World.GetEntityGroundPosition(WorldPos);
+            Vector2 origin = World.GetEntityGroundPosition(WorldPos);
             float baseAngle = toPlayer.Length() > 0.01f ? MathF.Atan2(toPlayer.Y, toPlayer.X) : 0f;
             float spread = MathF.PI * 0.6f; // éventail dirigé vers le joueur plutôt qu'un cercle complet
 
@@ -7867,7 +8108,7 @@ namespace Soulfract
                 float t = count <= 1 ? 0.5f : (float)i / (count - 1);
                 float angle = baseAngle - spread / 2f + spread * t;
                 Vector2 dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                var projectile = new KhamsinProjectile(WorldPos, dir, speed, Math.Max(5f, Attack * 0.5f), color, color);
+                var projectile = new KhamsinProjectile(origin, dir, speed, Math.Max(5f, Attack * 0.5f), color, color);
                 Program.AddSpellProjectile(projectile);
             }
             Program.ApplyScreenShake(2f, 0.08f);
@@ -7921,7 +8162,7 @@ namespace Soulfract
                     {
                         Color warnColor = zone.IsSand ? new Color(210, 180, 120, 160) : new Color(255, 110, 40, 160);
                         Program.GetParticleList().Add(new Particle(
-                            zone.Pos + new Vector2((float)(Random.Shared.NextDouble() - 0.5) * zone.Radius, (float)(Random.Shared.NextDouble() - 0.5) * zone.Radius * 0.5f),
+                            World.GetEntityGroundPosition(zone.Pos) + new Vector2((float)(Random.Shared.NextDouble() - 0.5) * zone.Radius, (float)(Random.Shared.NextDouble() - 0.5) * zone.Radius * 0.5f),
                             new Vector2(0, -12f), warnColor, 5f, 0.3f));
                     }
                     if (zone.TelegraphTimer <= 0f) { /* devient active dès la frame suivante */ }
@@ -7939,7 +8180,9 @@ namespace Soulfract
                         Color fxColor = zone.IsSand ? new Color(220, 190, 130, 200) : new Color(255, 130, 30, 220);
                         float rx = (float)(Random.Shared.NextDouble() - 0.5) * zone.Radius * 1.6f;
                         float ry = (float)(Random.Shared.NextDouble() - 0.5) * zone.Radius * 0.8f;
-                        Program.GetParticleList().Add(new Particle(zone.Pos + new Vector2(rx, ry), new Vector2(0, -20f), fxColor, 6f, 0.4f));
+                        Program.GetParticleList().Add(new Particle(
+                            World.GetEntityGroundPosition(zone.Pos) + new Vector2(rx, ry),
+                            new Vector2(0, -20f), fxColor, 6f, 0.4f));
                     }
 
                     float dist = Vector2.Distance(zone.Pos, playerPos);
@@ -7961,8 +8204,9 @@ namespace Soulfract
             {
                 float angle = (float)(Random.Shared.NextDouble() * Math.PI * 2f);
                 float dist = 60f + (float)(Random.Shared.NextDouble() * 40f);
-                Vector2 spawnPos = pos + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * dist;
-                Vector2 velocity = (pos - spawnPos) * 1.8f; // converge vers le centre : lecture claire du danger
+                Vector2 visualPos = World.GetEntityGroundPosition(pos);
+                Vector2 spawnPos = visualPos + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * dist;
+                Vector2 velocity = (visualPos - spawnPos) * 1.8f; // converge vers le centre : lecture claire du danger
                 Program.GetParticleList().Add(new Particle(spawnPos, velocity, new Color(255, 90, 40, 220), 6f, 0.35f));
             }
         }
@@ -7970,6 +8214,7 @@ namespace Soulfract
         private void ExecuteGenieWishStrike(Vector2 playerPos)
         {
             float radius = 130f;
+            Vector2 strikeVisualPos = World.GetEntityGroundPosition(_geWishTargetPos);
             SpawnGenieSmoke(_geWishTargetPos, 2.2f);
             Program.ApplyScreenShake(9f, 0.4f);
 
@@ -7978,7 +8223,7 @@ namespace Soulfract
                 float angle = (float)(Random.Shared.NextDouble() * Math.PI * 2f);
                 float speed = 80f + (float)(Random.Shared.NextDouble() * 220f);
                 Vector2 velocity = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
-                Program.GetParticleList().Add(new Particle(_geWishTargetPos, velocity, new Color(255, 200, 90, 255), 9f, 0.5f));
+                Program.GetParticleList().Add(new Particle(strikeVisualPos, velocity, new Color(255, 200, 90, 255), 9f, 0.5f));
             }
 
             float dist = Vector2.Distance(_geWishTargetPos, playerPos);
@@ -7991,6 +8236,7 @@ namespace Soulfract
 
         public static void SpawnGenieSmoke(Vector2 pos, float intensity)
         {
+            pos = World.GetEntityGroundPosition(pos);
             int count = (int)Math.Round(30f + intensity * 24f);
             float spreadX = 30f + intensity * 16f;
             float spreadY = 50f + intensity * 24f;
@@ -8113,7 +8359,9 @@ namespace Soulfract
                     // Dégâts si la tête (ou son voisinage immédiat) passe trop près du joueur pendant le saut.
                     if (!_wmHasDealtDamage && headT < 1f)
                     {
-                        if (Vector2.DistanceSquared(headPos, playerPos) < (WM_DAMAGE_RADIUS) * (WM_DAMAGE_RADIUS))
+                        Vector2 headGroundPos = World.GetEntityGroundPosition(headPos);
+                        Vector2 playerGroundPos = World.GetEntityGroundPosition(playerPos);
+                        if (Vector2.DistanceSquared(headGroundPos, playerGroundPos) < (WM_DAMAGE_RADIUS) * (WM_DAMAGE_RADIUS))
                         {
                             Program.DamagePlayerTarget(Math.Max(8, Attack), AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species));
                             Program.ApplyScreenShake(6f, 0.18f);
@@ -8159,6 +8407,7 @@ namespace Soulfract
         {
             if (!IsSlime) return;
 
+            bool wasJumping = _slimeJumpState == SlimeJumpState.Jumping;
             switch (_slimeJumpState)
             {
                 case SlimeJumpState.Grounded:
@@ -8167,6 +8416,7 @@ namespace Soulfract
                     {
                         _slimeJumpState = SlimeJumpState.Charging;
                         _slimeChargeTimer = SLIME_CHARGE_DURATION;
+                        _slimeHasDealtDamageThisJump = false;
                         _slimeJumpStartPos = WorldPos;
                         // Clamp target to maximum jump distance
                         Vector2 toTarget = AiTarget - WorldPos;
@@ -8243,6 +8493,38 @@ namespace Soulfract
                         // On peut décider d'une nouvelle cible après atterrissage (ex: Wander)
                     }
                     break;
+            }
+
+            // CORRECTIF : UpdateSlimeMovement est aussi appelée en Wander / Flee / Follow /
+            // WalkToTarget (voir PerformMovement). Dans ces états AiTarget n'est PAS le joueur
+            // (point de balade, point de fuite, position du maître...) : l'ancien code testait la
+            // collision entre le slime et une "hitbox joueur" posée sur AiTarget, donc un slime qui
+            // atterrissait sur son point de balade (ou un slime apprivoisé qui suivait son maître)
+            // infligeait des dégâts au joueur sans jamais le toucher. On ne blesse donc le joueur
+            // que si le slime est hostile, en poursuite, et que sa cible est bien un joueur.
+            if (wasJumping
+                && !_slimeHasDealtDamageThisJump
+                && !IsTamed
+                && AiState == NpcAiState.Chase
+                && _combatTargetEntity == null
+                && AiTarget != Vector2.Zero)
+            {
+                Rectangle slimeHitbox = World.GetEntityCollisionHitbox(WorldPos, Species, Program.TileSize);
+                Rectangle targetHitbox = World.GetEntityCollisionHitbox(
+                    AiTarget,
+                    Program.GetPlayerCollisionDimensions(),
+                    Program.TileSize);
+                if (Raylib.CheckCollisionRecs(slimeHitbox, targetHitbox))
+                {
+                    Program.DamagePlayerTarget(
+                        Math.Max(1, Attack),
+                        AiTargetConnectionId,
+                        GetDisplayName(),
+                        Program.InferDeathCauseFromSpecies(Species));
+                    Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
+                    Program.ApplyScreenShake(2f, 0.1f);
+                    _slimeHasDealtDamageThisJump = true;
+                }
             }
 
             // Mise à jour de l'orientation (face à la cible si on saute)
@@ -8551,7 +8833,7 @@ namespace Soulfract
                 {
                     // En vol : se rapproche pour se positionner à la verticale de sa cible.
                     AnimState = "run";
-                    Vector2 toPlayer = playerPos - _guGroundPos;
+                    Vector2 toPlayer = World.GetEntityGroundPosition(playerPos) - World.GetEntityGroundPosition(_guGroundPos);
                     float distXY = toPlayer.Length();
 
                     if (distXY > GU_ABOVE_RADIUS)
@@ -8588,7 +8870,7 @@ namespace Soulfract
                     AnimState = "attack";
                     _guTimer -= dt;
 
-                    Vector2 toPlayer = playerPos - _guGroundPos;
+                    Vector2 toPlayer = World.GetEntityGroundPosition(playerPos) - World.GetEntityGroundPosition(_guGroundPos);
                     if (toPlayer.Length() > 0.01f)
                         Facing = toPlayer.X >= 0f ? 1f : -1f;
 
@@ -8614,7 +8896,9 @@ namespace Soulfract
 
                         if (!_guHasDealtDamage)
                         {
-                            float distToPlayer = Vector2.Distance(_guGroundPos, playerPos);
+                            float distToPlayer = Vector2.Distance(
+                                World.GetEntityGroundPosition(_guGroundPos),
+                                World.GetEntityGroundPosition(playerPos));
                             if (distToPlayer < GU_GROUND_DAMAGE_RADIUS)
                             {
                                 Program.DamagePlayerTarget(Math.Max(8, Attack), AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species));
@@ -8902,7 +9186,9 @@ namespace Soulfract
             if (PetCombatTarget != null)
             {
                 var target = PetCombatTarget;
-                float distToTarget = Vector2.Distance(WorldPos, target.WorldPos);
+                float distToTarget = Vector2.Distance(
+                    World.GetEntityGroundPosition(WorldPos),
+                    World.GetEntityGroundPosition(target.WorldPos));
                 if (distToTarget > 0.01f)
                     Facing = (target.WorldPos.X - WorldPos.X) >= 0 ? 1f : -1f;
 
@@ -9179,7 +9465,8 @@ namespace Soulfract
 
             float headOffsetX = (float)(Random.Shared.NextDouble() - 0.5) * 15f;
             float headOffsetY = -35f - (float)(Random.Shared.NextDouble() * 10f);
-            Vector2 zzzPos = new Vector2(WorldPos.X + headOffsetX, WorldPos.Y + headOffsetY);
+            Vector2 visualPos = World.GetEntityGroundPosition(WorldPos);
+            Vector2 zzzPos = new Vector2(visualPos.X + headOffsetX, visualPos.Y + headOffsetY);
 
             Vector2 velocity = new Vector2(
                 (float)(Random.Shared.NextDouble() - 0.5) * 15f,

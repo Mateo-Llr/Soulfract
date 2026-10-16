@@ -781,6 +781,8 @@ namespace Soulfract
 
         private static Entity? _currentNpc = null;
         private static string _mode = "offer"; // "choice" (choix discuter/commercer/rien) | "offer" (proposition) | "reminder" (rappel)
+        private static string[]? _sequencePages;
+        private static int _sequencePageIndex;
         // true quand le mode "offer" est utilisé pour confirmer le don d'un animal apprivoisé
         // (plutôt que pour proposer une nouvelle quête) : change les actions renvoyées par Update().
         private static bool _isGiftConfirm = false;
@@ -797,6 +799,8 @@ namespace Soulfract
         private static bool _choiceHasGuildJoin = false;
         private static bool _choiceHasCards = false;
         private static bool _choiceHasSocial = false;
+        private readonly record struct SocialChatOption(string Action, string Label, Texture2D Icon);
+        private static SocialChatOption[] _socialChatOptions = Array.Empty<SocialChatOption>();
 
         //  Effet machine à écrire : le texte s'affiche progressivement au lieu d'apparaître d'un coup.
         //  On impose aussi une durée minimale pour éviter que les lignes courtes apparaissent
@@ -856,12 +860,12 @@ namespace Soulfract
         private static readonly Color COLOR_CHOICE_HIGHLIGHT = new Color(255, 255, 255, 40);
         private static readonly Color COLOR_CHOICE_SEPARATOR = new Color(255, 255, 255, 100);
 
-        private static void ResetTypewriter()
+        private static void ResetTypewriter(bool ignoreNextMousePress = true)
         {
             _typewriterElapsed = 0f;
             _speechCharCursor = 0;
             ProceduralNpcVoice.Stop();
-            _ignoreNextMousePress = true;
+            _ignoreNextMousePress = ignoreNextMousePress;
         }
 
         private static void EnsureFriendshipBarShaderLoaded()
@@ -1090,14 +1094,33 @@ namespace Soulfract
 
         public static void OpenSocialChat(Entity npc)
         {
+            EnsureChoiceIconsLoaded();
             _currentNpc = npc;
             _mode = "chat";
+            UpdateSocialChatOptions();
             _bodyText = npc.GetSocialOpeningLine();
             _rewardText = "";
             _acceptButtonPressed = false;
             _declineButtonPressed = false;
             ResetTypewriter();
             IsOpen = true;
+        }
+
+        private static void UpdateSocialChatOptions()
+        {
+            bool hasVillageTopic = _currentNpc?.HasStableVillageHome == true;
+            if (_socialChatOptions.Length == (hasVillageTopic ? 5 : 4)
+                && (hasVillageTopic == (_socialChatOptions.Length == 5)))
+                return;
+
+            var options = new List<SocialChatOption>(hasVillageTopic ? 5 : 4);
+            if (hasVillageTopic)
+                options.Add(new SocialChatOption("social_village", "Le village", _iconTrade));
+            options.Add(new SocialChatOption("social_self", "Parler d'eux", _iconQuestStart));
+            options.Add(new SocialChatOption("social_others", "Les autres PNJ", _iconCards));
+            options.Add(new SocialChatOption("social_wish", "Leurs envies", _iconQuestFinish));
+            options.Add(new SocialChatOption("close", "On se tait", _iconLeave));
+            _socialChatOptions = options.ToArray();
         }
 
         public static void OpenSocialFollowup(Entity npc, string response)
@@ -1149,7 +1172,25 @@ namespace Soulfract
         {
             _currentNpc = npcSpokenTo;
             _mode = "reminder";
+            _sequencePages = null;
             _bodyText = text;
+            _rewardText = "";
+            _acceptButtonPressed = false;
+            _declineButtonPressed = false;
+            ResetTypewriter();
+            IsOpen = true;
+        }
+
+        public static void OpenSequence(Entity npc, string[] pages)
+        {
+            if (pages == null || pages.Length == 0)
+                throw new ArgumentException("Une séquence de dialogue doit contenir au moins une page.", nameof(pages));
+
+            _currentNpc = npc;
+            _mode = "sequence";
+            _sequencePages = pages;
+            _sequencePageIndex = 0;
+            _bodyText = pages[0];
             _rewardText = "";
             _acceptButtonPressed = false;
             _declineButtonPressed = false;
@@ -1169,13 +1210,16 @@ namespace Soulfract
 
         private static float GetDialogHeightForCurrentMode()
         {
+            if (_mode == "chat")
+                UpdateSocialChatOptions();
+
             float bodyHeight = GetWrappedTextHeight(_bodyText, (int)(GetDialogRightPanelWidth(GetDialogWidth()) - 20f), 17);
             float minHeight = _mode == "offer" ? 270f : _mode == "choice" ? 284f : 220f;
             float optionHeight = 34f;
 
             if (_mode == "chat")
             {
-                float optionCount = 5f;
+                float optionCount = _socialChatOptions.Length;
                 return Math.Max(minHeight, 96f + bodyHeight + optionCount * optionHeight + 18f);
             }
             if (_mode == "chat_followup")
@@ -1204,6 +1248,8 @@ namespace Soulfract
         public static void Close()
         {
             IsOpen = false;
+            _sequencePages = null;
+            _sequencePageIndex = 0;
             ProceduralNpcVoice.Stop();
             _acceptButtonPressed = false;
             _declineButtonPressed = false;
@@ -1305,6 +1351,7 @@ namespace Soulfract
             }
             else if (_mode == "chat")
             {
+                UpdateSocialChatOptions();
                 int textSize = 17;
                 float textW = rightPanel.Width - 20f;
                 float bodyHeight = GetWrappedTextHeight(_bodyText, (int)textW, textSize);
@@ -1312,22 +1359,18 @@ namespace Soulfract
                 float itemHeight = 34f;
                 float itemX = rightPanel.X + 8f;
                 float itemW = rightPanel.Width - 16f;
-                var topicRects = new[]
-                {
-                    new Rectangle(itemX, listTop + 0f * itemHeight, itemW, itemHeight),
-                    new Rectangle(itemX, listTop + 1f * itemHeight, itemW, itemHeight),
-                    new Rectangle(itemX, listTop + 2f * itemHeight, itemW, itemHeight),
-                    new Rectangle(itemX, listTop + 3f * itemHeight, itemW, itemHeight),
-                    new Rectangle(itemX, listTop + 4f * itemHeight, itemW, itemHeight)
-                };
-
                 if (mousePressed)
                 {
-                    if (Raylib.CheckCollisionPointRec(mousePos, topicRects[0])) { Close(); return "social_village"; }
-                    if (Raylib.CheckCollisionPointRec(mousePos, topicRects[1])) { Close(); return "social_self"; }
-                    if (Raylib.CheckCollisionPointRec(mousePos, topicRects[2])) { Close(); return "social_others"; }
-                    if (Raylib.CheckCollisionPointRec(mousePos, topicRects[3])) { Close(); return "social_wish"; }
-                    if (Raylib.CheckCollisionPointRec(mousePos, topicRects[4])) { Close(); return "close"; }
+                    for (int i = 0; i < _socialChatOptions.Length; i++)
+                    {
+                        Rectangle optionRect = new(itemX, listTop + i * itemHeight, itemW, itemHeight);
+                        if (Raylib.CheckCollisionPointRec(mousePos, optionRect))
+                        {
+                            string action = _socialChatOptions[i].Action;
+                            Close();
+                            return action;
+                        }
+                    }
                 }
             }
             else if (_mode == "chat_followup")
@@ -1395,6 +1438,29 @@ namespace Soulfract
                 {
                     Close();
                     return "close";
+                }
+            }
+            else if (_mode == "sequence")
+            {
+                float buttonHeight = 34f;
+                _closeRect = new Rectangle(
+                    rightPanel.X + 8f,
+                    rightPanel.Y + rightPanel.Height - buttonHeight - 12f,
+                    rightPanel.Width - 16f,
+                    buttonHeight);
+
+                if (mousePressed && Raylib.CheckCollisionPointRec(mousePos, _closeRect))
+                {
+                    if (_sequencePages != null && _sequencePageIndex + 1 < _sequencePages.Length)
+                    {
+                        _bodyText = _sequencePages[++_sequencePageIndex];
+                        ResetTypewriter(ignoreNextMousePress: false);
+                    }
+                    else
+                    {
+                        Close();
+                        return "story_complete";
+                    }
                 }
             }
             else
@@ -1589,6 +1655,7 @@ namespace Soulfract
             }
             else if (_mode == "chat")
             {
+                UpdateSocialChatOptions();
                 if (typingDone)
                 {
                     Vector2 mousePos = Raylib.GetMousePosition();
@@ -1596,20 +1663,12 @@ namespace Soulfract
                     float itemHeight = 34f;
                     float itemX = contentRect.X + 8f;
                     float itemW = contentRect.Width - 16f;
-                    var topicRects = new[]
+                    for (int i = 0; i < _socialChatOptions.Length; i++)
                     {
-                        new Rectangle(itemX, listTop + 0f * itemHeight, itemW, itemHeight),
-                        new Rectangle(itemX, listTop + 1f * itemHeight, itemW, itemHeight),
-                        new Rectangle(itemX, listTop + 2f * itemHeight, itemW, itemHeight),
-                        new Rectangle(itemX, listTop + 3f * itemHeight, itemW, itemHeight),
-                        new Rectangle(itemX, listTop + 4f * itemHeight, itemW, itemHeight)
-                    };
-
-                    DrawChoiceItem(topicRects[0], "Le village", mousePos, _iconTrade);
-                    DrawChoiceItem(topicRects[1], "Parler d'eux", mousePos, _iconQuestStart);
-                    DrawChoiceItem(topicRects[2], "Les autres PNJ", mousePos, _iconCards);
-                    DrawChoiceItem(topicRects[3], "Leurs envies", mousePos, _iconQuestFinish);
-                    DrawChoiceItem(topicRects[4], "On se tait", mousePos, _iconLeave);
+                        Rectangle optionRect = new(itemX, listTop + i * itemHeight, itemW, itemHeight);
+                        var option = _socialChatOptions[i];
+                        DrawChoiceItem(optionRect, option.Label, mousePos, option.Icon);
+                    }
                 }
             }
             else if (_mode == "chat_followup")
@@ -1642,6 +1701,11 @@ namespace Soulfract
                 }
                 Raylib.DrawRectangleRounded(_closeRect, 0.3f, 8, new Color(90, 86, 78, 255));
                 FontManager.DrawText("x", (int)_closeRect.X + 7, (int)_closeRect.Y + 1, 16, new Color(240, 240, 240, 255));
+            }
+            else if (_mode == "sequence")
+            {
+                if (typingDone)
+                    DrawChoiceItem(_closeRect, Localization.Get("quest.button.continue", "Continuer"), Raylib.GetMousePosition(), _iconQuestStart);
             }
             else
             {

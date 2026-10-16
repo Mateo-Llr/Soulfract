@@ -228,44 +228,72 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
             int texId = (int)tex.Id;
             if (_outlineCache.TryGetValue(texId, out var cachedOutline))
                 return cachedOutline;
+
             var outlinePoints = new List<Vector2>();
             Image img = Raylib.LoadImageFromTexture(tex);
             int width = img.Width;
             int height = img.Height;
-            string tempPath = Path.GetTempFileName() + ".png";
-            Raylib.ExportImage(img, tempPath);
+            var occupiedPixels = new bool[width * height];
             for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                    occupiedPixels[y * width + x] = Raylib.GetImageColor(img, x, y).A > 8;
+            }
+
+            for (int y = 0; y < height; y++)
+            {
                 for (int x = 0; x < width; x++)
                 {
-                    Color pixel = Raylib.GetImageColor(img, x, y);
-                    if (pixel.A > 0)
+                    if (occupiedPixels[y * width + x])
+                        continue;
+
+                    bool adjacentToOpaquePixel = false;
+                    for (int offsetY = -1; offsetY <= 1 && !adjacentToOpaquePixel; offsetY++)
                     {
-                        bool isEdge = false;
-                        if (x == 0 || GetImageColorSafe(img, x - 1, y).A == 0) isEdge = true;
-                        else if (x == width - 1 || GetImageColorSafe(img, x + 1, y).A == 0) isEdge = true;
-                        else if (y == 0 || GetImageColorSafe(img, x, y - 1).A == 0) isEdge = true;
-                        else if (y == height - 1 || GetImageColorSafe(img, x, y + 1).A == 0) isEdge = true;
-                        if (isEdge) outlinePoints.Add(new Vector2(x, y));
+                        for (int offsetX = -1; offsetX <= 1; offsetX++)
+                        {
+                            if (offsetX == 0 && offsetY == 0)
+                                continue;
+
+                            int neighborX = x + offsetX;
+                            int neighborY = y + offsetY;
+                            if (neighborX >= 0 && neighborX < width
+                                && neighborY >= 0 && neighborY < height
+                                && occupiedPixels[neighborY * width + neighborX])
+                            {
+                                adjacentToOpaquePixel = true;
+                                break;
+                            }
+                        }
                     }
+
+                    if (adjacentToOpaquePixel)
+                        outlinePoints.Add(new Vector2(x, y));
                 }
+            }
+
             Raylib.UnloadImage(img);
-            if (File.Exists(tempPath)) File.Delete(tempPath);
             _outlineCache[texId] = outlinePoints;
             return outlinePoints;
         }
 
-		private static void DrawCachedOutline(Texture2D tex, Rectangle destRect, Color outlineColor, int thickness = 3)
+		private static void DrawCachedOutline(Texture2D tex, Rectangle destRect, Vector2 origin, float rotation, Color outlineColor)
         {
             var outlinePoints = GetOrGenerateOutline(tex);
             if (outlinePoints.Count == 0) return;
             float scaleX = destRect.Width / tex.Width;
             float scaleY = destRect.Height / tex.Height;
+            float pivotX = destRect.X;
+            float pivotY = destRect.Y;
             foreach (var point in outlinePoints)
             {
                 float px = destRect.X + point.X * scaleX;
                 float py = destRect.Y + point.Y * scaleY;
-                Rectangle outlineRect = new Rectangle(px - thickness/2, py - thickness/2, scaleX + thickness, scaleY + thickness);
-                Raylib.DrawRectangleRec(outlineRect, outlineColor);
+                Raylib.DrawRectanglePro(
+                    new Rectangle(pivotX, pivotY, scaleX, scaleY),
+                    new Vector2(origin.X - point.X * scaleX, origin.Y - point.Y * scaleY),
+                    rotation,
+                    outlineColor);
             }
         }
 

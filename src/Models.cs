@@ -2240,6 +2240,7 @@ public readonly struct ProjectileRenderTag
 		public string? StationType { get; set; }
 		public bool? IsContainer { get; set; }
 		public bool? IsArmorStand { get; set; }
+		public bool IsInteractable { get; set; }
 		public int? ContainerSlots { get; set; }
 		public int? DamageOnTouch { get; set; }
 
@@ -3952,7 +3953,7 @@ public readonly struct ProjectileRenderTag
 						entity.ApplyKnockback(knockbackDir, 80f);
 
 						// Afficher les dégâts flottants
-						Vector2 damagePos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y - 20);
+						Vector2 damagePos = World.GetEntityGroundPosition(entity.WorldPos) - new Vector2(0f, 20f);
 						Program.AddFloatingDamage(damagePos, damageAmount, damageAmount >= 10, isEnemy: true);
 
 						// Ajouter une notification si l'entité meurt
@@ -4060,7 +4061,9 @@ public readonly struct ProjectileRenderTag
 						Vector2 knockbackDirection = target.WorldPos - Position;
 						if (knockbackDirection.LengthSquared() > 0.01f)
 							target.ApplyKnockback(Vector2.Normalize(knockbackDirection), 35f);
-						Program.AddFloatingDamage(new Vector2(target.WorldPos.X, target.WorldPos.Y - 20f), damageAmount, damageAmount >= 10,
+						Program.AddFloatingDamage(
+							World.GetEntityGroundPosition(target.WorldPos) - new Vector2(0f, 20f),
+							damageAmount, damageAmount >= 10,
 							isEnemy: SourceEntity == null);
 						if (!target.IsAlive)
 						{

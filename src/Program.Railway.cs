@@ -337,7 +337,9 @@ namespace Soulfract
                 entity.CurrentHP = Math.Max(0, entity.CurrentHP - damage);
                 entity.OnHit(position, attackerIsPlayer: false);
                 entity.ApplyKnockback(impactDirection, speed * 0.35f);
-                AddFloatingDamage(entity.WorldPos - new Vector2(0f, 20f), damage, damage >= 10);
+                AddFloatingDamage(
+                    World.GetEntityGroundPosition(entity.WorldPos) - new Vector2(0f, 20f),
+                    damage, damage >= 10);
                 cooldowns[entity] = WagonDamageCooldown;
 
                 if (!entity.IsAlive)

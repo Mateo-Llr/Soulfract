@@ -77,8 +77,6 @@ namespace Soulfract
 		// 0=Général, 1=Contrôles, 2=Interface
 		private static Texture2D _uiBarSlotTex;
 
-		private static Texture2D _uiBarSlotOpenTex;
-
 		internal static Texture2D RadialSlotTexture;
 
 		internal static Texture2D RadialSlotOnTexture;
@@ -1297,7 +1295,7 @@ namespace Soulfract
 			item.SetMeta("durability", $"{cur.ToString(System.Globalization.CultureInfo.InvariantCulture)}/{max.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
 		}
 
-		private static int GetItemIdFromPlaceableId(int placeableId)
+		internal static int GetItemIdFromPlaceableId(int placeableId)
 		{
 			foreach (var kv in GameData.ItemDatabase)
 				if (kv.Value.PlaceableId == placeableId)
@@ -1348,6 +1346,9 @@ namespace Soulfract
 		public static void DamagePlayer(int amount, string? sourceName = null, DeathCause cause = DeathCause.Generic)
 		{
 			if (amount <= 0) return;
+			// CORRECTIF : on ignore les dégâts AVANT de mémoriser la source, sinon un monstre qui
+			// frappe le cadavre écrase la vraie cause de la mort (message de l'écran de mort faux).
+			if (IsPlayerRagdolled) return; // déjà mort, en ragdoll : plus de dégâts tant qu'on n'a pas réapparu
 			//  Mémorise la source du coup qui vient d'être porté : si ce coup s'avère fatal
 			// (playerHP <= 0 plus bas), c'est CE nom/cause qui sera utilisé pour composer le
 			// message de l'écran de mort (voir StartDeathScreen).
@@ -1356,7 +1357,6 @@ namespace Soulfract
 				_lastDamageSourceName = sourceName;
 				_lastDamageCause = cause;
 			}
-			if (IsPlayerRagdolled) return; // déjà mort, en ragdoll : plus de dégâts tant qu'on n'a pas réapparu
 			if (IsGodMode)
 			{
 				playerHP = GetEffectivePlayerMaxHP();
@@ -2328,7 +2328,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 		}
 
 		// Dessine le personnage en aperçu avec une orientation donnée
-		private static void DrawCharacterPreviewWithRotation(Vector2 pos, Color skin, int hairStyle, int beardStyle, Color hairColor, int eyeStyle, Color eyeColor, float facing)
+		private static void DrawCharacterPreviewWithRotation(Vector2 pos, Color skin, int hairStyle, int beardStyle, Color hairColor, int eyeStyle, Color eyeColor, float facing, bool closeEyes = false, float customScale = 1.3f)
 		{
 			Texture2D hairBase = (hairStyle >= 0 && hairStyle < hairBaseTextures.Count) ? hairBaseTextures[hairStyle] : new Texture2D();
 			Texture2D hairOverlay = (hairStyle >= 0 && hairStyle < hairOverlayTextures.Count) ? hairOverlayTextures[hairStyle] : new Texture2D();
@@ -2365,7 +2365,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 				skeletons: SpeciesData.Skeletons,
 				eyes: eyeBase,
 				mouth: Program.MouthTexture,
-				customScale: 1.3f,
+				customScale: customScale,
 				equipment: dummyEquipment,
 				isCarrying: false,
 				inWater: false,
@@ -2380,7 +2380,8 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 				pupilLeftOffset: gaze.pupilLeft,
 				pupilRightOffset: gaze.pupilRight,
 				eyebrowLeftOffset: gaze.browLeft,
-				eyebrowRightOffset: gaze.browRight
+				eyebrowRightOffset: gaze.browRight,
+				forceBlinking: closeEyes
 			);
 
 			// Restaurer les listes et la couleur originales
@@ -2400,9 +2401,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			
 			Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 			int ts = Program.TileSize;
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+			int playerHeight = GetPlayerGroundHeight(playerPos);
 			float playerYOffset = -playerHeight * ts / 4;
 			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
 			Vector2 attackDir = mouseWorld - playerVisualPos;
@@ -2451,7 +2450,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 					closestInsect.SetHealthSilently(0, closestInsect.MaxHP);
 					entities.Remove(closestInsect);
 					
-					Vector2 catchPos = new Vector2(closestInsect.WorldPos.X, closestInsect.WorldPos.Y);
+					Vector2 catchPos = World.GetEntityGroundPosition(closestInsect.WorldPos);
 					SpawnCatchParticles(catchPos);
 					
 					attackAnim = 0.2f;
@@ -2695,7 +2694,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 					{
 						World.UpdateRoofsAt(tileX, tileY);
 					}
-					Program.GiveItemToPlayer(itemId, 1, new Vector2(tileX * ts + ts/2f, tileY * ts + (World.GetHeightAt(tileX, tileY) * -ts / 4) + ts/2f));
+					Program.GiveItemToPlayer(itemId, 1, new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
 					activeNotifications.Add(new Notification("Objet récupéré", new Color(0, 255, 255, 255), 1.5f));
 				}
 				return;

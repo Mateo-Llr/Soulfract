@@ -577,11 +577,27 @@ namespace Soulfract
 
 		public static Vector2 GetPlayerVisualPosition(Vector2 playerPos)
 		{
-			int playerTileX = (int)(playerPos.X / TileSize);
-			int playerTileY = (int)(playerPos.Y / TileSize);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+			int playerHeight = GetPlayerGroundHeight(playerPos);
 			float playerYOffset = -playerHeight * TileSize / 4;
 			return new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+		}
+
+		/// <summary>
+		/// Position LOGIQUE des pieds du joueur (même repère que les tuiles, les objets au sol et les
+		/// blocs ciblés). _playerPos est l'ancre du sprite (centre du corps) : les pieds, et donc le
+		/// point de contact visuel avec le sol, sont FeetOffsetY plus bas. Toutes les distances
+		/// d'interaction (ramassage, casse, plantation...) doivent partir d'ici, pas de _playerPos.
+		/// </summary>
+		public static Vector2 GetPlayerFeetPosition(Vector2 playerPos)
+		{
+			return new Vector2(playerPos.X, playerPos.Y + FeetOffsetY);
+		}
+
+		public static int GetPlayerGroundHeight(Vector2 playerPos)
+		{
+			int tileX = (int)(playerPos.X / TileSize);
+			int tileY = (int)(playerPos.Y / TileSize);
+			return World.GetHeightAt(tileX, tileY);
 		}
 
 		public static Vector2 GetSittingVisualPosition()
@@ -1425,9 +1441,7 @@ namespace Soulfract
 		private static void SpawnRockBreakParticles(Vector2 playerPos)
 		{
 			int ts = Program.TileSize;
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+			int playerHeight = GetPlayerGroundHeight(playerPos);
 			float playerYOffset = -playerHeight * ts / 4;
 			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
 
@@ -1575,9 +1589,7 @@ namespace Soulfract
 
 		private static Vector2 GetPlayerCameraTarget(Vector2 playerPos)
 		{
-			int playerTileX = (int)(playerPos.X / TileSize);
-			int playerTileY = (int)(playerPos.Y / TileSize);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+			int playerHeight = GetPlayerGroundHeight(playerPos);
 			float playerYOffset = -playerHeight * TileSize / 4;
 			float underwaterVisualOffset = World.IsUnderwater ? -_underwaterElevation : 0f;
 			return new Vector2(playerPos.X, playerPos.Y + playerYOffset + underwaterVisualOffset);
@@ -2060,9 +2072,7 @@ namespace Soulfract
 		static void SpawnHealParticles(Vector2 playerPos)
 		{
 			int ts = Program.TileSize;
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+			int playerHeight = GetPlayerGroundHeight(playerPos);
 			float playerYOffset = -playerHeight * ts / 4;
 			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
 			
@@ -2141,6 +2151,40 @@ namespace Soulfract
 			Raylib.UnloadImage(img);
 			_uiBarButtonTextures[id] = tex;
 			return tex;
+		}
+
+		private static Texture2D GetUIBarButtonOutlineTexture(string id, Texture2D iconTexture)
+		{
+			if (_uiBarButtonOutlineTextures.TryGetValue(id, out var cached))
+				return cached;
+
+			if (iconTexture.Id == 0)
+				return new Texture2D();
+
+			Image source = Raylib.LoadImageFromTexture(iconTexture);
+			if (source.Width <= 0 || source.Height <= 0)
+			{
+				Raylib.UnloadImage(source);
+				return new Texture2D();
+			}
+
+			Image outline = Raylib.GenImageColor(source.Width, source.Height, Color.Blank);
+			for (int y = 0; y < source.Height; y++)
+			{
+				for (int x = 0; x < source.Width; x++)
+				{
+					byte alpha = Raylib.GetImageColor(source, x, y).A;
+					if (alpha > 8)
+						Raylib.ImageDrawPixel(ref outline, x, y, new Color((byte)255, (byte)255, (byte)255, alpha));
+				}
+			}
+
+			Texture2D outlineTexture = Raylib.LoadTextureFromImage(outline);
+			Raylib.UnloadImage(outline);
+			Raylib.UnloadImage(source);
+			if (outlineTexture.Id != 0)
+				_uiBarButtonOutlineTextures[id] = outlineTexture;
+			return outlineTexture;
 		}
 
 		static void LoadAllGameData()
@@ -2264,9 +2308,7 @@ namespace Soulfract
 		static void SpawnHairParticles(Vector2 playerPos)
 		{
 			int ts = Program.TileSize;
-			int playerTileX = (int)(playerPos.X / ts);
-			int playerTileY = (int)(playerPos.Y / ts);
-			int playerHeight = World.GetHeightAt(playerTileX, playerTileY);
+			int playerHeight = GetPlayerGroundHeight(playerPos);
 			float playerYOffset = -playerHeight * ts / 4;
 			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
 			

@@ -563,7 +563,7 @@ namespace Soulfract
 					CropTileId = cropTileId,
 					PlantTime = currentGameTime
 				};
-				_lastCropStage[(x, y)] = 0;
+				_lastCropStage[(x, y)] = 1;
 			}
 		}
 

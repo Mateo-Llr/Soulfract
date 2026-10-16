@@ -442,6 +442,7 @@
       "variation": 2,
       "collectable": true,
       "hardness": 1,
+      "onFloor": true,
       "walkable": true,
       "diggable": true,
       "miningTool": "none",
@@ -465,6 +466,7 @@
       "connectionType": "none",
       "walkable": false,
       "diggable": true,
+      "isContainer": true,
       "drops": [
         {
           "id": "campfire",
@@ -765,6 +767,7 @@
       "connectionType": "none",
       "walkable": false,
       "diggable": true,
+      "isContainer": true,
       "drops": [
         {
           "id": "campfire",
@@ -1625,6 +1628,7 @@
       "variation": 0,
       "material": "stone",
       "furniture": true,
+      "isInteractable": true,
       "walkable": false,
       "diggable": true,
       "drops": [
@@ -2436,8 +2440,8 @@
       "connectionType": "none",
       "furniture": true,
       "isContainer": true,
-      "containerSlots": 4,
-      "containerColumns": 2,
+      "containerSlots": 9,
+      "containerColumns": 3,
       "walkable": false,
       "diggable": true,
       "drops": [
@@ -3107,6 +3111,7 @@
       "walkable": true,
       "diggable": true,
       "miningTool": "pickaxe",
+      "onFloor": true,
       "size": {
         "width": 1,
         "height": 1
@@ -3847,6 +3852,7 @@
       "hardness": 12,
       "variation": 0,
       "material": "stone",
+      "onFloor": true,
       "walkable": true,
       "diggable": true,
       "drops": [
@@ -4001,6 +4007,23 @@
       "size": {
         "width": 1,
         "height": 1
+      }
+    },
+    {
+      "id": 7001,
+      "name": "Socle des âmes",
+      "texture": "soul_anchor",
+      "hardness": 999,
+      "material": "stone",
+      "onFloor": true,
+      "walkable": true,
+      "diggable": false,
+      "collectable": false,
+      "drops": [],
+      "miningTool": "none",
+      "size": {
+        "width": 6,
+        "height": 5
       }
     }
   ]

@@ -1910,13 +1910,13 @@ namespace Soulfract
         // ─────────────────────────────────────────────────────────────────────────
         public static bool IsColliding(Vector2 groundPos, Vector2 dim, HashSet<string> destroyed)
         {
-            int tileX = (int)Math.Floor(groundPos.X / Program.TileSize);
-            int tileY = (int)Math.Floor(groundPos.Y / Program.TileSize);
-            int height = GetHeightAt(tileX, tileY);
+			int tileX = (int)Math.Floor(groundPos.X / Program.TileSize);
+			int tileY = (int)Math.Floor(groundPos.Y / Program.TileSize);
+			int height = GetHeightAt(tileX, tileY);
             float yOffset = -height * Program.TileSize / 4;
             float playerBaseY = groundPos.Y + yOffset + Program.FeetOffsetY;
             Rectangle playerRect = new Rectangle(groundPos.X - dim.X / 2f, playerBaseY - dim.Y, dim.X, dim.Y);
-            return CheckCollision(groundPos, playerRect, destroyed, Program.TileSize);
+			return CheckCollision(groundPos, playerRect, destroyed, Program.TileSize);
         }
 
 		private const float MaxEntityPushAcceleration = 1200f;
@@ -2274,11 +2274,7 @@ namespace Soulfract
 
 		public static Rectangle GetEntityCollisionHitbox(Vector2 worldPos, Vector2 dim, int ts)
 		{
-            int tileX = (int)(worldPos.X / ts);
-            int tileY = (int)(worldPos.Y / ts);
-            int height = GetHeightAt(tileX, tileY);
-            float yOffset = -height * ts / 4;
-            float entityBaseY = worldPos.Y + yOffset + Program.FeetOffsetY;
+            float entityBaseY = GetEntityGroundPosition(worldPos).Y + Program.FeetOffsetY;
             return new Rectangle(
                 worldPos.X - dim.X / 2f,
                 entityBaseY - dim.Y,
@@ -2301,21 +2297,25 @@ namespace Soulfract
 		}
 
 		public static Rectangle GetEntityDamageHitbox(Vector2 worldPos, string species, int ts, float scale)
-        {
-            int tileX = (int)(worldPos.X / ts);
-            int tileY = (int)(worldPos.Y / ts);
-            int height = GetHeightAt(tileX, tileY);
-            float yOffset = -height * ts / 4;
+		{
 			Vector2 dim = GetEntityDimensions(species) * Math.Clamp(scale, 0.25f, 4f);
 			Vector2 damageDim = new Vector2(dim.X * 2f, dim.Y * 5.5f);
-            float entityBaseY = worldPos.Y + yOffset + Program.FeetOffsetY;
-            return new Rectangle(
-                worldPos.X - damageDim.X / 2f,
-                entityBaseY - damageDim.Y,
+		    float entityBaseY = GetEntityGroundPosition(worldPos).Y + Program.FeetOffsetY;
+		    return new Rectangle(
+		        worldPos.X - damageDim.X / 2f,
+		        entityBaseY - damageDim.Y,
                 damageDim.X,
                 damageDim.Y
             );
         }
+
+		public static Vector2 GetEntityGroundPosition(Vector2 worldPos)
+		{
+			int tileX = (int)MathF.Floor(worldPos.X / Program.TileSize);
+			int tileY = (int)MathF.Floor(worldPos.Y / Program.TileSize);
+			float heightOffset = GetHeightAt(tileX, tileY) * Program.TileSize / 4f;
+			return new Vector2(worldPos.X, worldPos.Y - heightOffset);
+		}
 
 		public static float GetDistanceToDamageHitbox(Vector2 point, Rectangle damageHitbox)
 		{

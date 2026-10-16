@@ -107,7 +107,9 @@ namespace Soulfract
                     knockbackDirection = new Vector2(1f, 0f);
                 entity.ApplyKnockback(knockbackDirection, 35f);
 
-                Program.AddFloatingDamage(new Vector2(entity.WorldPos.X, entity.WorldPos.Y - 20f), impactDamage, false, isEnemy: true);
+                Program.AddFloatingDamage(
+                    World.GetEntityGroundPosition(entity.WorldPos) - new Vector2(0f, 20f),
+                    impactDamage, false, isEnemy: true);
                 if (!entity.IsAlive)
                 {
                     foreach (var (id, quantity, metadata) in GameData.GetAnimalDrops(entity.Species))
@@ -176,7 +178,7 @@ namespace Soulfract
 					entity.ApplyKnockback(knockbackDir, 150f);
 					
 					// Ajouter des dégâts flottants
-					Vector2 damagePos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y - 20);
+					Vector2 damagePos = World.GetEntityGroundPosition(entity.WorldPos) - new Vector2(0f, 20f);
                     Program.AddFloatingDamage(damagePos, damage, damage >= 15, isEnemy: true);
 					
 					// Si l'entité meurt, donner ses drops

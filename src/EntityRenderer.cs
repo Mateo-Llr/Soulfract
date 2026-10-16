@@ -1166,15 +1166,7 @@ namespace Soulfract
             float shadowRadiusY = Math.Max(6f, skeletonExtents.MaxBaseY * speciesScale * 0.25f);
             float shadowY = pos.Y + (Program.FeetOffsetY - 6) * customScale + shadowGroundOffset;
 
-            if (inWater)
-            {
-                float rippleW = shadowRadiusX * 1.6f;
-                float rippleH = Math.Max(5f, shadowRadiusY * 0.9f);
-                float rippleY = shadowY + 4f;
-                Raylib.DrawEllipse((int)pos.X, (int)rippleY, rippleW, rippleH, new Color(255, 255, 255, 90));
-                Raylib.DrawEllipse((int)pos.X, (int)rippleY + 1, rippleW * 0.72f, rippleH * 0.7f, new Color(200, 220, 255, 55));
-            }
-            else
+            if (!inWater)
             {
                 Raylib.DrawEllipse((int)pos.X, (int)shadowY, shadowRadiusX, shadowRadiusY, new Color(0, 0, 0, 80));
             }

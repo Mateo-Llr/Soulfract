@@ -127,7 +127,7 @@ namespace Soulfract
                     int dmg = (int)(damage * multiplier);
                     entity.CurrentHP -= dmg;
                     entity.OnHit(center);
-                    Program.AddFloatingDamage(entity.WorldPos, dmg, dmg >= 10, isEnemy: true);
+                    Program.AddFloatingDamage(World.GetEntityGroundPosition(entity.WorldPos), dmg, dmg >= 10, isEnemy: true);
                     if (!entity.IsAlive)
                     {
                         foreach (var (id, qty, _) in GameData.GetAnimalDrops(entity.Species))
@@ -209,7 +209,7 @@ namespace Soulfract
                 {
                     entity.CurrentHP -= (int)damage;
                     entity.OnHit(start);
-                    Program.AddFloatingDamage(entity.WorldPos, (int)damage, damage >= 10, isEnemy: true);
+                    Program.AddFloatingDamage(World.GetEntityGroundPosition(entity.WorldPos), (int)damage, damage >= 10, isEnemy: true);
                     if (!entity.IsAlive)
                     {
                         foreach (var (id, qty, _) in GameData.GetAnimalDrops(entity.Species))
@@ -477,7 +477,7 @@ namespace Soulfract
                 {
                     e.CurrentHP -= (int)Damage;
                     e.OnHit(Position);
-                    Program.AddFloatingDamage(e.WorldPos, (int)Damage, Damage >= 10, isEnemy: true);
+                    Program.AddFloatingDamage(World.GetEntityGroundPosition(e.WorldPos), (int)Damage, Damage >= 10, isEnemy: true);
                     if (!e.IsAlive)
                     {
                         foreach (var (id, qty, _) in GameData.GetAnimalDrops(e.Species))
@@ -598,7 +598,7 @@ namespace Soulfract
                 {
                     e.CurrentHP -= (int)Damage;
                     e.OnHit(Position);
-                    Program.AddFloatingDamage(e.WorldPos, (int)Damage, Damage >= 10, isEnemy: true);
+                    Program.AddFloatingDamage(World.GetEntityGroundPosition(e.WorldPos), (int)Damage, Damage >= 10, isEnemy: true);
                     if (!e.IsAlive)
                     {
                         foreach (var (id, qty, _) in GameData.GetAnimalDrops(e.Species))

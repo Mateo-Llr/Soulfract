@@ -225,7 +225,7 @@ namespace Soulfract
                         entity.CurrentHP -= damage;
                         entity.OnHit(Position);
 
-                        Vector2 damagePos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y - 20);
+                        Vector2 damagePos = World.GetEntityGroundPosition(entity.WorldPos) - new Vector2(0f, 20f);
                         Program.AddFloatingDamage(damagePos, damage, damage >= 10);
 
                         float impulse = currentSpeedAfterMove * 0.8f;

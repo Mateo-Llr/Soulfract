@@ -105,6 +105,16 @@ namespace Soulfract
 		// disponible s'il n'y en a qu'une (ex : un simple marchand sans quête).
 		private static bool TryOpenVillagerDialog(Entity npc)
 		{
+			//  Le Veilleur du campement de départ a sa propre conversation en plusieurs pages
+			// (voir Program_StoryGuide.cs) ; les autres PNJ passent par la bulle de choix habituelle.
+			if (TryStartStoryGuideDialog(npc))
+				return true;
+
+			return OpenVillagerChoiceDialog(npc);
+		}
+
+		private static bool OpenVillagerChoiceDialog(Entity npc)
+		{
 			npc.WakeFromInteraction();
 
 			bool hasOfferAction = npc.ActiveQuest != null && npc.ActiveQuest.State == QuestState.Offered;

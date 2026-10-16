@@ -15,6 +15,7 @@ namespace Soulfract
 				int x = villageX + random.Next(-10, 11);
 				int y = villageY + random.Next(-10, 11);
 				int distanceSquared = (x - villageX) * (x - villageX) + (y - villageY) * (y - villageY);
+				if (IsSpawnProtected(x, y, SPAWN_STRUCTURE_BUFFER)) continue;
 				if (distanceSquared < 16 || distanceSquared > 100
 					|| _villageClaimedTiles.Contains((x, y)) || _villageClaimedTiles.Contains((x + 1, y)))
 					continue;
@@ -280,6 +281,7 @@ namespace Soulfract
 					bool overlap = reservedRects.Any(r =>
 						!(posX + fieldW < r.x || posX > r.x + r.w || posY + fieldH < r.y || posY > r.y + r.h));
 					if (overlap) { rejectedOverlap++; continue; }
+					if (IsSpawnProtectedRect(posX, posY, fieldW, fieldH, SPAWN_STRUCTURE_BUFFER)) { rejectedOverlap++; continue; }
 
 					bool ok = true;
 					bool sawGoodGround = false;
@@ -561,6 +563,7 @@ namespace Soulfract
 					int y = centralY + (int)(Math.Sin(angle) * radius);
 
 					if (GetBiomeAt(x, y) != targetBiome) continue;
+					if (IsSpawnProtected(x, y, SPAWN_STRUCTURE_BUFFER)) continue;
 					if (GetObjectIdAt(x, y) != 0) continue;
 					int groundId = GetGroundTileIdAt(x, y);
 					var groundTile = WorldTileRegistry.GetTile(groundId);
@@ -600,10 +603,18 @@ namespace Soulfract
 				{
 					int worldX = chunkX * CHUNK_SIZE + localX;
 					int worldY = chunkY * CHUNK_SIZE + localY;
-					int height = _isUnderground && !_isInDungeon
-						? 0
-						: (int)(PerlinNoise.Noise(worldX * 0.02f, worldY * 0.02f) * 3f + 4f);
-					height = Math.Clamp(height, 0, 7);
+					int height;
+					if (_isUnderground)
+					{
+						height = _isInDungeon
+							? (int)(PerlinNoise.Noise(worldX * 0.02f, worldY * 0.02f) * 3f + 4f)
+							: 0;
+						height = Math.Clamp(height, 0, 7);
+					}
+					else
+					{
+						height = GetHeightAt(worldX, worldY);
+					}
 					chunkData.Heights[(worldX, worldY)] = height;
 				}
 			}
@@ -732,6 +743,8 @@ namespace Soulfract
 				var (worldX, worldY) = availablePositions[i];
 
 				if (chunkData.Objects.ContainsKey((worldX, worldY))) continue;
+				// Zone dégagée autour du socle d'âmes : ni arbre, ni buisson, ni rocher.
+				if (!_isUnderground && IsSpawnProtected(worldX, worldY, SPAWN_CLEAR_RADIUS)) continue;
 				if (chunkData.GroundOverrides.TryGetValue((worldX, worldY), out int groundOverride) && groundOverride == 10) continue;
 
 				Biome biome;
@@ -795,7 +808,8 @@ namespace Soulfract
 					int centralX = chunkX * CHUNK_SIZE + CHUNK_SIZE / 2;
 					int centralY = chunkY * CHUNK_SIZE + CHUNK_SIZE / 2;
 					Biome biomeAtCenter = GetBiomeAt(centralX, centralY);
-					if (biomeAtCenter == Biome.Plains)
+					// Pas de village dont le centre (puits) serait trop proche du socle d'âmes.
+					if (biomeAtCenter == Biome.Plains && !IsSpawnProtected(centralX, centralY, SPAWN_VILLAGE_MIN_DISTANCE))
 					{
 						var structures = StructureManager.GetStructures()
 							.Where(s => s != null && s.Tiles != null && s.Tiles.Count > 0)
@@ -912,6 +926,10 @@ namespace Soulfract
 										}
 									}
 									if (overlap)
+										continue;
+
+									// Aucune maison (ni son espacement) dans la zone tampon autour du socle d'âmes.
+									if (IsSpawnProtectedRect(rectLeft, rectTop, rectRight - rectLeft + 1, rectBottom - rectTop + 1, SPAWN_STRUCTURE_BUFFER))
 										continue;
 
 									bool claimedByOtherVillage = false;
@@ -2364,6 +2382,21 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			}
 		}
 
+		/// <summary>
+		/// Décalage visuel vertical (pixels, positif = vers le haut) appliqué à un objet posé au sol à
+		/// la position logique donnée. Le terrain, les objets, les entités et le joueur sont tous
+		/// dessinés remontés de (hauteur * ts / 4) ; les objets au sol ne l'étaient pas, donc ils
+		/// paraissaient plus bas que le joueur de cette valeur et il fallait « monter » pour les
+		/// attraper alors que la logique (ramassage, casse) compare des positions logiques.
+		/// </summary>
+		private static float GetGroundItemHeightLift(float worldX, float worldY)
+		{
+			if (_isUnderground) return 0f;
+			int ts = Program.TileSize;
+			int h = GetHeightAt((int)Math.Floor(worldX / ts), (int)Math.Floor(worldY / ts));
+			return h * ts / 4f;
+		}
+
 		public static void DrawWorld(
 			Vector2 playerPos,
 			Camera2D camera,
@@ -2419,7 +2452,9 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			// Coût : quelques dizaines de tuiles de plus à traiter par frame, négligeable face au
 			// gain visuel (pas de pop-out brutal), et toujours borné par MAX_RENDER_TILES_X/Y.
 			const int TALL_FEATURE_MARGIN_X = 3;
-			const int TALL_FEATURE_MARGIN_Y = 8;
+			const int TALL_FEATURE_MARGIN_Y = (MAX_HEIGHT_LEVELS + 3) / 4 > 8
+				? (MAX_HEIGHT_LEVELS + 3) / 4
+				: 8;
 
 			int startX = (int)Math.Floor(topLeft.X / ts) - 1 - TALL_FEATURE_MARGIN_X;
 			int endX = (int)Math.Ceiling(bottomRight.X / ts) + 1 + TALL_FEATURE_MARGIN_X;
@@ -2429,8 +2464,16 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			float entityCullMargin = ts * 2f;
 			bool IsEntityNearScreen(Vector2 pos)
 			{
-				return pos.X >= topLeft.X - entityCullMargin && pos.X <= bottomRight.X + entityCullMargin &&
-					pos.Y >= topLeft.Y - entityCullMargin && pos.Y <= bottomRight.Y + entityCullMargin;
+				if (pos.X < topLeft.X - entityCullMargin || pos.X > bottomRight.X + entityCullMargin)
+					return false;
+
+				float minY = topLeft.Y - entityCullMargin;
+				float maxY = bottomRight.Y + entityCullMargin;
+				if (pos.Y >= minY && pos.Y <= maxY)
+					return true;
+
+				float renderedY = pos.Y - GetGroundItemHeightLift(pos.X, pos.Y);
+				return renderedY >= minY && renderedY <= maxY;
 			}
 
 			bool IsSegmentNearScreen(Vector2 start, Vector2 end)
@@ -2538,14 +2581,15 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					{
 						var chunk = GetChunkAt(x, y); // UN SEUL lookup de chunk pour toute la tuile
 
-						int h = _isUnderground && !_isInDungeon
-							? 0
-							: (chunk != null && chunk.Heights.TryGetValue((x, y), out int hv))
-								? hv : GetHeightAt(x, y);
-						heights[ix, iy] = h;
-
 						int gid = (chunk != null && chunk.GroundOverrides.TryGetValue((x, y), out int gv))
 							? gv : GetGroundTileIdAt(x, y);
+						int h = _isUnderground
+							? chunk != null && chunk.Heights.TryGetValue((x, y), out int undergroundHeight)
+								? undergroundHeight : 0
+							: GetHeightAt(x, y);
+						if (!_isUnderground && gid == 10)
+							h = (int)WorldGeneration.GetWaterSurfaceHeight();
+						heights[ix, iy] = h;
 						groundIds[ix, iy] = gid;
 
 						int oid = chunk?.Objects.GetValueOrDefault((x, y), 0) ?? 0;
@@ -2935,7 +2979,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 
 			// Shader d'eau (caustiques procédurales) : horloge mise à jour une fois par
 			// frame, avant la boucle de tuiles qui va s'en servir pour chaque tuile d'eau.
-			UpdateWaterShaderTime(currentTime);
+			UpdateWaterShaderTime(currentTime, playerPos, isPlayerInWater, entities);
 
 			// =================================================================================
 			// 1. SOL, DÉCORATIONS, BORDURES, FALAISES (tout en une seule boucle)
@@ -2989,7 +3033,8 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 							// aucune texture d'eau n'est nécessaire.
 							byte waterAlphaTile = GetWaterColor(worldX, worldY, currentTime).A;
 							EnsureWaterShaderActive();
-							DrawWaterTileShader(worldX, worldY, drawY, ts, waterAlphaTile);
+							ComputeWaterShoreMasks(groundIds, ix, iy, width, heightTiles, out byte shoreNear, out byte shoreFar);
+							DrawWaterTileShader(worldX, worldY, drawY, ts, waterAlphaTile, shoreNear, shoreFar);
 						}
 						else
 						{
@@ -3038,11 +3083,12 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						}
 					}
 
-					// Falaises
-					if (!_isUnderground && !_isPlayerIndoors)
+					// Le relief du fond marin reste utilisé par le dégradé de profondeur,
+					// mais ne dessine ni falaises sous-marines ni ruptures de hauteur au rivage.
+					if (!_isUnderground && !_isPlayerIndoors && groundId != 10)
 					{
 						// Bas
-						if (iy + 1 < heightTiles)
+						if (iy + 1 < heightTiles && groundIds[ix, iy + 1] != 10)
 						{
 							int downHeight = heights[ix, iy + 1];
 							int diff = height - downHeight;
@@ -3050,21 +3096,21 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 								DrawCliffDown(worldX, worldY, diff, ts, cliffDownTex);
 						}
 						// Gauche
-						if (ix - 1 >= 0)
+						if (ix - 1 >= 0 && groundIds[ix - 1, iy] != 10)
 						{
 							int leftHeight = heights[ix - 1, iy];
 							if (height > leftHeight)
 								DrawCliffBorder(worldX, worldY, -1, 0, ts, cliffBorderTex);
 						}
 						// Haut
-						if (iy - 1 >= 0)
+						if (iy - 1 >= 0 && groundIds[ix, iy - 1] != 10)
 						{
 							int upHeight = heights[ix, iy - 1];
 							if (height > upHeight)
 								DrawCliffBorder(worldX, worldY, 0, -1, ts, cliffBorderTex);
 						}
 						// Droite
-						if (ix + 1 < width)
+						if (ix + 1 < width && groundIds[ix + 1, iy] != 10)
 						{
 							int rightHeight = heights[ix + 1, iy];
 							if (height > rightHeight)
@@ -3097,7 +3143,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						if (bx + 1 < width)
 						{
 							int rightGround = groundIds[bx + 1, by];
-							if (rightGround != currentGround && HasBiomeBorder(currentGround))
+							if (rightGround != currentGround && HasBiomeBorder(currentGround) && (WaterLegacyBorderEnabled || currentGround != 10))
 							{
 								int currentPrio = GetBiomePriority(currentGround);
 								int rightPrio = GetBiomePriority(rightGround);
@@ -3122,7 +3168,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						if (bx - 1 >= 0)
 						{
 							int leftGround = groundIds[bx - 1, by];
-							if (leftGround != currentGround && HasBiomeBorder(currentGround))
+							if (leftGround != currentGround && HasBiomeBorder(currentGround) && (WaterLegacyBorderEnabled || currentGround != 10))
 							{
 								int currentPrio = GetBiomePriority(currentGround);
 								int leftPrio = GetBiomePriority(leftGround);
@@ -3147,7 +3193,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						if (by + 1 < heightTiles)
 						{
 							int bottomGround = groundIds[bx, by + 1];
-							if (bottomGround != currentGround && HasBiomeBorder(currentGround))
+							if (bottomGround != currentGround && HasBiomeBorder(currentGround) && (WaterLegacyBorderEnabled || currentGround != 10))
 							{
 								int currentPrio = GetBiomePriority(currentGround);
 								int bottomPrio = GetBiomePriority(bottomGround);
@@ -3176,7 +3222,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						if (by - 1 >= 0)
 						{
 							int topGround = groundIds[bx, by - 1];
-							if (topGround != currentGround && HasBiomeBorder(currentGround))
+							if (topGround != currentGround && HasBiomeBorder(currentGround) && (WaterLegacyBorderEnabled || currentGround != 10))
 							{
 								int currentPrio = GetBiomePriority(currentGround);
 								int topPrio = GetBiomePriority(topGround);
@@ -3323,12 +3369,13 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 				float alphaBottom = isLootbag && Program.LootbagTexture.Id != 0
 					? ItemRenderer.GetTextureAlphaBottom(Program.LootbagTexture, "lootbag")
 					: ItemRenderer.GetItemAlphaBottom(itemData);
-				float shadowY = gi.Position.Y + 5f;
+				float groundLift = GetGroundItemHeightLift(gi.Position.X, gi.Position.Y);
+				float shadowY = gi.Position.Y + 5f - groundLift;
 				Vector2 drawPos = new Vector2(gi.Position.X, shadowY - gi.Height + itemSize / 2f - alphaBottom * itemSize);
 				
 				renderItems.Add(new RenderItem
 				{
-					Y = gi.Position.Y,
+					Y = gi.Position.Y - groundLift,
 					Kind = RenderItemKind.GroundItem,
 					Tag = new GroundItemRenderTag(gi, itemData, itemColor, isLootbag, shadowWidth, alphaBottom, gi.GroundVelocity.X * 0.5f, drawPos, itemSize, gi.Metadata, gi.CustomColor)
 				});
@@ -3358,12 +3405,13 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					float alphaBottom = isLootbag && Program.LootbagTexture.Id != 0
 						? ItemRenderer.GetTextureAlphaBottom(Program.LootbagTexture, "lootbag")
 						: ItemRenderer.GetItemAlphaBottom(netItemData);
-					float shadowY = ngi.PosY + 5f;
+					float netLift = GetGroundItemHeightLift(ngi.PosX, ngi.PosY);
+					float shadowY = ngi.PosY + 5f - netLift;
 					Vector2 drawPos = new Vector2(ngi.PosX, shadowY + itemSize / 2f - alphaBottom * itemSize);
 
 					renderItems.Add(new RenderItem
 					{
-						Y = ngi.PosY,
+						Y = ngi.PosY - netLift,
 						DrawAction = () =>
 						{
 							float size = itemSize;
@@ -3627,6 +3675,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					renderItems.Add(new RenderItem
 					{
 						Y = sortY,
+						SortLayer = capturedTileData.OnFloor ? -1 : 0,
 						DrawAction = () =>
 						{
 							if (capturedObjectId == 123)
@@ -3816,11 +3865,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 										}
 									}
 
-									if (isHovered && tex.Id != 0 && isCollectable)
-									{
-										Rectangle destRect = new Rectangle(drawX, drawY, drawW, drawH);
-										DrawCachedOutline(tex, destRect, new Color(255,255,255,180), 2);
-									}
+									bool drawCollectableOutline = isHovered && tex.Id != 0 && isCollectable;
 
 									bool isWall = IsWallToHide(capturedObjectId);
 														bool hasVisibleInteriorTile = HasVisibleInteriorTile(capturedX, capturedY);
@@ -3940,6 +3985,9 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 										Raylib.DrawTexturePro(missingTex, new Rectangle(0,0,missingTex.Width,missingTex.Height),
 											windDestRect, windOrigin, windAngle, tint);
 									}
+
+									if (drawCollectableOutline)
+										DrawCachedOutline(tex, windDestRect, windOrigin, windAngle, new Color(255, 255, 255, 180));
 									}
 
 									string wallTorchMeta = World.GetTileMeta(capturedX, capturedY, "wall_torch");
@@ -4854,9 +4902,7 @@ float stackY = baseY - (lvl - 1) * ts;
 				{
 					if (!extraPlayer.Connected) continue;
 					if (!IsEntityNearScreen(extraPlayer.Position)) continue;
-					int playerTileX = (int)(extraPlayer.Position.X / ts);
-					int playerTileY = (int)(extraPlayer.Position.Y / ts);
-					int playerHeight = GetHeightAt(playerTileX, playerTileY);
+					int playerHeight = Program.GetPlayerGroundHeight(extraPlayer.Position);
 					float playerYOffset = -playerHeight * ts / 4;
 					Vector2 actualDrawPos = new Vector2(extraPlayer.Position.X, extraPlayer.Position.Y + playerYOffset);
 					float playerSortY = actualDrawPos.Y + Program.FeetOffsetY;
@@ -4997,9 +5043,7 @@ underwearTexture: capturedExtraUnderwear,
 			// normale (le squelette physique est dessiné séparément par PlayerRagdoll.Draw).
 			if (drawPlayer && Program.PlayerCurrentCar == null && !Program.IsPlayerRagdolled)
 			{
-				int playerTileX_h = (int)(playerPos.X / ts);
-				int playerTileY_h = (int)(playerPos.Y / ts);
-				int playerHeight = GetHeightAt(playerTileX_h, playerTileY_h);
+				int playerHeight = Program.GetPlayerGroundHeight(playerPos);
 				float playerYOffset = -playerHeight * ts / 4;
 				Item? heldItem = null;
 				var hotbarSlots = Program.GetHotbarSlotsCached(); //  OPTIM : cache par frame
@@ -5101,6 +5145,18 @@ underwearTexture: capturedExtraUnderwear,
 					Y = playerSortY,
 					DrawAction = () =>
 					{
+						bool materializing = Program.IsSoulMaterializing;
+						if (materializing)
+						{
+							float materializationTime = Program.SoulMaterializationTime;
+							if (materializationTime < Program.SoulMaterializationRevealStart)
+							{
+								Program.DrawSoulMaterializationOrb(actualDrawPos);
+								return;
+							}
+						}
+
+						bool soulMaterializationShaderActive = materializing && Program.BeginSoulMaterializationRender();
 						EntityRenderer.DrawEntity(
 							speciesToDraw,                // ← espèce morphée (human ou autre)
 							playerAnim, playerFrame, playerProg, playerFacing,
@@ -5108,19 +5164,20 @@ underwearTexture: capturedExtraUnderwear,
 							morphHairBase, morphHairOverlay, morphHairColor,
 							playerSkeletons, morphEyes, morphMouth,
 							customScale: 1.0f, equipment: morphEquipment,
-							isCarrying: isCarrying || isCarryingCreature, inWater: isPlayerInWater,
-							isCarryingCreature: isCarryingCreature,
+							isCarrying: !materializing && (isCarrying || isCarryingCreature), inWater: isPlayerInWater,
+							isCarryingCreature: !materializing && isCarryingCreature,
 							attackSwingProgress: Program.GetAttackSwingProgress(),
-							heldItemTexture: heldItemTex,
-							heldItemInstance: heldItem,
+							heldItemTexture: materializing ? default : heldItemTex,
+							heldItemInstance: materializing ? null : heldItem,
 							headAngle: headAngle,
 							keepItemHorizontal: isFurniture,
 							isBow: isBow,
 							underwearTexture: underwearTex, // ← texture adaptée
 							beardStyle: Program.PlayerBeardStyle,
+							forceBlinking: materializing,
 							randomFeatureVariant: Program.PlayerMorphFeatureVariants,
 							randomFeatureColor: Program.PlayerMorphFeatureColors,
-							drawCarriedEntity: isCarryingCreature ? () =>
+							drawCarriedEntity: isCarryingCreature && !materializing ? () =>
 							{
 								string carriedSpeciesKey = carriedCreatureRef!.Species.ToLower();
 								if (!SpeciesData.Skeletons.ContainsKey(carriedSpeciesKey)) return;
@@ -5145,7 +5202,7 @@ underwearTexture: capturedExtraUnderwear,
 									randomFeatureColor: carriedCreatureRef.RandomFeatureColor
 								);
 							} : null,
-							drawMount: mountedAnimal != null ? () =>
+							drawMount: mountedAnimal != null && !materializing ? () =>
 							{
 								var m = mountedAnimal;
 								if (!m.IsAlive) return;
@@ -5175,6 +5232,10 @@ underwearTexture: capturedExtraUnderwear,
 									beardStyle: m.BeardStyle);
 							} : null
 						);
+						if (soulMaterializationShaderActive)
+							Program.EndSoulMaterializationRender();
+						if (materializing)
+							Program.DrawSoulMaterializationOrb(actualDrawPos);
 					}
 				});
 			}
@@ -5367,27 +5428,34 @@ underwearTexture: capturedExtraUnderwear,
 					bool isArmorStand = tileData.IsArmorStand == true;
 					bool isFurniture = tileData.IsFurniture;
 					bool isCrop = tileData.IsCrop;
-					if (!isCaveEntryExit && !isStation && !isContainer && !isArmorStand && !isFurniture && !isCrop) continue;
+					if (!isCaveEntryExit && !isStation && !isContainer && !isArmorStand && !isFurniture && !isCrop
+						&& !tileData.IsSleepable && !tileData.IsSittable && !tileData.IsInteractable) continue;
 					var key = (worldX, worldY);
 					if (!interactionsByTile.ContainsKey(key))
 						interactionsByTile[key] = new List<(string actionKey, string actionType, Texture2D icon)>();
+					var prompts = interactionsByTile[key];
+					void AddPrompt(string actionKey, string actionType)
+					{
+						if (prompts.Any(prompt => prompt.actionKey == actionKey)) return;
+						prompts.Add((actionKey, actionType, GetInteractionIcon(objectId, actionType)));
+					}
 					if (isCaveEntryExit)
 					{
 						string actionType = (objectId == 50) ? "enterCave" : "exitCave";
-						interactionsByTile[key].Add(("E", actionType, GetInteractionIcon(objectId, actionType)));
+						AddPrompt("E", actionType);
 					}
-					if (isStation) interactionsByTile[key].Add(("E", "craft", GetInteractionIcon(objectId, "craft")));
-					if (isContainer) interactionsByTile[key].Add(("E", "E", GetInteractionIcon(objectId, "E")));
-					if (isArmorStand) interactionsByTile[key].Add(("E", "E", GetInteractionIcon(objectId, "E")));
-					if (objectId == 86) interactionsByTile[key].Add(("E", "E", GetInteractionIcon(objectId, "E")));
+					if (isStation) AddPrompt("E", "craft");
+					if (isContainer || isArmorStand || tileData.IsSleepable || tileData.IsSittable || tileData.IsInteractable)
+						AddPrompt("E", "E");
 					if (isCrop)
 					{
 						var cropData = GetCropDataAt(worldX, worldY);
 						bool cropIsReady = cropData != null && cropData.AccumulatedGrowthTime >= tileData.GrowthTime;
 						if (cropIsReady)
-							interactionsByTile[key].Add(("E", "E", GetInteractionIcon(objectId, "E")));
+							AddPrompt("E", "E");
 					}
-					if (isFurniture && !isCarrying) interactionsByTile[key].Add(("F", "F", GetInteractionIcon(objectId, "F")));
+					if (isFurniture && !isCarrying && !NetworkManager.IsClient && Program.GetItemIdFromPlaceableId(objectId) != 0)
+						AddPrompt("F", "F");
 				}
 			}
 			foreach (var tile in interactionsByTile)
