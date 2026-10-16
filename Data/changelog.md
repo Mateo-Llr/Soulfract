@@ -1354,6 +1354,11 @@
 - [FIXED] Le contour des objets collectables suit leur silhouette transparente sur un pixel de texture, diagonales comprises
 - [FIXED] Le contour des objets collectables suit également leur balancement et leur rotation dans le vent
 - [ADDED] Ajout du masque Tengu
+- [CHANGED] Refonte du launcher avec navigation adaptative, pages Accueil, Changelog et Paramètres, et sélection de la langue
+- [CHANGED] Accueil du launcher avec bannière, titre pixel art net, bouton Jouer et lien vers Discord
+- [CHANGED] Changelog présenté par mois, avec titre suivant la section consultée et modifications regroupées par date et catégorie
+- [FIXED] Accès à l'ensemble des dates du changelog, sans limite aux 50 dernières journées
+- [PERF] Chargement progressif du changelog et réduction des recalculs lors du redimensionnement du launcher
 
 ---
 

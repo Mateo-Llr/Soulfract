@@ -13,5 +13,9 @@
                       LogicalName="SoulfractLauncher.Assets.title.png" />
     <EmbeddedResource Include="..\assets\gui\game_banner.png"
                       LogicalName="SoulfractLauncher.Assets.game_banner.png" />
+    <EmbeddedResource Include="..\assets\launcher\caution_sign.png"
+                      LogicalName="SoulfractLauncher.Assets.Launcher.caution_sign.png" />
+    <EmbeddedResource Include="..\assets\launcher\discord_icon.png"
+                      LogicalName="SoulfractLauncher.Assets.Launcher.discord_icon.png" />
   </ItemGroup>
 </Project>

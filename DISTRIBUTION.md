@@ -12,15 +12,28 @@ bootstrapper se trouve à côté d'un `Soulfract.exe` existant, il installe le l
 principal dans ce même dossier ; les joueurs existants peuvent ainsi mettre à jour leur
 installation sans déplacer les sauvegardes.
 
-Le lanceur s'ouvre sur une interface graphique : il affiche la version disponible, les
-dernières entrées de `Data/changelog.md` avec une couleur par type de changement, l'état
-de la mise à jour, le titre graphique du jeu et un bouton **Jouer** centré en bas. Il
-vérifie les mises à jour au démarrage sans les installer et indique si une mise à jour est
-disponible. Le bouton **Vérifier les mises à jour** relance cette vérification et devient
-**Mettre à jour** si une nouvelle version du jeu est disponible. Un clic sur **Mettre à
-jour** ou **Jouer** télécharge et installe la mise à jour ; le jeu démarre automatiquement
-après l'installation. Si aucune préférence de langue n'est encore enregistrée, le jeu
-démarre en anglais.
+Le lanceur s'ouvre sur une interface graphique adaptative avec les pages **Accueil**,
+**Changelog** et **Paramètres**. L'accueil utilise la bannière et le titre du jeu en plein
+espace, avec un dégradé sombre et le bouton **Jouer** en bas. Le titre pixel art est
+redimensionné sans interpolation floue. La navigation passe d'une barre latérale à un
+bandeau supérieur lorsque la fenêtre est étroite, et propose aussi un raccourci vers le
+serveur Discord. Le changelog présente les dernières entrées de `Data/changelog.md` en
+sections et cartes regroupées par date et catégorie, avec une couleur par type de
+changement. Il charge cinq journées à la fois ; **Voir plus** ajoute le lot suivant au
+défilement pour limiter le coût de rendu. Le panneau s'adapte à la hauteur de son contenu
+tant qu'il tient dans la fenêtre, et le bouton **Voir plus** reste à la suite des entrées.
+Les entrées sont regroupées sous des séparateurs mensuels ; le mois courant reste indiqué
+en haut du journal pendant le défilement.
+La langue se choisit dans **Paramètres** ; cette préférence est également utilisée par le
+jeu. Si aucune préférence de langue n'est enregistrée, le lanceur suit la langue Windows
+si elle est disponible, sinon l'anglais. Le jeu, lui, conserve son comportement actuel et
+démarre en anglais tant qu'aucune préférence n'a été enregistrée.
+
+Le lanceur vérifie les mises à jour au démarrage sans les installer et indique si une mise à
+jour est disponible. Le bouton **Vérifier les mises à jour** relance cette vérification et
+devient **Mettre à jour** si une nouvelle version du jeu est disponible. Un clic sur
+**Mettre à jour** ou **Jouer** télécharge et installe la mise à jour ; le jeu démarre
+automatiquement après l'installation.
 Les captures d'écran réalisées en jeu sont rangées dans `Screenshots/` à côté de
 l'installation et ne sont pas incluses dans les mises à jour.
 Au clic sur **Jouer**, le lanceur vérifie également s'il doit lui-même être mis à jour :
