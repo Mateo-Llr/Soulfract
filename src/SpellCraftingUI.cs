@@ -1,15 +1,15 @@
-// SpellCraftingUI.cs - Version corrigée avec assignation des sorts
+// SpellCraftingUI.cs - Menu de création de sort (touche J) : sélection élément / forme / puissance,
+// aperçu animé du sort, assignation aux clics gauche et droit.
 #nullable enable
 using Raylib_cs;
 using System.Numerics;
-using System.Linq;
 
 namespace Soulfract
 {
     public static class SpellCraftingUI
     {
         private static bool _isOpen = false;
-        private static Vector2 _windowPos = new Vector2(300, 200);
+        private static Vector2 _windowPos = new Vector2(300, 60);
         private static Vector2 _dragOffset = Vector2.Zero;
         private static bool _isDragging = false;
         private static bool _isHoveringTitleBar = false;
@@ -21,27 +21,48 @@ namespace Soulfract
             Power = PowerLevel.Medium
         };
 
-        // Sélection temporaire pour l'affichage
         private static int _selectedElementIndex = 0;
         private static int _selectedTypeIndex = 0;
-        private static int _selectedPowerIndex = 1; // Medium par défaut
+        private static int _selectedPowerIndex = 1;
 
         private static readonly SpellElement[] _elements = Enum.GetValues<SpellElement>();
         private static readonly SpellType[] _types = Enum.GetValues<SpellType>();
-        private static readonly PowerLevel[] _powers = Enum.GetValues<PowerLevel>();
+        private static readonly PowerLevel[] _powers =
+        {
+            PowerLevel.Weak,
+            PowerLevel.Medium,
+            PowerLevel.Strong
+        };
 
-        private const int WINDOW_WIDTH = 480;
-        private const int WINDOW_HEIGHT = 480; // Augmenté pour l'assignation
-        private const int HEADER_HEIGHT = 45;
+        private static readonly SpellPreview _preview = new SpellPreview();
+        private static string _hoverText = "";
 
-        private static readonly Color COLOR_BG = new Color(20, 22, 28, 240);
-        private static readonly Color COLOR_HEADER = new Color(35, 38, 48, 255);
-        private static readonly Color COLOR_BORDER = new Color(80, 70, 50, 200);
-        private static readonly Color COLOR_ACCENT = new Color(210, 180, 100, 255);
-        private static readonly Color COLOR_BUTTON = new Color(80, 140, 80, 255);
-        private static readonly Color COLOR_BUTTON_HOVER = new Color(100, 180, 100, 255);
-        private static readonly Color COLOR_SELECTED = new Color(210, 180, 100, 200);
-        private static readonly Color COLOR_ITEM_NORMAL = new Color(50, 53, 60, 200);
+        // ── Disposition (en unités de conception, multipliées par S) ──
+        private const float DESIGN_W = 560f;
+        private const float DESIGN_H = 664f;
+        private const float HEADER_H = 44f;
+        private const float PAD = 16f;
+
+        private static float S => Math.Clamp(
+            Math.Min(UIManager.LayoutScale * 1.35f,
+                Math.Min((Raylib.GetScreenWidth() - 24f) / DESIGN_W, (Raylib.GetScreenHeight() - 24f) / DESIGN_H)),
+            0.65f, 2.2f);
+        private static int WinW => (int)(DESIGN_W * S);
+        private static int WinH => (int)(DESIGN_H * S);
+
+        private static Rectangle _titleBar, _closeBtn, _previewRect, _assignLeft, _assignRight, _cardLeft, _cardRight;
+        private static Rectangle[] _elementRects = Array.Empty<Rectangle>();
+        private static Rectangle[] _typeRects = Array.Empty<Rectangle>();
+        private static Rectangle[] _powerRects = Array.Empty<Rectangle>();
+        private static float _secElementY, _secTypeY, _secPowerY, _secAssignY, _descY;
+
+        private static readonly Color BG_TOP = new Color(26, 29, 38, 250);
+        private static readonly Color BG_BOTTOM = new Color(15, 17, 23, 250);
+        private static readonly Color HEADER = new Color(33, 36, 47, 255);
+        private static readonly Color BTN = new Color(40, 44, 56, 255);
+        private static readonly Color BTN_HOVER = new Color(58, 63, 80, 255);
+        private static readonly Color GOLD = new Color(210, 180, 100, 255);
+        private static readonly Color MUTED = new Color(150, 150, 160, 255);
 
         public static bool IsOpen => _isOpen;
 
@@ -49,7 +70,8 @@ namespace Soulfract
         {
             _isOpen = true;
             _isDragging = false;
-            UIManager.PushUI(Close, () => IsOpen);
+            _preview.Reset();
+            UIManager.PushUI(Close, () => IsOpen, IsPointInside);
         }
 
         public static void Close()
@@ -58,270 +80,328 @@ namespace Soulfract
             _isDragging = false;
         }
 
+        private static bool IsPointInside(Vector2 position)
+        {
+            ComputeLayout();
+            return Raylib.CheckCollisionPointRec(position,
+                new Rectangle(_windowPos.X, _windowPos.Y, WinW, WinH));
+        }
+
+        // ───────────────────────── disposition ─────────────────────────
+        private static void ComputeLayout()
+        {
+            float s = S;
+            float x = _windowPos.X, y = _windowPos.Y;
+            float w = WinW;
+            float inner = w - PAD * 2f * s;
+            float left = x + PAD * s;
+
+            _titleBar = new Rectangle(x, y, w, HEADER_H * s);
+            float cb = 26f * s;
+            _closeBtn = new Rectangle(x + w - cb - 10f * s, y + (HEADER_H * s - cb) * 0.5f, cb, cb);
+
+            float cy = y + (HEADER_H + 12f) * s;
+            _previewRect = new Rectangle(left, cy, inner, 150f * s);
+            cy += 150f * s + 14f * s;
+
+            // Éléments : 5 colonnes x 2 lignes
+            _secElementY = cy;
+            cy += 16f * s;
+            int cols = 5;
+            float gap = 8f * s;
+            float bw = (inner - gap * (cols - 1)) / cols, bh = 42f * s;
+            if (_elementRects.Length != _elements.Length) _elementRects = new Rectangle[_elements.Length];
+            for (int i = 0; i < _elements.Length; i++)
+                _elementRects[i] = new Rectangle(left + (i % cols) * (bw + gap), cy + (i / cols) * (bh + gap), bw, bh);
+            int elemRows = (_elements.Length + cols - 1) / cols;
+            cy += elemRows * (bh + gap) + 6f * s;
+
+            // Formes : 4 colonnes x 2 lignes
+            _secTypeY = cy;
+            cy += 16f * s;
+            cols = 4;
+            bw = (inner - gap * (cols - 1)) / cols; bh = 38f * s;
+            if (_typeRects.Length != _types.Length) _typeRects = new Rectangle[_types.Length];
+            for (int i = 0; i < _types.Length; i++)
+                _typeRects[i] = new Rectangle(left + (i % cols) * (bw + gap), cy + (i / cols) * (bh + gap), bw, bh);
+            int typeRows = (_types.Length + cols - 1) / cols;
+            cy += typeRows * (bh + gap) + 6f * s;
+
+            // Puissance : 1 ligne
+            _secPowerY = cy;
+            cy += 16f * s;
+            int pc = Math.Max(1, _powers.Length);
+            bw = (inner - gap * (pc - 1)) / pc; bh = 34f * s;
+            if (_powerRects.Length != _powers.Length) _powerRects = new Rectangle[_powers.Length];
+            for (int i = 0; i < _powers.Length; i++)
+                _powerRects[i] = new Rectangle(left + i * (bw + gap), cy, bw, bh);
+            cy += bh + 8f * s;
+
+            // Ligne de description
+            _descY = cy;
+            cy += 22f * s;
+
+            // Assignation : deux cartes
+            _secAssignY = cy;
+            cy += 16f * s;
+            float cw = (inner - gap) * 0.5f, ch = 74f * s;
+            _cardLeft = new Rectangle(left, cy, cw, ch);
+            _cardRight = new Rectangle(left + cw + gap, cy, cw, ch);
+            float abw = 82f * s, abh = 24f * s;
+            _assignLeft = new Rectangle(_cardLeft.X + _cardLeft.Width - abw - 10f * s, _cardLeft.Y + 7f * s, abw, abh);
+            _assignRight = new Rectangle(_cardRight.X + _cardRight.Width - abw - 10f * s, _cardRight.Y + 7f * s, abw, abh);
+        }
+
+        private static SpellData CopyCurrent() => new SpellData
+        {
+            Element = _currentSpell.Element,
+            Type = _currentSpell.Type,
+            Power = _currentSpell.Power
+        };
+
+        private static bool SameSpell(SpellData a, SpellData b) => a.Element == b.Element && a.Type == b.Type && a.Power == b.Power;
+
+        // ───────────────────────── mise à jour ─────────────────────────
         public static void Update()
         {
             if (!_isOpen) return;
 
-            Vector2 mousePos = Raylib.GetMousePosition();
+            Vector2 mouse = Raylib.GetMousePosition();
             int sw = Raylib.GetScreenWidth();
             int sh = Raylib.GetScreenHeight();
+            _windowPos.X = Math.Clamp(_windowPos.X, 8f, Math.Max(8f, sw - WinW - 8f));
+            _windowPos.Y = Math.Clamp(_windowPos.Y, 8f, Math.Max(8f, sh - WinH - 8f));
 
-            _windowPos.X = Math.Clamp(_windowPos.X, -WINDOW_WIDTH + 100, sw - 100);
-            _windowPos.Y = Math.Clamp(_windowPos.Y, 0, sh - 100);
+            ComputeLayout();
 
-            int x = (int)_windowPos.X;
-            int y = (int)_windowPos.Y;
-
-            // Drag
-            Rectangle titleBar = new Rectangle(x, y, WINDOW_WIDTH, HEADER_HEIGHT);
-            _isHoveringTitleBar = Raylib.CheckCollisionPointRec(mousePos, titleBar);
+            // Déplacement de la fenêtre
+            _isHoveringTitleBar = Raylib.CheckCollisionPointRec(mouse, _titleBar) && !Raylib.CheckCollisionPointRec(mouse, _closeBtn);
             if (_isHoveringTitleBar && Raylib.IsMouseButtonPressed(MouseButton.Left))
             {
                 _isDragging = true;
-                _dragOffset = mousePos - _windowPos;
+                _dragOffset = mouse - _windowPos;
             }
             if (_isDragging && Raylib.IsMouseButtonDown(MouseButton.Left))
-                _windowPos = mousePos - _dragOffset;
+            {
+                _windowPos = mouse - _dragOffset;
+                ComputeLayout();
+            }
             if (Raylib.IsMouseButtonReleased(MouseButton.Left))
                 _isDragging = false;
 
-            // Gestion des clics sur les sélecteurs
-            int startX = x + 20;
-            int startY = y + HEADER_HEIGHT + 30;
-            int spacing = 60;
-            int itemSize = 36;
+            bool click = Raylib.IsMouseButtonPressed(MouseButton.Left) && !_isDragging;
+            _hoverText = "";
 
-            // Éléments (ligne 1)
             for (int i = 0; i < _elements.Length; i++)
             {
-                int btnX = startX + i * (itemSize + 8);
-                int btnY = startY;
-                Rectangle rect = new Rectangle(btnX, btnY, itemSize, itemSize);
-                if (Raylib.CheckCollisionPointRec(mousePos, rect) && Raylib.IsMouseButtonPressed(MouseButton.Left))
-                {
-                    _selectedElementIndex = i;
-                    _currentSpell.Element = _elements[i];
-                }
+                if (!Raylib.CheckCollisionPointRec(mouse, _elementRects[i])) continue;
+                _hoverText = Localization.Get("magic.hover.element", SpellVfx.GetElementName(_elements[i]), SpellVfx.GetElementDescription(_elements[i]));
+                if (click) { _selectedElementIndex = i; _currentSpell.Element = _elements[i]; }
             }
-
-            // Types (ligne 2)
-            int typeStartY = startY + itemSize + 20;
             for (int i = 0; i < _types.Length; i++)
             {
-                int btnX = startX + i * (itemSize + 8);
-                int btnY = typeStartY;
-                Rectangle rect = new Rectangle(btnX, btnY, itemSize, itemSize);
-                if (Raylib.CheckCollisionPointRec(mousePos, rect) && Raylib.IsMouseButtonPressed(MouseButton.Left))
-                {
-                    _selectedTypeIndex = i;
-                    _currentSpell.Type = _types[i];
-                }
+                if (!Raylib.CheckCollisionPointRec(mouse, _typeRects[i])) continue;
+                _hoverText = Localization.Get("magic.hover.type", SpellVfx.GetTypeName(_types[i]), SpellVfx.GetTypeDescription(_types[i]));
+                if (click) { _selectedTypeIndex = i; _currentSpell.Type = _types[i]; }
             }
-
-            // Puissances (ligne 3)
-            int powerStartY = typeStartY + itemSize + 20;
             for (int i = 0; i < _powers.Length; i++)
             {
-                int btnX = startX + i * (itemSize + 8);
-                int btnY = powerStartY;
-                Rectangle rect = new Rectangle(btnX, btnY, itemSize, itemSize);
-                if (Raylib.CheckCollisionPointRec(mousePos, rect) && Raylib.IsMouseButtonPressed(MouseButton.Left))
-                {
-                    _selectedPowerIndex = i;
-                    _currentSpell.Power = _powers[i];
-                }
+                if (!Raylib.CheckCollisionPointRec(mouse, _powerRects[i])) continue;
+                _hoverText = Localization.Get("magic.hover.power", SpellVfx.GetPowerName(_powers[i]));
+                if (click) { _selectedPowerIndex = i; _currentSpell.Power = _powers[i]; }
             }
 
-            // Fermeture
+            if (click && Raylib.CheckCollisionPointRec(mouse, _assignLeft))
+            {
+                Program.SetLeftClickSpell(CopyCurrent());
+                Program.AddNotification(new Notification(Localization.Get("magic.notification.left", SpellVfx.GetSpellName(_currentSpell)), SpellVfx.Style(_currentSpell.Element).Mid, 2f));
+            }
+            if (click && Raylib.CheckCollisionPointRec(mouse, _assignRight))
+            {
+                Program.SetRightClickSpell(CopyCurrent());
+                Program.AddNotification(new Notification(Localization.Get("magic.notification.right", SpellVfx.GetSpellName(_currentSpell)), SpellVfx.Style(_currentSpell.Element).Mid, 2f));
+            }
+            if (click && Raylib.CheckCollisionPointRec(mouse, _closeBtn))
+                Close();
+
+            _preview.Update(Raylib.GetFrameTime(), _previewRect, _currentSpell.Element, _currentSpell.Type, _currentSpell.Power);
+
             if (Raylib.IsKeyPressed(KeyboardKey.Escape))
                 Close();
+        }
+
+        // ───────────────────────── dessin ─────────────────────────
+        private static int Fs(float size) => Math.Max(8, (int)MathF.Round(size * S));
+
+        private static void Text(string text, float x, float y, float size, Color color)
+            => FontManager.DrawText(text, (int)x, (int)y, Fs(size), color);
+
+        private static void TextShadow(string text, float x, float y, float size, Color color)
+        {
+            FontManager.DrawText(text, (int)x + 1, (int)y + 1, Fs(size), new Color(0, 0, 0, 200));
+            FontManager.DrawText(text, (int)x, (int)y, Fs(size), color);
+        }
+
+        private static void TextCentered(string text, Rectangle r, float size, Color color, float dy = 0f)
+        {
+            int w = FontManager.MeasureText(text, Fs(size));
+            FontManager.DrawText(text, (int)(r.X + (r.Width - w) * 0.5f), (int)(r.Y + dy), Fs(size), color);
+        }
+
+        private static void SectionLabel(string label, float y, Color accent)
+        {
+            float s = S;
+            float left = _windowPos.X + PAD * s;
+            float right = _windowPos.X + WinW - PAD * s;
+            Text(label, left, y, 11f, accent);
+            int w = FontManager.MeasureText(label, Fs(11f));
+            Raylib.DrawLine((int)(left + w + 8 * s), (int)(y + 7 * s), (int)right, (int)(y + 7 * s), new Color(accent.R, accent.G, accent.B, (byte)50));
+        }
+
+        private static void DrawButtonBg(Rectangle r, bool hover, bool selected, Color accent, Color dark)
+        {
+            Color bg = selected ? new Color(dark.R / 2 + 22, dark.G / 2 + 22, dark.B / 2 + 26, 255) : (hover ? BTN_HOVER : BTN);
+            Raylib.DrawRectangleRounded(r, 0.18f, 6, bg);
+            if (selected)
+            {
+                Raylib.DrawRectangleRoundedLines(new Rectangle(r.X - 1, r.Y - 1, r.Width + 2, r.Height + 2), 0.18f, 6, 2, accent);
+            }
+            else
+            {
+                Raylib.DrawRectangleRoundedLines(r, 0.18f, 6, 1, hover ? new Color(accent.R, accent.G, accent.B, (byte)150) : new Color(70, 74, 90, 255));
+            }
         }
 
         public static void Draw()
         {
             if (!_isOpen) return;
 
-            int x = (int)_windowPos.X;
-            int y = (int)_windowPos.Y;
-            Vector2 mousePos = Raylib.GetMousePosition();
+            float s = S;
+            ComputeLayout();
+            Vector2 mouse = Raylib.GetMousePosition();
+            float time = (float)Raylib.GetTime();
+            var st = SpellVfx.Style(_currentSpell.Element);
+            Color accent = st.Mid;
 
-            // Panneau principal
-            Raylib.DrawRectangleRounded(new Rectangle(x + 4, y + 4, WINDOW_WIDTH, WINDOW_HEIGHT), 0.1f, 12, new Color(0, 0, 0, 100));
-            Raylib.DrawRectangleRounded(new Rectangle(x, y, WINDOW_WIDTH, WINDOW_HEIGHT), 0.1f, 12, COLOR_BG);
-            Raylib.DrawRectangleRoundedLines(new Rectangle(x, y, WINDOW_WIDTH, WINDOW_HEIGHT), 0.1f, 12, 2, COLOR_BORDER);
+            Rectangle win = new Rectangle(_windowPos.X, _windowPos.Y, WinW, WinH);
 
-            // Barre de titre
-            Color titleColor = _isHoveringTitleBar ? new Color(80, 70, 50, 200) : COLOR_HEADER;
-            Raylib.DrawRectangleRounded(new Rectangle(x, y, WINDOW_WIDTH, HEADER_HEIGHT), 0.1f, 8, titleColor);
-            Raylib.DrawRectangleRoundedLines(new Rectangle(x, y, WINDOW_WIDTH, HEADER_HEIGHT), 0.1f, 8, 1, COLOR_ACCENT);
-            FontManager.DrawText(" CRÉATION DE SORT", x + 15, y + 13, 18, Color.White);
+            // Panneau
+            Raylib.DrawRectangleRounded(new Rectangle(win.X + 5, win.Y + 6, win.Width, win.Height), 0.04f, 12, new Color(0, 0, 0, 110));
+            Raylib.DrawRectangleRounded(win, 0.04f, 12, BG_BOTTOM);
+            Raylib.DrawRectangleGradientV((int)win.X + 3, (int)win.Y + 3, (int)win.Width - 6, (int)(win.Height * 0.5f), BG_TOP, BG_BOTTOM);
+            Raylib.DrawRectangleRoundedLines(win, 0.04f, 12, 2, new Color(accent.R, accent.G, accent.B, (byte)170));
 
-            // Bouton fermer
-            Rectangle closeBtn = new Rectangle(x + WINDOW_WIDTH - 35, y + 10, 25, 25);
-            bool hoverClose = Raylib.CheckCollisionPointRec(mousePos, closeBtn);
-            Raylib.DrawRectangleRounded(closeBtn, 0.2f, 6, hoverClose ? new Color(140, 60, 60, 255) : new Color(80, 40, 40, 200));
-            FontManager.DrawText("X", (int)closeBtn.X + 8, (int)closeBtn.Y + 5, 16, hoverClose ? Color.Red : new Color(200, 120, 120, 200));
-            if (hoverClose && Raylib.IsMouseButtonPressed(MouseButton.Left))
-                Close();
+            // En-tête
+            Raylib.DrawRectangleRounded(_titleBar, 0.3f, 8, _isHoveringTitleBar ? new Color(48, 52, 66, 255) : HEADER);
+            Raylib.DrawRectangle((int)_titleBar.X + 6, (int)(_titleBar.Y + _titleBar.Height - 2), (int)_titleBar.Width - 12, 2, new Color(accent.R, accent.G, accent.B, (byte)200));
+            TextShadow(Localization.Get("magic.title"), _titleBar.X + 16 * s, _titleBar.Y + 13 * s, 17f, Color.White);
 
-            // Afficher les sélecteurs
-            int startX = x + 20;
-            int startY = y + HEADER_HEIGHT + 30;
-            int spacing = 60;
-            int itemSize = 36;
+            bool hoverClose = Raylib.CheckCollisionPointRec(mouse, _closeBtn);
+            Raylib.DrawRectangleRounded(_closeBtn, 0.25f, 6, hoverClose ? new Color(150, 60, 60, 255) : new Color(80, 40, 44, 230));
+            TextCentered("X", _closeBtn, 14f, hoverClose ? Color.White : new Color(220, 150, 150, 255), 5f * s);
 
-            // Titres des sélecteurs
-            FontManager.DrawText("ÉLÉMENT", startX, startY - 20, 12, COLOR_ACCENT);
-            FontManager.DrawText("TYPE", startX, startY + itemSize + 20 - 20, 12, COLOR_ACCENT);
-            FontManager.DrawText("PUISSANCE", startX, startY + 2 * (itemSize + 20) - 20, 12, COLOR_ACCENT);
+            // Aperçu
+            Raylib.DrawRectangleRounded(new Rectangle(_previewRect.X - 2, _previewRect.Y - 2, _previewRect.Width + 4, _previewRect.Height + 4), 0.05f, 8, new Color(accent.R, accent.G, accent.B, (byte)90));
+            _preview.Draw(_previewRect, _currentSpell.Element, _currentSpell.Type);
+            Raylib.DrawRectangleLinesEx(_previewRect, 1, new Color(0, 0, 0, 120));
+
+            string spellName = SpellVfx.GetSpellName(_currentSpell);
+            TextShadow(spellName, _previewRect.X + 12 * s, _previewRect.Y + 10 * s, 20f, st.Core);
+            string sub = $"{SpellVfx.GetTypeName(_currentSpell.Type)}  -  {SpellVfx.GetPowerName(_currentSpell.Power)}";
+            TextShadow(sub, _previewRect.X + 12 * s, _previewRect.Y + 36 * s, 12f, MUTED);
 
             // Éléments
+            SectionLabel(Localization.Get("magic.section.element"), _secElementY, GOLD);
             for (int i = 0; i < _elements.Length; i++)
             {
-                int btnX = startX + i * (itemSize + 8);
-                int btnY = startY;
-                Rectangle rect = new Rectangle(btnX, btnY, itemSize, itemSize);
-                bool hover = Raylib.CheckCollisionPointRec(mousePos, rect);
-                bool selected = (i == _selectedElementIndex);
-
-                Color bgColor = selected ? COLOR_SELECTED : (hover ? COLOR_BUTTON_HOVER : COLOR_ITEM_NORMAL);
-                Raylib.DrawRectangleRounded(rect, 0.2f, 6, bgColor);
-                Raylib.DrawRectangleRoundedLines(rect, 0.2f, 6, 1, COLOR_BORDER);
-
-                Color elemColor = GetElementColor(_elements[i]);
-                Raylib.DrawCircle(btnX + itemSize / 2, btnY + itemSize / 2, itemSize / 3, elemColor);
+                Rectangle r = _elementRects[i];
+                var es = SpellVfx.Style(_elements[i]);
+                bool hover = Raylib.CheckCollisionPointRec(mouse, r);
+                bool sel = i == _selectedElementIndex;
+                DrawButtonBg(r, hover, sel, es.Mid, es.Dark);
+                float iconSize = r.Height * 0.9f;
+                SpellVfx.DrawElementIcon(_elements[i], new Vector2(r.X + iconSize * 0.62f, r.Y + r.Height * 0.5f), iconSize, time);
+                string n = SpellVfx.GetElementName(_elements[i]);
+                int tw = FontManager.MeasureText(n, Fs(11f));
+                float tx = r.X + iconSize + (r.Width - iconSize - tw) * 0.5f;
+                Text(n, Math.Max(r.X + iconSize, tx), r.Y + (r.Height - 11f * s) * 0.5f - 1, 11f, sel ? Color.White : new Color(205, 208, 218, 255));
             }
 
-            // Types
+            // Formes
+            SectionLabel(Localization.Get("magic.section.type"), _secTypeY, GOLD);
             for (int i = 0; i < _types.Length; i++)
             {
-                int btnX = startX + i * (itemSize + 8);
-                int btnY = startY + itemSize + 20;
-                Rectangle rect = new Rectangle(btnX, btnY, itemSize, itemSize);
-                bool hover = Raylib.CheckCollisionPointRec(mousePos, rect);
-                bool selected = (i == _selectedTypeIndex);
-
-                Color bgColor = selected ? COLOR_SELECTED : (hover ? COLOR_BUTTON_HOVER : COLOR_ITEM_NORMAL);
-                Raylib.DrawRectangleRounded(rect, 0.2f, 6, bgColor);
-                Raylib.DrawRectangleRoundedLines(rect, 0.2f, 6, 1, COLOR_BORDER);
-
-                string symbol = GetTypeSymbol(_types[i]);
-                FontManager.DrawText(symbol, btnX + 8, btnY + 6, 18, Color.White);
+                Rectangle r = _typeRects[i];
+                bool hover = Raylib.CheckCollisionPointRec(mouse, r);
+                bool sel = i == _selectedTypeIndex;
+                DrawButtonBg(r, hover, sel, accent, st.Dark);
+                float iconS = r.Height * 0.3f;
+                Color ic = sel ? st.Core : new Color(190, 194, 206, 255);
+                SpellVfx.DrawTypeIcon(_types[i], new Vector2(r.X + r.Height * 0.55f, r.Y + r.Height * 0.5f), iconS, ic);
+                string n = SpellVfx.GetTypeName(_types[i]);
+                int tw = FontManager.MeasureText(n, Fs(11f));
+                float region = r.Width - r.Height * 0.95f;
+                Text(n, r.X + r.Height * 0.95f + (region - tw) * 0.5f, r.Y + (r.Height - 11f * s) * 0.5f - 1, 11f, sel ? Color.White : new Color(205, 208, 218, 255));
             }
 
-            // Puissances
+            // Puissance
+            SectionLabel(Localization.Get("magic.section.power"), _secPowerY, GOLD);
             for (int i = 0; i < _powers.Length; i++)
             {
-                int btnX = startX + i * (itemSize + 8);
-                int btnY = startY + 2 * (itemSize + 20);
-                Rectangle rect = new Rectangle(btnX, btnY, itemSize, itemSize);
-                bool hover = Raylib.CheckCollisionPointRec(mousePos, rect);
-                bool selected = (i == _selectedPowerIndex);
-
-                Color bgColor = selected ? COLOR_SELECTED : (hover ? COLOR_BUTTON_HOVER : COLOR_ITEM_NORMAL);
-                Raylib.DrawRectangleRounded(rect, 0.2f, 6, bgColor);
-                Raylib.DrawRectangleRoundedLines(rect, 0.2f, 6, 1, COLOR_BORDER);
-
-                string label = _powers[i].ToString()[0].ToString();
-                FontManager.DrawText(label, btnX + 14, btnY + 8, 16, Color.White);
+                Rectangle r = _powerRects[i];
+                bool hover = Raylib.CheckCollisionPointRec(mouse, r);
+                bool sel = i == _selectedPowerIndex;
+                DrawButtonBg(r, hover, sel, accent, st.Dark);
+                // pastilles (1 à 4)
+                float pip = 6f * s, pg = 3f * s;
+                float px = r.X + 10 * s, py = r.Y + (r.Height - pip) * 0.5f;
+                for (int p = 0; p < _powers.Length; p++)
+                {
+                    Color pc = p <= i ? (sel ? st.Core : accent) : new Color(70, 74, 90, 255);
+                    Raylib.DrawRectangle((int)(px + p * (pip + pg)), (int)py, (int)pip, (int)pip, pc);
+                }
+                string n = SpellVfx.GetPowerName(_powers[i]);
+                int tw = FontManager.MeasureText(n, Fs(11f));
+                float start = px + _powers.Length * (pip + pg) + 4 * s;
+                Text(n, start + (r.X + r.Width - start - tw) * 0.5f, r.Y + (r.Height - 11f * s) * 0.5f - 1, 11f, sel ? Color.White : new Color(205, 208, 218, 255));
             }
 
-            // ---- SECTION ASSIGNATION (placée en dessous des sélecteurs) ----
-            int assignY = startY + 3 * (itemSize + 20) + 20;
-            FontManager.DrawText("ASSIGNATION", startX, assignY, 12, COLOR_ACCENT);
+            // Description
+            string desc = _hoverText.Length > 0 ? _hoverText : SpellVfx.GetTypeDescription(_currentSpell.Type);
+            Text(desc, _windowPos.X + PAD * s, _descY + 2 * s, 11f, _hoverText.Length > 0 ? new Color(235, 220, 170, 255) : MUTED);
 
-            int leftX = startX;
-            int rightX = startX + 220;
-            int previewSize = 60;
-            int previewY = assignY + 20;
+            // Assignation
+            SectionLabel(Localization.Get("magic.section.assignment"), _secAssignY, GOLD);
+            DrawAssignCard(_cardLeft, _assignLeft, Localization.Get("magic.click.left"), Program.GetLeftClickSpell(), mouse, time);
+            DrawAssignCard(_cardRight, _assignRight, Localization.Get("magic.click.right"), Program.GetRightClickSpell(), mouse, time);
 
-            // Sort gauche
-            Raylib.DrawRectangleRounded(new Rectangle(leftX, previewY, previewSize, previewSize), 0.1f, 6, new Color(50, 53, 60, 200));
-            Raylib.DrawRectangleRoundedLines(new Rectangle(leftX, previewY, previewSize, previewSize), 0.1f, 6, 1, COLOR_BORDER);
-            FontManager.DrawText("G", leftX + previewSize/2 - 8, previewY + 10, 14, Color.White);
-            FontManager.DrawText("Clic gauche", leftX + previewSize/2 - 30, previewY + previewSize - 12, 10, new Color(150, 150, 140, 180));
-
-            Color leftColor = Program.GetLeftClickSpell().GetElementColor();
-            Raylib.DrawCircle(leftX + previewSize/2, previewY + previewSize/2 - 5, 12, leftColor);
-            string leftName = Program.GetLeftClickSpell().GetDisplayName();
-            int leftNameW = FontManager.MeasureText(leftName, 10);
-            FontManager.DrawText(leftName, leftX + (previewSize - leftNameW)/2, previewY + previewSize/2 + 8, 10, Color.White);
-
-            Rectangle assignLeftBtn = new Rectangle(leftX, previewY + previewSize + 5, previewSize, 20);
-            bool hoverAssignLeft = Raylib.CheckCollisionPointRec(mousePos, assignLeftBtn);
-            Raylib.DrawRectangleRounded(assignLeftBtn, 0.2f, 6, hoverAssignLeft ? new Color(80, 140, 80, 255) : new Color(60, 120, 60, 200));
-            FontManager.DrawText("← Assigner", (int)assignLeftBtn.X + 6, (int)assignLeftBtn.Y + 4, 10, Color.White);
-            if (hoverAssignLeft && Raylib.IsMouseButtonPressed(MouseButton.Left))
-            {
-                Program.SetLeftClickSpell(_currentSpell);
-                Program.AddNotification(new Notification($"Sort assigné au clic gauche : {_currentSpell.GetDisplayName()}", _currentSpell.GetElementColor(), 2f));
-            }
-
-            // Sort droit
-            Raylib.DrawRectangleRounded(new Rectangle(rightX, previewY, previewSize, previewSize), 0.1f, 6, new Color(50, 53, 60, 200));
-            Raylib.DrawRectangleRoundedLines(new Rectangle(rightX, previewY, previewSize, previewSize), 0.1f, 6, 1, COLOR_BORDER);
-            FontManager.DrawText("D", rightX + previewSize/2 - 8, previewY + 10, 14, Color.White);
-            FontManager.DrawText("Clic droit", rightX + previewSize/2 - 30, previewY + previewSize - 12, 10, new Color(150, 150, 140, 180));
-
-            Color rightColor = Program.GetRightClickSpell().GetElementColor();
-            Raylib.DrawCircle(rightX + previewSize/2, previewY + previewSize/2 - 5, 12, rightColor);
-            string rightName = Program.GetRightClickSpell().GetDisplayName();
-            int rightNameW = FontManager.MeasureText(rightName, 10);
-            FontManager.DrawText(rightName, rightX + (previewSize - rightNameW)/2, previewY + previewSize/2 + 8, 10, Color.White);
-
-            Rectangle assignRightBtn = new Rectangle(rightX, previewY + previewSize + 5, previewSize, 20);
-            bool hoverAssignRight = Raylib.CheckCollisionPointRec(mousePos, assignRightBtn);
-            Raylib.DrawRectangleRounded(assignRightBtn, 0.2f, 6, hoverAssignRight ? new Color(80, 140, 80, 255) : new Color(60, 120, 60, 200));
-            FontManager.DrawText("Assigner →", (int)assignRightBtn.X + 6, (int)assignRightBtn.Y + 4, 10, Color.White);
-            if (hoverAssignRight && Raylib.IsMouseButtonPressed(MouseButton.Left))
-            {
-                Program.SetRightClickSpell(_currentSpell);
-                Program.AddNotification(new Notification($"Sort assigné au clic droit : {_currentSpell.GetDisplayName()}", _currentSpell.GetElementColor(), 2f));
-            }
-
-            // Aperçu du sort en cours (en dessous de l'assignation ou à côté)
-            int previewNameY = assignY + previewSize + 40;
-            string spellName = _currentSpell.GetDisplayName();
-            int nameWidth = FontManager.MeasureText(spellName, 16);
-            FontManager.DrawText(spellName, x + (WINDOW_WIDTH - nameWidth) / 2, previewNameY, 16, _currentSpell.GetElementColor());
-
-            string hint = "ESC : Fermer | J : Ouvrir/fermer";
-            int hintW = FontManager.MeasureText(hint, 11);
-            FontManager.DrawText(hint, x + (WINDOW_WIDTH - hintW) / 2, y + WINDOW_HEIGHT - 20, 11, new Color(120, 110, 90, 180));
+            string hint = Localization.Get("magic.close_hint");
+            int hw = FontManager.MeasureText(hint, Fs(10f));
+            Text(hint, win.X + (win.Width - hw) * 0.5f, win.Y + win.Height - 18 * s, 10f, new Color(120, 118, 110, 200));
         }
 
-        private static Color GetElementColor(SpellElement elem)
+        private static void DrawAssignCard(Rectangle card, Rectangle btn, string label, SpellData assigned, Vector2 mouse, float time)
         {
-            return elem switch
-            {
-                SpellElement.Fire => new Color(255, 120, 20, 255),
-                SpellElement.Water => new Color(60, 120, 255, 255),
-                SpellElement.Earth => new Color(140, 100, 60, 255),
-                SpellElement.Air => new Color(200, 230, 255, 255),
-                SpellElement.Ice => new Color(180, 240, 255, 255),
-                SpellElement.Lightning => new Color(255, 220, 50, 255),
-                SpellElement.Poison => new Color(100, 200, 80, 255),
-                SpellElement.Light => new Color(255, 255, 200, 255),
-                SpellElement.Dark => new Color(100, 80, 180, 255),
-                SpellElement.Metal => new Color(180, 180, 200, 255),
-                _ => Color.White
-            };
-        }
+            float s = S;
+            var es = SpellVfx.Style(assigned.Element);
+            bool active = SameSpell(assigned, _currentSpell);
 
-        private static string GetTypeSymbol(SpellType type)
-        {
-            return type switch
-            {
-                SpellType.Projectile => "",
-                SpellType.Homing => "",
-                SpellType.Area => "",
-                SpellType.Rain => "",
-                SpellType.Lightning => "",
-                SpellType.Shield => "",
-                SpellType.Summon => "",
-                SpellType.Burst => "",
-                _ => "?"
-            };
+            Raylib.DrawRectangleRounded(card, 0.14f, 6, new Color(30, 33, 43, 255));
+            Raylib.DrawRectangleRoundedLines(card, 0.14f, 6, 1, active ? new Color(es.Mid.R, es.Mid.G, es.Mid.B, (byte)200) : new Color(66, 70, 86, 255));
+
+            float iconSize = 30f * s;
+            SpellVfx.DrawElementIcon(assigned.Element, new Vector2(card.X + 25f * s, card.Y + 53f * s), iconSize, time);
+            Text(label.ToUpperInvariant(), card.X + 10f * s, card.Y + 12f * s, 9f, MUTED);
+            float tx = card.X + 46f * s;
+            Text(SpellVfx.GetSpellName(assigned), tx, card.Y + 37f * s, 12f, Color.White);
+            Text($"{SpellVfx.GetTypeName(assigned.Type)} - {SpellVfx.GetPowerName(assigned.Power)}", tx, card.Y + 54f * s, 10f, MUTED);
+
+            // bouton
+            bool hover = Raylib.CheckCollisionPointRec(mouse, btn);
+            Color bcol = active ? new Color(55, 60, 74, 255) : (hover ? new Color(88, 160, 96, 255) : new Color(66, 126, 74, 255));
+            Raylib.DrawRectangleRounded(btn, 0.3f, 6, bcol);
+            Raylib.DrawRectangleRoundedLines(btn, 0.3f, 6, 1, active ? new Color(90, 94, 110, 255) : new Color(150, 220, 160, 255));
+            TextCentered(Localization.Get(active ? "magic.assigned" : "magic.assign"), btn, 11f, active ? MUTED : Color.White, (btn.Height - 11f * s) * 0.5f - 1);
         }
     }
 }

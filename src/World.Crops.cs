@@ -9,7 +9,39 @@ namespace Soulfract
     public static partial class World
     {
 
-		private static Dictionary<(int x, int y), float> _farmlandMoisture = new();
+		public static readonly IReadOnlyDictionary<int, int> MatureTreeStumpTileIds = new Dictionary<int, int>
+		{
+			[4] = 4007,
+			[45] = 4008,
+			[48] = 4009,
+			[49] = 4010
+		};
+
+		private const float TREE_JOINT_HEIGHT = 16f;
+		private const float TREE_GRAVITY = 980f;
+		private const float TREE_FADE_DURATION = 0.55f;
+		private sealed class TreeFallState
+		{
+			public int TreeId;
+			public string TexturePrefix = "";
+			public float Direction;
+			public float Length;
+			public float ImpactAngleRadians;
+			public float AngleRadians = MathF.PI / 90f;
+			public float AngularVelocity = 0.8f;
+			public float Elapsed;
+			public float NextLeafAt = 0.06f;
+			public float FadeRemaining = TREE_FADE_DURATION;
+			public bool Impacted;
+			public Vector2 JointPosition;
+			public float GroundY;
+			public Color LeafTint;
+			public List<Vector2> LeafSpawnPoints = new();
+		}
+
+		private static readonly Dictionary<(int x, int y), TreeFallState> _treeFalls = new();
+
+	private static Dictionary<(int x, int y), float> _farmlandMoisture = new();
 
 		private const float FARMLAND_DRYING_TIME = 300f;
 
@@ -750,6 +782,9 @@ namespace Soulfract
 					case "RemovePlacedObject":
 						RemovePlacedObject_Apply(action.X, action.Y);
 						break;
+					case "FellTree":
+						FellTree_Apply(action.X, action.Y, action.Value < 0 ? -1f : 1f);
+						break;
 					case "AddOverlay":
 						AddOverlay_Apply(action.X, action.Y, action.Value);
 						break;
@@ -792,7 +827,14 @@ namespace Soulfract
 				case 48:
 					if (rand.NextDouble() < 0.05)
 						return new Color((byte)255, (byte)220, (byte)210, (byte)255);
-					return new Color((byte)170, (byte)200, (byte)150, (byte)255);
+					return rand.Next(5) switch
+					{
+						0 => new Color((byte)137, (byte)191, (byte)82, (byte)255),
+						1 => new Color((byte)104, (byte)167, (byte)66, (byte)255),
+						2 => new Color((byte)177, (byte)197, (byte)92, (byte)255),
+						3 => new Color((byte)206, (byte)174, (byte)66, (byte)255),
+						_ => new Color((byte)190, (byte)128, (byte)54, (byte)255)
+					};
 				case 49:
 					if (rand.NextDouble() < 0.08)
 						return new Color((byte)220, (byte)170, (byte)120, (byte)255);
@@ -1033,6 +1075,186 @@ namespace Soulfract
 			return tileData != null && tileData.IsSapling;
 		}
 
+		public static int GetTreeStumpTileId(int treeId)
+		{
+			return MatureTreeStumpTileIds.GetValueOrDefault(treeId);
+		}
+
+		public static bool IsMatureTree(int objectId) => MatureTreeStumpTileIds.ContainsKey(objectId);
+
+		public static bool IsTreeStump(int objectId) => MatureTreeStumpTileIds.Values.Contains(objectId);
+
+		public static string GetMatureTreeTexturePrefix(int treeId)
+		{
+			return WorldTileRegistry.GetTile(treeId)?.Texture ?? string.Empty;
+		}
+
+		public static void FellTree(int x, int y, float direction)
+		{
+			int treeId = GetObjectIdAt(x, y);
+			int stumpId = GetTreeStumpTileId(treeId);
+			if (stumpId == 0) return;
+			int actionValue = direction < 0f ? -stumpId : stumpId;
+
+			if (NetworkManager.IsClient)
+			{
+				NetworkManager.RequestWorldAction("FellTree", x, y, actionValue, _isUnderground);
+				return;
+			}
+
+			FellTree_Apply(x, y, direction);
+			if (NetworkManager.IsHost)
+				NetworkManager.BroadcastWorldAction("FellTree", x, y, actionValue, _isUnderground);
+		}
+
+		private static void FellTree_Apply(int x, int y, float direction)
+		{
+			int treeId = GetObjectIdAt(x, y);
+			int stumpId = GetTreeStumpTileId(treeId);
+			if (stumpId == 0) return;
+
+			bool hasLeafSpawnPoints = TryGetTreeLeafSpawnPoints(x, y, out List<Vector2> leafSpawnPoints, out float groundY);
+			WorldTileData? treeData = WorldTileRegistry.GetTile(treeId);
+			int tileSize = Program.TileSize;
+			if (!hasLeafSpawnPoints)
+			{
+				int height = GetHeightAt(x, y);
+				groundY = y * tileSize - height * tileSize / 4f + tileSize;
+				leafSpawnPoints = new List<Vector2>();
+			}
+			int drawWidth = tileSize * (treeData?.Size?.Width ?? 4);
+			float drawHeight = tileSize * (treeData?.Size?.Height ?? 7);
+			float drawX = x * tileSize + (treeData?.DrawOffset?.X ?? 0);
+			float drawY = groundY - drawHeight;
+
+			RemovePlacedObject_Apply(x, y);
+			AddPlacedObject_Apply(x, y, stumpId);
+			float jointHeight = Math.Min(TREE_JOINT_HEIGHT, drawHeight * 0.25f);
+			float length = drawHeight - jointHeight;
+			_treeFalls[(x, y)] = new TreeFallState
+			{
+				TreeId = treeId,
+				TexturePrefix = treeData?.Texture ?? string.Empty,
+				Direction = MathF.Sign(direction) == 0f ? 1f : MathF.Sign(direction),
+				Length = length,
+				ImpactAngleRadians = MathF.Acos(-jointHeight / length),
+				JointPosition = new Vector2(drawX + drawWidth / 2f, drawY + drawHeight - jointHeight),
+				GroundY = groundY,
+				LeafTint = GetTreeLeafTintForObjectId(treeId, x, y),
+				LeafSpawnPoints = leafSpawnPoints ?? new List<Vector2>()
+			};
+		}
+
+		public static void UpdateTreeFalls(float dt, List<Particle> particles)
+		{
+			const float simulationStep = 1f / 120f;
+
+			foreach (var entry in _treeFalls.ToArray())
+			{
+				TreeFallState fall = entry.Value;
+				float centerOfMassDistance = fall.Length / 2f;
+				float momentOfInertia = fall.Length * fall.Length / 12f
+					+ centerOfMassDistance * centerOfMassDistance;
+				float gravityTorqueScale = TREE_GRAVITY * centerOfMassDistance / momentOfInertia;
+				float remaining = Math.Max(0f, dt);
+				while (remaining > 0f && !fall.Impacted)
+				{
+					float step = Math.Min(simulationStep, remaining);
+					fall.AngularVelocity += gravityTorqueScale * MathF.Sin(fall.AngleRadians) * step;
+					fall.AngleRadians = Math.Min(fall.ImpactAngleRadians, fall.AngleRadians + fall.AngularVelocity * step);
+					fall.Elapsed += step;
+					remaining -= step;
+
+					while (fall.Elapsed >= fall.NextLeafAt && fall.AngleRadians < fall.ImpactAngleRadians)
+					{
+						SpawnFallingTreeLeaves(fall, particles);
+						fall.NextLeafAt += 0.1f + Random.Shared.NextSingle() * 0.08f;
+					}
+
+					if (fall.AngleRadians >= fall.ImpactAngleRadians)
+					{
+						fall.Impacted = true;
+						SpawnFallingTreeLeaves(fall, particles);
+						SpawnTreeImpactSmoke(fall, particles);
+					}
+				}
+
+				if (fall.Impacted)
+				{
+					fall.FadeRemaining -= Math.Max(0f, dt);
+					if (fall.FadeRemaining <= 0f)
+						_treeFalls.Remove(entry.Key);
+				}
+			}
+		}
+
+		private static void SpawnFallingTreeLeaves(TreeFallState fall, List<Particle> particles)
+		{
+			if (fall.LeafSpawnPoints.Count == 0) return;
+
+			int count = Random.Shared.Next(2, 5);
+			float signedAngle = fall.Direction * fall.AngleRadians;
+			float sin = MathF.Sin(signedAngle);
+			float cos = MathF.Cos(signedAngle);
+			for (int i = 0; i < count; i++)
+			{
+				Vector2 point = fall.LeafSpawnPoints[Random.Shared.Next(fall.LeafSpawnPoints.Count)];
+				Vector2 relative = point - fall.JointPosition;
+				Vector2 rotated = new(
+					fall.JointPosition.X + relative.X * cos - relative.Y * sin,
+					fall.JointPosition.Y + relative.X * sin + relative.Y * cos);
+				float lifetime = 5f + Random.Shared.NextSingle() * 4f;
+				particles.Add(new LeafParticle(rotated, fall.GroundY, lifetime, fall.LeafTint));
+			}
+		}
+
+		private static void SpawnTreeImpactSmoke(TreeFallState fall, List<Particle> particles)
+		{
+			float halfLength = fall.Length;
+			float signedAngle = fall.Direction * fall.ImpactAngleRadians;
+			Vector2 impactPosition = new(
+				fall.JointPosition.X + MathF.Sin(signedAngle) * halfLength,
+				fall.JointPosition.Y - MathF.Cos(signedAngle) * halfLength);
+
+			for (int i = 0; i < 9; i++)
+			{
+				Vector2 velocity = new(
+					fall.Direction * (Random.Shared.NextSingle() * 24f - 12f),
+					-12f - Random.Shared.NextSingle() * 24f);
+				var smoke = new SpellFxParticle(
+					FxShape.Smoke,
+					impactPosition + new Vector2(Random.Shared.NextSingle() * 18f - 9f, Random.Shared.NextSingle() * 8f - 4f),
+					velocity,
+					new Color(125, 115, 100, 125),
+					new Color(100, 95, 88, 0),
+					8f + Random.Shared.NextSingle() * 5f,
+					20f + Random.Shared.NextSingle() * 10f,
+					0.55f + Random.Shared.NextSingle() * 0.25f,
+					false)
+				{
+					GravityY = -5f,
+					Drag = 0.97f
+				};
+				particles.Add(smoke);
+			}
+		}
+
+		public static bool TryGetTreeFallVisual(int x, int y, out string texturePrefix, out int treeId, out float angle, out float alpha)
+		{
+			texturePrefix = string.Empty;
+			treeId = 0;
+			angle = 0f;
+			alpha = 1f;
+			if (!_treeFalls.TryGetValue((x, y), out TreeFallState? fall)) return false;
+
+			texturePrefix = fall.TexturePrefix;
+			treeId = fall.TreeId;
+			angle = fall.Direction * fall.AngleRadians * (180f / MathF.PI);
+			if (fall.Impacted)
+				alpha = Math.Clamp(fall.FadeRemaining / TREE_FADE_DURATION, 0f, 1f);
+			return true;
+		}
+
 		//  Calcule la zone de dessin (rectangle monde) d'un arbre planté en (tileX, tileY),
 		// ainsi que le niveau du sol sur lequel les feuilles doivent se poser, et la liste
 		// des points de feuillage (pixels opaques dans la partie haute de la texture) où une
@@ -1052,9 +1274,9 @@ namespace Soulfract
 			// effectivement dessiné plutôt qu'au tronc ou à un sprite générique.
 			Texture2D tex = default;
 			bool isPureLeavesTexture = false;
-			if (objectId == 4 || objectId == 45)
+			if (IsMatureTree(objectId))
 			{
-				string treeTexturePrefix = objectId == 45 ? "spruce_tree" : "oak_tree";
+				string treeTexturePrefix = GetMatureTreeTexturePrefix(objectId);
 				tex = WorldTileRegistry.GetTextureByName($"{treeTexturePrefix}_bush");
 				isPureLeavesTexture = tex.Id != 0;
 			}

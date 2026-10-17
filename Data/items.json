@@ -2570,6 +2570,7 @@
     {
       "id": "genie_lamp",
       "type": "placeable",
+      "placeableId": 419,
       "stackSize": 10,
       "value": 120,
       "rarity": "rare"

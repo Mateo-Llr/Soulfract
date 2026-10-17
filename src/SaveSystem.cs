@@ -3213,6 +3213,12 @@ namespace Soulfract
         public float PlayerMaxThirst { get; set; } = 100f;
         public int HotbarSlot { get; set; }
         public float CameraZoom { get; set; }
+        public SpellElement LeftClickSpellElement { get; set; } = SpellElement.Fire;
+        public SpellType LeftClickSpellType { get; set; } = SpellType.Projectile;
+        public PowerLevel LeftClickSpellPower { get; set; } = PowerLevel.Medium;
+        public SpellElement RightClickSpellElement { get; set; } = SpellElement.Fire;
+        public SpellType RightClickSpellType { get; set; } = SpellType.Projectile;
+        public PowerLevel RightClickSpellPower { get; set; } = PowerLevel.Medium;
 		public int CharacterSelectionBackgroundStyle { get; set; } = 0;
         public double PlayTime { get; set; }
         public float GameTime { get; set; }

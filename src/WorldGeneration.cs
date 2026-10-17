@@ -70,6 +70,67 @@ namespace Soulfract
         // Détail fin (texture locale du terrain).
         private const float DETAIL_SCALE = 0.02f;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // Rivières et lacs : on creuse le relief le long des lignes où un bruit
+        // basse fréquence passe par zéro (courbes sinueuses). Le lit est creusé
+        // juste sous OCEAN_THRESHOLD, donc GetBiome renvoie Ocean et le reste du
+        // jeu (tuile d'eau 10, nage, shader, bords d'eau...) fonctionne sans
+        // modification. Les berges adoucies passent par la bande "Beach".
+        //
+        // Trois masques évitent le "trop de rivières" et les boucles fermées :
+        //  - humidité : pas de rivière dans les régions sèches ;
+        //  - présence : un bruit très lent n'autorise les rivières que dans
+        //    certaines régions, et les affine jusqu'à zéro (sources/pointes) ;
+        //  - altitude : elles s'estompent dans les hauts-plateaux.
+        // Un bruit de "lac" élargit localement le lit : les lacs sont donc
+        // alimentés par les rivières au lieu d'être des cuvettes isolées.
+        // ═══════════════════════════════════════════════════════════════════
+        private const float RIVER_SCALE = 0.0030f;           // plus petit = rivières plus espacées
+        private const float RIVER_WARP_SCALE = 0.012f;       // méandres
+        private const float RIVER_WARP_STRENGTH = 28f;       // amplitude des méandres (en tuiles)
+        private const float RIVER_BED_ELEVATION = 0.305f;    // juste sous OCEAN_THRESHOLD (0.32)
+        private const float RIVER_MIN_HALF_WIDTH = 0.004f;   // demi-largeur (unités de bruit) en zone peu humide
+        private const float RIVER_EXTRA_HALF_WIDTH = 0.008f; // largeur supplémentaire en zone humide
+        private const float RIVER_BANK_WIDTH = 0.022f;       // distance de transition lit -> terrain
+        private const float RIVER_FADE_START = 0.55f;        // les rivières s'estompent en altitude...
+        private const float RIVER_FADE_END = 0.72f;          // ...et disparaissent dans les hauts-plateaux
+
+        private const float RIVER_WET_MIN = 0.30f;           // humidité sous laquelle il n'y a aucune rivière
+        private const float RIVER_WET_FULL = 0.60f;          // humidité à partir de laquelle elles sont pleinement larges
+        private const float RIVER_PRESENCE_SCALE = 0.0016f;  // taille des "régions à rivières"
+        private const float RIVER_PRESENCE_MIN = -0.05f;     // monter ces deux valeurs = encore moins de rivières
+        private const float RIVER_PRESENCE_FULL = 0.22f;
+
+        private const float LAKE_SCALE = 0.0070f;            // taille/fréquence des lacs
+        private const float LAKE_NOISE_MIN = 0.10f;          // monter ces deux valeurs = moins de lacs
+        private const float LAKE_NOISE_FULL = 0.30f;
+        private const float LAKE_EXTRA_HALF_WIDTH = 0.16f;   // élargissement maximal du lit au niveau d'un lac
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Étirement de contraste. Un FBM de Perlin normalisé est très concentré
+        // autour de 0 (écart-type ~0.08 une fois ramené sur 0..1) : les queues de
+        // distribution - océans profonds, montagnes, humidité extrême - n'étaient
+        // quasiment jamais atteintes, donc des biomes entiers (Mountains, Peak,
+        // Swamp, Badlands...) n'apparaissaient JAMAIS. On ré-étale ces bruits
+        // autour de 0.5 avant de les utiliser (mesuré par simulation).
+        // ═══════════════════════════════════════════════════════════════════
+        private const float CONTINENT_CONTRAST = 1.5f;
+        private const float CONTINENT_SHIFT = 0.03f;   // garde à peu près la même part d'océan qu'avant
+        private const float EROSION_CONTRAST = 1.8f;
+        private const float HUMIDITY_CONTRAST = 1.8f;
+
+        // Hauts-plateaux : la température y est basse PAR CONSTRUCTION (altitude =
+        // froid), donc comparer la température brute à 0.25 / -0.1 rendait
+        // Badlands, Mesa et les autres biomes "chauds" impossibles. On compare
+        // maintenant l'écart ("anomalie") à la température attendue à cette altitude.
+        private const float HIGHLAND_HOT_ANOMALY = 0.05f;
+        private const float HIGHLAND_WARM_ANOMALY = -0.01f;
+        private const float HIGHLAND_COOL_ANOMALY = -0.09f;
+
+        // Marais : plaines basses, proches du niveau de la mer, très humides.
+        private const float SWAMP_MAX_ELEVATION = 0.46f;
+        private const float SWAMP_MIN_HUMIDITY = 0.80f;
+
         // Seuils d'élévation (inchangés pour rester compatibles avec le reste du jeu)
         private const float DEEP_OCEAN_THRESHOLD = 0.15f;
         private const float OCEAN_THRESHOLD = 0.32f;
@@ -159,6 +220,19 @@ namespace Soulfract
         private const float TEMPERATURE_EQUALIZE_POWER = 0.85f;
         private const float HUMIDITY_EQUALIZE_POWER = 0.75f;
 
+        /// <summary>Étire une valeur 0..1 autour de 0.5 (gain &gt; 1 = plus de valeurs extrêmes).</summary>
+        private static float Contrast(float v, float gain, float shift = 0f)
+        {
+            return Math.Clamp(0.5f + (v - 0.5f) * gain + shift, 0f, 1f);
+        }
+
+        /// <summary>Température "normale" attendue à une altitude donnée (sans le bruit local).</summary>
+        private static float ExpectedTemperature(float elevation)
+        {
+            float bias = Math.Clamp((1f - elevation * 2f) * ELEVATION_TEMP_STRENGTH, -1f, 1f);
+            return EqualizeSigned(bias, TEMPERATURE_EQUALIZE_POWER);
+        }
+
         /// <summary>
         /// Repousse une valeur signée [-1, 1] vers ses extrêmes (power &lt; 1)
         /// pour compenser l'accumulation près de 0 typique des sommes de bruit
@@ -196,7 +270,7 @@ namespace Soulfract
             );
 
             float combined = n1 * 0.7f + n2 * 0.3f;
-            float humidity = (combined + 1f) / 2f;
+            float humidity = Contrast((combined + 1f) / 2f, HUMIDITY_CONTRAST);
 
             //  Les zones chaudes reçoivent plus de précipitations possibles
             // (plus d'évaporation -> plus d'humidité potentielle), donc le
@@ -241,13 +315,13 @@ namespace Soulfract
             //  2. Continentalness : bruit très basse fréquence qui dessine où sont les
             // continents, océans, et grandes plaines. C'est le squelette du terrain.
             float continent = PerlinNoise.FBM(wx * CONTINENT_SCALE, wy * CONTINENT_SCALE, CONTINENT_OCTAVES, 0.5f, 2f);
-            continent = (continent + 1f) / 2f; // 0..1
+            continent = Contrast((continent + 1f) / 2f, CONTINENT_CONTRAST, CONTINENT_SHIFT); // 0..1
             float baseElevation = ContinentCurve(continent);
 
             //  3. Erosion : indépendant du continent, définit si une région est plutôt
             // "plate" (érodée) ou "accidentée" (propice aux reliefs marqués).
             float erosion = PerlinNoise.FBM(worldX * EROSION_SCALE + 1000f, worldY * EROSION_SCALE + 1000f, EROSION_OCTAVES, 0.5f, 2f);
-            erosion = (erosion + 1f) / 2f; // 0..1
+            erosion = Contrast((erosion + 1f) / 2f, EROSION_CONTRAST); // 0..1
 
             //  4. Peaks & Valleys : bruit en crêtes qui forme de vraies chaînes de
             // montagnes ramifiées plutôt que des bosses isolées.
@@ -265,7 +339,78 @@ namespace Soulfract
 
             float elevation = baseElevation + mountainContribution + detail;
 
+            //  6. Rivières : creusées après le relief, uniquement sur les basses/moyennes terres.
+            elevation = CarveRivers(worldX, worldY, elevation);
+
             return Math.Clamp(elevation, 0f, 1f);
+        }
+
+        /// <summary>
+        /// Creuse rivières et lacs dans l'élévation déjà calculée. Ne fait que BAISSER
+        /// l'élévation (jamais de relief ajouté), et ne coûte presque rien sur les
+        /// océans, les hauts-plateaux, les zones sèches et les régions sans rivière
+        /// (sorties anticipées avant les bruits les plus chers).
+        /// </summary>
+        private static float CarveRivers(float worldX, float worldY, float elevation)
+        {
+            // Rien à creuser : déjà sous le lit, ou trop haut pour qu'une rivière existe.
+            if (elevation <= RIVER_BED_ELEVATION || elevation >= RIVER_FADE_END)
+                return elevation;
+
+            // Humidité de base (mêmes bruits/seeds que GetHumidity, sans dépendre de
+            // l'élévation -> pas de calcul circulaire) : rivières larges en région
+            // humide, absentes en région sèche.
+            float h1 = PerlinNoise.Noise(
+                (worldX * HUMIDITY_NOISE_SCALE) + CLIMATE_SEED * 5,
+                (worldY * HUMIDITY_NOISE_SCALE) + CLIMATE_SEED * 6);
+            float h2 = PerlinNoise.Noise(
+                (worldX * 0.003f) + CLIMATE_SEED * 7,
+                (worldY * 0.003f) + CLIMATE_SEED * 8);
+            float wetness = ((h1 * 0.7f + h2 * 0.3f) + 1f) / 2f;
+            float wetFactor = SmoothStep(RIVER_WET_MIN, RIVER_WET_FULL, wetness);
+
+            // Présence : régions où les rivières existent, avec un affinement progressif
+            // vers 0 en bordure (une rivière qui s'éteint = une source, pas une boucle).
+            float presence = SmoothStep(RIVER_PRESENCE_MIN, RIVER_PRESENCE_FULL,
+                PerlinNoise.Noise(worldX * RIVER_PRESENCE_SCALE + 13000f, worldY * RIVER_PRESENCE_SCALE + 13000f));
+
+            float strength = presence * wetFactor;
+            if (strength <= 0.02f)
+                return elevation;
+
+            // Méandres : léger domain warp dédié, avant l'échantillonnage du bruit de rivière.
+            float rx = worldX + PerlinNoise.Noise(worldX * RIVER_WARP_SCALE + 7000f, worldY * RIVER_WARP_SCALE + 7000f) * RIVER_WARP_STRENGTH;
+            float ry = worldY + PerlinNoise.Noise(worldX * RIVER_WARP_SCALE + 9000f, worldY * RIVER_WARP_SCALE + 9000f) * RIVER_WARP_STRENGTH;
+
+            // Distance (en unités de bruit) à la ligne de rivière : |bruit| proche de 0.
+            float distance = MathF.Abs(PerlinNoise.Noise(rx * RIVER_SCALE + 11000f, ry * RIVER_SCALE + 11000f));
+
+            // Lacs : là où ce bruit est élevé, le lit s'élargit fortement autour de la rivière.
+            float lake = SmoothStep(LAKE_NOISE_MIN, LAKE_NOISE_FULL,
+                PerlinNoise.Noise(rx * LAKE_SCALE + 15000f, ry * LAKE_SCALE + 15000f));
+
+            float halfWidth = (RIVER_MIN_HALF_WIDTH + RIVER_EXTRA_HALF_WIDTH * wetFactor) * presence
+                            + LAKE_EXTRA_HALF_WIDTH * lake * strength;
+            if (halfWidth <= 0.001f)
+                return elevation;
+
+            float bankEdge = halfWidth + RIVER_BANK_WIDTH;
+
+            // 1 dans le lit, 0 au-delà des berges, transition douce entre les deux.
+            float carve = 1f - SmoothStep(halfWidth, bankEdge, distance);
+            if (carve <= 0f)
+                return elevation;
+
+            // Estompe avec l'altitude : les rivières naissent dans les collines.
+            carve *= 1f - SmoothStep(RIVER_FADE_START, RIVER_FADE_END, elevation);
+
+            return elevation + (RIVER_BED_ELEVATION - elevation) * carve;
+        }
+
+        private static float SmoothStep(float edge0, float edge1, float x)
+        {
+            float t = Math.Clamp((x - edge0) / (edge1 - edge0), 0f, 1f);
+            return t * t * (3f - 2f * t);
         }
 
         /// <summary>
@@ -314,22 +459,24 @@ namespace Soulfract
             // 2. Très hautes altitudes : sommets enneigés ou rochers d'altitude.
             if (elevation > PEAK_THRESHOLD)
             {
-                if (temperature < 0.1f)
-                    return Biome.Snow;
-                return Biome.Peak;
+                // Au-dessus de PEAK_THRESHOLD la température est toujours très basse
+                // (~-0.8) : l'ancien test "temperature < 0.1 -> Snow" était donc
+                // toujours vrai et Peak ne sortait jamais. C'est l'humidité qui
+                // décide : sommet enneigé si humide, roche nue sinon.
+                return humidity >= 0.35f ? Biome.Snow : Biome.Peak;
             }
             if (elevation > MOUNTAIN_THRESHOLD)
                 return Biome.Mountains;
 
             // 3. Hauts plateaux : zones moins fréquentes et plus rocheuses.
             if (elevation > HIGHLANDS_THRESHOLD)
-                return GetHighlandBiome(temperature, humidity);
+                return GetHighlandBiome(temperature, humidity, elevation);
 
             // 4. Plaine / basse altitude : biomes tempérés plus fréquents.
-            return GetLowlandBiome(temperature, humidity);
+            return GetLowlandBiome(temperature, humidity, elevation);
         }
 
-        private static Biome GetLowlandBiome(float temperature, float humidity)
+        private static Biome GetLowlandBiome(float temperature, float humidity, float elevation)
         {
             // Bandes rééquilibrées : avec l'équalisation ci-dessus, temperature
             // et humidity sont maintenant réparties de façon plus homogène sur
@@ -346,6 +493,10 @@ namespace Soulfract
 
             if (temperature > -0.1f)
             {
+                // Swamp exigeait humidity >= 0.93, valeur impossible à atteindre avec le
+                // plafond d'humidité (voir GetHumidity). Un marais est de toute façon une
+                // plaine basse et détrempée : on le définit par l'altitude + l'humidité.
+                if (elevation < SWAMP_MAX_ELEVATION && humidity >= SWAMP_MIN_HUMIDITY) return Biome.Swamp;
                 if (humidity < 0.20f) return Biome.Steppe;
                 if (humidity < 0.45f) return Biome.Plains;
                 if (humidity < 0.65f) return Biome.Forest;
@@ -368,16 +519,19 @@ namespace Soulfract
             return Biome.IceSpikes;
         }
 
-        private static Biome GetHighlandBiome(float temperature, float humidity)
+        private static Biome GetHighlandBiome(float temperature, float humidity, float elevation)
         {
-            if (temperature > 0.25f)
+            // Écart par rapport à la température attendue à cette altitude (voir constantes).
+            float anomaly = temperature - ExpectedTemperature(elevation);
+
+            if (anomaly > HIGHLAND_HOT_ANOMALY)
             {
                 if (humidity < 0.30f) return Biome.Badlands;
                 if (humidity < 0.50f) return Biome.Mesa;
                 return Biome.Steppe;
             }
 
-            if (temperature > -0.1f)
+            if (anomaly > HIGHLAND_WARM_ANOMALY)
             {
                 if (humidity < 0.25f) return Biome.Steppe;
                 if (humidity < 0.50f) return Biome.Plains;
@@ -385,7 +539,7 @@ namespace Soulfract
                 return Biome.SnowyForest;
             }
 
-            if (temperature > -0.35f)
+            if (anomaly > HIGHLAND_COOL_ANOMALY)
             {
                 if (humidity < 0.30f) return Biome.Tundra;
                 if (humidity < 0.55f) return Biome.Steppe;

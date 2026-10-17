@@ -2491,11 +2491,17 @@ public readonly struct ProjectileRenderTag
 		{
 			// Aucun affichage individuel des textures - seules les manquantes seront affichées au final
 			DefaultNormalTexture = CreateDefaultNormalMap();
-			foreach (string extraName in new[] { "oak_tree_bush", "oak_tree_trunk", "spruce_tree_bush", "spruce_tree_trunk" })
+			foreach (int treeId in World.MatureTreeStumpTileIds.Keys)
 			{
-				string extraPath = $"assets/tiles/{extraName}.png";
-				Texture2D extraTex = LoadTextureFromFile(extraPath, missingTex);
-				TileTexturesByName[extraName] = extraTex;
+				WorldTileData? tree = GetTile(treeId);
+				if (tree == null) continue;
+				foreach (string suffix in new[] { "bush", "trunk", "cut" })
+				{
+					string textureName = $"{tree.Texture}_{suffix}";
+					string extraPath = $"assets/tiles/{textureName}.png";
+					Texture2D extraTex = LoadTextureFromFile(extraPath, new Texture2D());
+					TileTexturesByName[textureName] = extraTex;
+				}
 			}
 			
 			foreach (var tile in Tiles.Values)
@@ -2677,12 +2683,11 @@ public readonly struct ProjectileRenderTag
 			var decorations = new List<DecorationInfo>
 			{
 				new DecorationInfo { TileId = 1, Folder = "grass_part", VariationCount = 10, SpawnChance = 0.35f },
-				new DecorationInfo { TileId = 2, Folder = "grass_part", VariationCount = 10, SpawnChance = 0.15f },
-				new DecorationInfo { TileId = 62, Folder = "beach_part", VariationCount = 5, SpawnChance = 0.15f },
 				new DecorationInfo { TileId = 43, Folder = "snow_part", VariationCount = 4, SpawnChance = 0.30f },
 				new DecorationInfo { TileId = 46, Folder = "savanna_part", VariationCount = 6, SpawnChance = 0.30f },
 				new DecorationInfo { TileId = 44, Folder = "forest_part", VariationCount = 1, SpawnChance = 0.20f },
 				new DecorationInfo { TileId = 47, Folder = "taiga_part", VariationCount = 8, SpawnChance = 0.10f },
+				new DecorationInfo { TileId = 62, Folder = "beach_part", VariationCount = 5, SpawnChance = 0.15f },
 				new DecorationInfo { TileId = 100, Folder = "stone_part", VariationCount = 4, SpawnChance = 0.30f },
 			};
 			
@@ -3950,7 +3955,7 @@ public readonly struct ProjectileRenderTag
 							knockbackDir = new Vector2(1, 0);
 
 						entity.OnHit(checkPos);
-						entity.ApplyKnockback(knockbackDir, 80f);
+						entity.ApplyKnockback(knockbackDir, 140f);
 
 						// Afficher les dégâts flottants
 						Vector2 damagePos = World.GetEntityGroundPosition(entity.WorldPos) - new Vector2(0f, 20f);
@@ -4060,7 +4065,7 @@ public readonly struct ProjectileRenderTag
 						target.OnHit(Position, SourceEntity, attackerIsPlayer: SourceEntity == null);
 						Vector2 knockbackDirection = target.WorldPos - Position;
 						if (knockbackDirection.LengthSquared() > 0.01f)
-							target.ApplyKnockback(Vector2.Normalize(knockbackDirection), 35f);
+							target.ApplyKnockback(Vector2.Normalize(knockbackDirection), 100f);
 						Program.AddFloatingDamage(
 							World.GetEntityGroundPosition(target.WorldPos) - new Vector2(0f, 20f),
 							damageAmount, damageAmount >= 10,

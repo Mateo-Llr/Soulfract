@@ -354,6 +354,10 @@ namespace Soulfract
 		static Texture2D _mainMenuCreateWorldIcon;
 		static Texture2D _buttonToggleOn;
 		static Texture2D _buttonToggleOff;
+		static Texture2D _optionsSlideBarTop;
+		static Texture2D _optionsSlideBarMid;
+		static Texture2D _optionsSlideBarBottom;
+		static Texture2D _optionsSliderHorizontal;
 		static Texture2D _worldSettingsIconWeaponsBreak;
 		static Texture2D _worldSettingsIconFoodSpoil;
 		// assets/gui/create_world.png (dernier élément du carrousel)
@@ -1505,6 +1509,10 @@ namespace Soulfract
 			_creatorRandomIcon = TryLoad("assets/gui/random.png");
 		_buttonToggleOn = TryLoad("assets/gui/button_toggle_on.png");
 		_buttonToggleOff = TryLoad("assets/gui/button_toggle_off.png");
+		_optionsSlideBarTop = TryLoad("assets/gui/slide_bar_top.png");
+		_optionsSlideBarMid = TryLoad("assets/gui/slide_bar_mid.png");
+		_optionsSlideBarBottom = TryLoad("assets/gui/slide_bar_bottom.png");
+		_optionsSliderHorizontal = TryLoad("assets/gui/slider_vertical.png");
 		_worldSettingsIconWeaponsBreak = TryLoad("assets/gui/world_settings_weapons_break.png");
 		_worldSettingsIconFoodSpoil = TryLoad("assets/gui/world_settings_food_spoil.png");
 

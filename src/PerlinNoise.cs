@@ -6,6 +6,9 @@ namespace Soulfract
         private static int[] _p = new int[512];
         private static int _seed = 0;
 
+        /// <summary>Seed actuellement utilisée (permet aux caches de terrain de détecter un changement de monde).</summary>
+        public static int Seed => _seed;
+
         public static void SetSeed(int seed)
         {
             _seed = seed;

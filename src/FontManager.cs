@@ -85,6 +85,25 @@ namespace Soulfract
             Raylib.DrawTextEx(CustomFont, text, new Vector2(x, y), fontSize, 1, color);
         }
 
+        public static void DrawTextOutlined(string text, int x, int y, int fontSize, Color color, Color outlineColor)
+        {
+            if (_loaded && CustomFont.Texture.Id != 0)
+                Raylib.SetTextureFilter(CustomFont.Texture, TextureFilter.Point);
+
+            DrawText(text, x - 1, y, fontSize, outlineColor);
+            DrawText(text, x + 1, y, fontSize, outlineColor);
+            DrawText(text, x, y - 1, fontSize, outlineColor);
+            DrawText(text, x, y + 1, fontSize, outlineColor);
+            DrawText(text, x - 1, y - 1, fontSize, outlineColor);
+            DrawText(text, x + 1, y - 1, fontSize, outlineColor);
+            DrawText(text, x - 1, y + 1, fontSize, outlineColor);
+            DrawText(text, x + 1, y + 1, fontSize, outlineColor);
+            DrawText(text, x, y, fontSize, color);
+
+            if (_loaded && CustomFont.Texture.Id != 0)
+                Raylib.SetTextureFilter(CustomFont.Texture, TextureFilter.Bilinear);
+        }
+
         public static int MeasureText(string text, int fontSize)
         {
             if (!_loaded || CustomFont.Texture.Id == 0)

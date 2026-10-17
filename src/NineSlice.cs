@@ -220,4 +220,94 @@ namespace Soulfract
             if (BottomRight.Id != 0) Raylib.UnloadTexture(BottomRight);
         }
     }
+
+    public class HorizontalThreeSliceTexture
+    {
+        private readonly Texture2D _left;
+        private readonly Texture2D _mid;
+        private readonly Texture2D _right;
+
+        public float Scale { get; set; } = 4f;
+        public bool IsValid => _left.Id != 0 && _mid.Id != 0 && _right.Id != 0;
+
+        public HorizontalThreeSliceTexture(string basePath, float scale = 4f)
+        {
+            Scale = scale;
+            _left = LoadSlice($"{basePath}_left.png");
+            _mid = LoadSlice($"{basePath}_mid.png");
+            _right = LoadSlice($"{basePath}_right.png");
+        }
+
+        private static Texture2D LoadSlice(string path)
+        {
+            if (!File.Exists(path))
+                return new Texture2D();
+
+            var texture = Raylib.LoadTexture(path);
+            Raylib.SetTextureFilter(texture, TextureFilter.Point);
+            return texture;
+        }
+
+        public void DrawAlignedToNineSlice(Rectangle destRect, NineSliceTexture frame, Color tint)
+        {
+            if (!IsValid || !frame.IsValid)
+                return;
+
+            DrawRow(
+                destRect.X,
+                destRect.X + destRect.Width,
+                destRect.Y,
+                tint);
+            DrawRow(
+                destRect.X,
+                destRect.X + destRect.Width,
+                destRect.Y + destRect.Height,
+                tint);
+        }
+
+        private void DrawRow(float leftAnchorX, float rightAnchorX, float centerY, Color tint)
+        {
+            float leftWidth = _left.Width * Scale;
+            float midHeight = _mid.Height * Scale;
+            float rightWidth = _right.Width * Scale;
+            float leftEdge = leftAnchorX + leftWidth / 2f;
+            float rightEdge = rightAnchorX - rightWidth / 2f;
+            float midWidth = rightEdge - leftEdge;
+
+            if (midWidth > 0f)
+            {
+                DrawSlice(
+                    _mid,
+                    new Rectangle(leftEdge, centerY - midHeight / 2f, midWidth, midHeight),
+                    tint);
+            }
+
+            DrawSlice(
+                _left,
+                new Rectangle(leftAnchorX - leftWidth / 2f, centerY - _left.Height * Scale / 2f, leftWidth, _left.Height * Scale),
+                tint);
+            DrawSlice(
+                _right,
+                new Rectangle(rightAnchorX - rightWidth / 2f, centerY - _right.Height * Scale / 2f, rightWidth, _right.Height * Scale),
+                tint);
+        }
+
+        private static void DrawSlice(Texture2D texture, Rectangle destRect, Color tint)
+        {
+            Raylib.DrawTexturePro(
+                texture,
+                new Rectangle(0, 0, texture.Width, texture.Height),
+                destRect,
+                Vector2.Zero,
+                0f,
+                tint);
+        }
+
+        public void Unload()
+        {
+            if (_left.Id != 0) Raylib.UnloadTexture(_left);
+            if (_mid.Id != 0) Raylib.UnloadTexture(_mid);
+            if (_right.Id != 0) Raylib.UnloadTexture(_right);
+        }
+    }
 }

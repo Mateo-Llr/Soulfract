@@ -136,6 +136,142 @@
       "swaysInWind": true
     },
     {
+      "id": 4007,
+      "name": "Oak stump",
+      "texture": "oak_tree_stump",
+      "hardness": 3,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 7
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 4008,
+      "name": "Spruce stump",
+      "texture": "spruce_tree_stump",
+      "hardness": 3,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 8
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 4009,
+      "name": "Birch stump",
+      "texture": "birch_tree_stump",
+      "hardness": 3,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 5,
+        "height": 7
+      },
+      "drawOffset": {
+        "x": -80,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "id": 4010,
+      "name": "Palm stump",
+      "texture": "palm_tree_stump",
+      "hardness": 3,
+      "material": "wood",
+      "walkable": false,
+      "diggable": true,
+      "miningTool": "axe",
+      "size": {
+        "width": 4,
+        "height": 8
+      },
+      "drawOffset": {
+        "x": -60,
+        "y": -280
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "collisionOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "drops": [
+        {
+          "id": "log",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
       "id": 5,
       "name": "Grass Tuff",
       "texture": "smallgrass",
@@ -1086,11 +1222,11 @@
       "diggable": true,
       "miningTool": "axe",
       "size": {
-        "width": 4,
-        "height": 8
+        "width": 5,
+        "height": 7
       },
       "drawOffset": {
-        "x": -60,
+        "x": -80,
         "y": -280
       },
       "collisionSize": {
@@ -3182,6 +3318,31 @@
           "maxQty": 1,
           "chance": 1.0
         }
+      ]
+    },
+    {
+      "id": 419,
+      "name": "Genie lamp",
+      "texture": "genie_lamp",
+      "hardness": 1,
+      "material": "stone",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "genie_lamp",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "isLightSource": true,
+      "lightRadius": 25,
+      "lightColor": [
+        255,
+        160,
+        30,
+        200
       ]
     },
     {

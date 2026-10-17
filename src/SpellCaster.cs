@@ -9,15 +9,15 @@ namespace Soulfract
         public static void CastSpell(SpellData spell, Vector2 startPos, Vector2 direction, Vector2 targetPos, float chargeRatio = 1f)
         {
             chargeRatio = Math.Clamp(chargeRatio, 0f, 1f);
-            int count = GetProjectileCount(spell.Power);
-            float speed = GetProjectileSpeed(spell.Power);
-            float damage = GetDamage(spell.Power);
-            float spread = GetSpread(spell.Power);
+            int count = GetProjectileCount(spell.Power, chargeRatio);
+            float speed = GetProjectileSpeed(spell.Power, chargeRatio);
+            float damage = GetDamage(spell.Power, chargeRatio);
+            float spread = GetSpread(spell.Power, chargeRatio);
             Color color = spell.GetElementColor();
             Color particleColor = spell.GetParticleColor();
 
             // Plus l'attaque est chargée, plus la déflagration est puissante (rayon + dégâts).
-            float blastPowerMultiplier = 0.55f + (1.9f - 0.55f) * chargeRatio;
+            float blastPowerMultiplier = 1f + 0.9f * chargeRatio;
 
             switch (spell.Type)
             {
@@ -26,21 +26,26 @@ namespace Soulfract
                     break;
 
                 case SpellType.Homing:
-                    var homingProj = new HomingProjectile(startPos, targetPos, speed * 0.8f, damage, color, particleColor);
+                    var homingProj = new HomingProjectile(startPos, targetPos, speed * 0.8f, damage, color, particleColor, spell.Element);
                     Program.AddSpellProjectile(homingProj);
                     break;
 
                 case SpellType.Area:
-                    float radius = (80f + (int)spell.Power * 20f) * MathF.Sqrt(blastPowerMultiplier);
+                {
+                    float chargedPower = GetChargedPower(spell.Power, chargeRatio);
+                    float radius = (80f + chargedPower * 20f) * MathF.Sqrt(blastPowerMultiplier);
                     float areaDamage = damage * blastPowerMultiplier;
-                    CreateExplosion(targetPos, radius, areaDamage, color, particleColor);
+                    CreateExplosion(targetPos, radius, areaDamage, spell.Element);
                     Program.ApplyScreenShake(radius * 0.1f, 0.3f);
                     break;
+                }
 
                 case SpellType.Rain:
-                    int rainCount = 8 + (int)spell.Power * 4;
-                    float rainRadius = 100f + (int)spell.Power * 30f;
-                    float dropHeight = 350f + (int)spell.Power * 50f;
+                {
+                    float chargedPower = GetChargedPower(spell.Power, chargeRatio);
+                    int rainCount = (int)MathF.Round(8f + chargedPower * 4f);
+                    float rainRadius = 100f + chargedPower * 30f;
+                    float dropHeight = 350f + chargedPower * 50f;
                     for (int i = 0; i < rainCount; i++)
                     {
                         float angle = (float)(Random.Shared.NextDouble() * Math.PI * 2);
@@ -48,33 +53,39 @@ namespace Soulfract
                         Vector2 offset = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radiusOffset;
                         Vector2 groundPos = targetPos + offset;
                         Vector2 dropStartPos = new Vector2(groundPos.X, groundPos.Y - dropHeight);
-                        var rainProj = new RainProjectile(dropStartPos, groundPos.Y, damage * 0.5f, color, particleColor);
+                        var rainProj = new RainProjectile(dropStartPos, groundPos.Y, damage * 0.5f, color, particleColor, spell.Element);
                         Program.AddSpellProjectile(rainProj);
                     }
                     break;
+                }
 
                 case SpellType.Lightning:
-                    CreateLightning(startPos, targetPos, damage, color);
+                    CreateLightning(startPos, targetPos, damage, spell.Element);
                     break;
 
                 case SpellType.Shield:
-                    int shieldCount = 4 + (int)spell.Power * 2;
+                {
+                    float chargedPower = GetChargedPower(spell.Power, chargeRatio);
+                    int shieldCount = (int)MathF.Round(4f + chargedPower * 2f);
                     for (int i = 0; i < shieldCount; i++)
                     {
                         float angle = i * (MathF.PI * 2 / shieldCount);
                         Vector2 dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                        var shieldProj = new OrbitalProjectile(startPos, dir, speed * 0.3f, damage * 0.3f, color, particleColor, spell.Element);
+                        var shieldProj = new OrbitalProjectile(startPos, dir, damage * 0.3f, color, particleColor, spell.Element);
                         Program.AddSpellProjectile(shieldProj);
                     }
                     break;
+                }
 
                 case SpellType.Summon:
-                    var summonProj = new SummonProjectile(targetPos, damage, color, particleColor);
+                    var summonProj = new SummonProjectile(targetPos, damage, color, particleColor, spell.Element);
                     Program.AddSpellProjectile(summonProj);
                     break;
 
                 case SpellType.Burst:
-                    int burstCount = 8 + (int)spell.Power * 4;
+                {
+                    float chargedPower = GetChargedPower(spell.Power, chargeRatio);
+                    int burstCount = (int)MathF.Round(8f + chargedPower * 4f);
                     float burstSpeed = speed * 1.2f;
                     for (int i = 0; i < burstCount; i++)
                     {
@@ -84,6 +95,7 @@ namespace Soulfract
                         Program.AddSpellProjectile(proj);
                     }
                     break;
+                }
 
                 default:
                     LaunchProjectiles(startPos, direction, count, speed, damage, spread, color, particleColor, spell.Element, false);
@@ -103,17 +115,9 @@ namespace Soulfract
             }
         }
 
-        public static void CreateExplosion(Vector2 center, float radius, float damage, Color color, Color particleColor)
+        public static void CreateExplosion(Vector2 center, float radius, float damage, SpellElement element)
         {
-            Random rand = new Random();
-            for (int i = 0; i < 30; i++)
-            {
-                float angle = (float)(rand.NextDouble() * Math.PI * 2);
-                float speed = rand.Next(50, 200);
-                Vector2 vel = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
-                var p = new Particle(center, vel, particleColor, rand.Next(3, 8), rand.Next(300, 800) / 1000f);
-                Program.GetParticleList().Add(p);
-            }
+            SpellVfx.AreaBlast(Program.GetParticleList(), element, center, radius);
             float radiusSq = radius * radius;
             foreach (var entity in Program.GetEntities())
             {
@@ -137,7 +141,7 @@ namespace Soulfract
             }
         }
 
-        private static void CreateLightning(Vector2 start, Vector2 end, float damage, Color color)
+        private static void CreateLightning(Vector2 start, Vector2 end, float damage, SpellElement element)
         {
             Vector2 dir = end - start;
             float length = dir.Length();
@@ -145,18 +149,8 @@ namespace Soulfract
             dir /= length;
             Vector2 normal = new Vector2(-dir.Y, dir.X);
 
-            Color coreColor = new Color((byte)255, (byte)255, (byte)Math.Min(255, color.B + 60), (byte)255);
-            Color glowColor = new Color(color.R, color.G, color.B, (byte)90);
-            Color midColor = new Color(color.R, color.G, color.B, (byte)200);
-
             List<Vector2> mainPath = BuildBoltPath(start, end, length, dir, normal, jitterScale: 1f);
-
-            // Couche externe : halo large et diffus pour donner de l'épaisseur lumineuse.
-            DrawBoltPolyline(mainPath, 11f, glowColor);
-            // Couche intermédiaire : couleur de l'élément, bien visible.
-            DrawBoltPolyline(mainPath, 5.5f, midColor);
-            // Coeur : trait blanc-vif fin, façon éclair réel.
-            DrawBoltPolyline(mainPath, 2f, coreColor);
+            var paths = new List<Vector2[]> { mainPath.ToArray() };
 
             // Ramifications aléatoires qui partent du tronc principal.
             int branchCount = 2 + Random.Shared.Next(0, 3);
@@ -171,32 +165,11 @@ namespace Soulfract
                 Vector2 branchNormal = new Vector2(-branchDir.Y, branchDir.X);
                 List<Vector2> branchPath = BuildBoltPath(branchOrigin, branchEnd, branchLength, branchDir, branchNormal, jitterScale: 0.7f);
 
-                DrawBoltPolyline(branchPath, 5f, glowColor);
-                DrawBoltPolyline(branchPath, 2.5f, midColor);
-                DrawBoltPolyline(branchPath, 1f, coreColor);
+                paths.Add(branchPath.ToArray());
             }
 
-            // Étincelles le long du tronc principal.
-            foreach (var point in mainPath)
-            {
-                if (Random.Shared.NextDouble() < 0.6)
-                {
-                    float sparkAngle = (float)(Random.Shared.NextDouble() * Math.PI * 2);
-                    float sparkSpeed = 20f + (float)Random.Shared.NextDouble() * 60f;
-                    Vector2 sparkVel = new Vector2(MathF.Cos(sparkAngle), MathF.Sin(sparkAngle)) * sparkSpeed;
-                    Program.GetParticleList().Add(new Particle(point, sparkVel, coreColor, 2f + (float)Random.Shared.NextDouble() * 2f, 0.15f + (float)Random.Shared.NextDouble() * 0.15f));
-                }
-            }
-
-            // Flash d'impact à l'arrivée.
-            for (int i = 0; i < 14; i++)
-            {
-                float angle = (float)(Random.Shared.NextDouble() * Math.PI * 2);
-                float speed = 40f + (float)Random.Shared.NextDouble() * 140f;
-                Vector2 vel = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
-                Program.GetParticleList().Add(new Particle(end, vel, coreColor, 3f + (float)Random.Shared.NextDouble() * 3f, 0.2f + (float)Random.Shared.NextDouble() * 0.2f));
-            }
-            Program.SpawnMagicExplosionEffect(end, color, 1.1f);
+            SpellVfx.SpawnBolt(Program.GetParticleList(), paths, SpellVfx.Style(element).Mid);
+            SpellVfx.Impact(Program.GetParticleList(), element, end, 1.1f);
             Program.ApplyScreenShake(3.5f, 0.12f);
 
             foreach (var entity in Program.GetEntities())
@@ -204,8 +177,28 @@ namespace Soulfract
                 if (!entity.IsAlive) continue;
                 if (entity.Species == "human") continue;
                 if (entity.IsTamed) continue;
-                float dist = DistanceToSegment(entity.WorldPos, start, end);
-                if (dist < 20f)
+                Rectangle hitbox = World.GetEntityDamageHitbox(entity, Program.TileSize);
+                hitbox.X -= 10f;
+                hitbox.Y -= 10f;
+                hitbox.Width += 20f;
+                hitbox.Height += 20f;
+                bool hitByLightning = false;
+                foreach (Vector2[] path in paths)
+                {
+                    for (int i = 1; i < path.Length; i++)
+                    {
+                        if (SegmentIntersectsRectangle(path[i - 1], path[i], hitbox))
+                        {
+                            hitByLightning = true;
+                            break;
+                        }
+                    }
+
+                    if (hitByLightning)
+                        break;
+                }
+
+                if (hitByLightning)
                 {
                     entity.CurrentHP -= (int)damage;
                     entity.OnHit(start);
@@ -238,67 +231,108 @@ namespace Soulfract
             return path;
         }
 
-        private static void DrawBoltPolyline(List<Vector2> path, float thickness, Color color)
+        private static bool SegmentIntersectsRectangle(Vector2 start, Vector2 end, Rectangle rectangle)
         {
-            for (int i = 1; i < path.Count; i++)
-                Raylib.DrawLineEx(path[i - 1], path[i], thickness, color);
+            float dx = end.X - start.X;
+            float dy = end.Y - start.Y;
+            float tMin = 0f;
+            float tMax = 1f;
+
+            return Clip(-dx, start.X - rectangle.X, ref tMin, ref tMax)
+                && Clip(dx, rectangle.X + rectangle.Width - start.X, ref tMin, ref tMax)
+                && Clip(-dy, start.Y - rectangle.Y, ref tMin, ref tMax)
+                && Clip(dy, rectangle.Y + rectangle.Height - start.Y, ref tMin, ref tMax);
         }
 
-        private static float DistanceToSegment(Vector2 point, Vector2 a, Vector2 b)
+        private static bool Clip(float p, float q, ref float tMin, ref float tMax)
         {
-            Vector2 ab = b - a;
-            Vector2 ap = point - a;
-            float t = Math.Clamp(Vector2.Dot(ap, ab) / Vector2.Dot(ab, ab), 0f, 1f);
-            Vector2 closest = a + ab * t;
-            return Vector2.Distance(point, closest);
+            if (MathF.Abs(p) < float.Epsilon)
+                return q >= 0f;
+
+            float t = q / p;
+            if (p < 0f)
+            {
+                if (t > tMax) return false;
+                if (t > tMin) tMin = t;
+            }
+            else
+            {
+                if (t < tMin) return false;
+                if (t < tMax) tMax = t;
+            }
+
+            return true;
         }
 
-        private static int GetProjectileCount(PowerLevel power)
+        private static PowerLevel GetNextPower(PowerLevel power) => power switch
         {
-            return power switch
+            PowerLevel.Medium => PowerLevel.Strong,
+            PowerLevel.Strong => PowerLevel.Massive,
+            _ => power
+        };
+
+        private static float GetChargedPower(PowerLevel power, float chargeRatio)
+        {
+            if (power == PowerLevel.Weak || power == PowerLevel.Massive)
+                return (int)power;
+
+            return (int)power + Math.Clamp(chargeRatio, 0f, 1f);
+        }
+
+        private static float InterpolatePower(PowerLevel power, float chargeRatio, Func<PowerLevel, float> value)
+        {
+            float progress = power == PowerLevel.Weak || power == PowerLevel.Massive
+                ? 0f
+                : Math.Clamp(chargeRatio, 0f, 1f);
+            return value(power) + (value(GetNextPower(power)) - value(power)) * progress;
+        }
+
+        private static int GetProjectileCount(PowerLevel power, float chargeRatio)
+        {
+            return (int)MathF.Round(InterpolatePower(power, chargeRatio, p => p switch
             {
                 PowerLevel.Weak => 1,
                 PowerLevel.Medium => 2,
                 PowerLevel.Strong => 5,
                 PowerLevel.Massive => 10,
                 _ => 1
-            };
+            }));
         }
 
-        private static float GetProjectileSpeed(PowerLevel power)
+        private static float GetProjectileSpeed(PowerLevel power, float chargeRatio)
         {
-            return power switch
+            return InterpolatePower(power, chargeRatio, p => p switch
             {
                 PowerLevel.Weak => 450f,
                 PowerLevel.Medium => 600f,
                 PowerLevel.Strong => 900f,
                 PowerLevel.Massive => 1200f,
                 _ => 600f
-            };
+            });
         }
 
-        private static float GetDamage(PowerLevel power)
+        private static float GetDamage(PowerLevel power, float chargeRatio)
         {
-            return power switch
+            return InterpolatePower(power, chargeRatio, p => p switch
             {
                 PowerLevel.Weak => 5f,
                 PowerLevel.Medium => 12f,
                 PowerLevel.Strong => 25f,
                 PowerLevel.Massive => 40f,
                 _ => 12f
-            };
+            });
         }
 
-        private static float GetSpread(PowerLevel power)
+        private static float GetSpread(PowerLevel power, float chargeRatio)
         {
-            return power switch
+            return InterpolatePower(power, chargeRatio, p => p switch
             {
                 PowerLevel.Weak => 0.1f,
                 PowerLevel.Medium => 0.2f,
                 PowerLevel.Strong => 0.4f,
                 PowerLevel.Massive => 0.6f,
                 _ => 0.2f
-            };
+            });
         }
     }
 
@@ -315,6 +349,8 @@ namespace Soulfract
         public new bool IsAlive => _isAlive && Lifetime > 0f;
         public float Lifetime = 3f;
         public SpellElement Element;
+        public float VisualSize => Size;
+        public float Phase { get; } = (float)Random.Shared.NextDouble() * MathF.PI * 2f;
         public Raylib_cs.Texture2D VisualTexture = new Raylib_cs.Texture2D();
         public float VisualRotation = 0f;
         public bool IsHoming;
@@ -324,10 +360,6 @@ namespace Soulfract
         // Traînée : distances accumulées depuis le dernier spawn, pour un espacement
         // constant des particules quelle que soit la vitesse du projectile / le framerate.
         private float _trailDistanceAccum = 0f;
-        private float _smokeDistanceAccum = 0f;
-        private const float TrailSpawnSpacing = 7f;   // px entre 2 particules de couleur
-        private const float SmokeSpawnSpacing = 16f;  // px entre 2 puffs de fumée
-
         public SpellProjectile(Vector2 pos, Vector2 dir, float speed, float damage, Color color, Color particleColor, SpellElement element, bool homing)
             : base(pos, Vector2.Zero, color, 6f, 3f)
         {
@@ -350,43 +382,25 @@ namespace Soulfract
         // Le scale de base est plus élevé qu'avant pour un impact plus visible.
         protected void ExplodeAt(Vector2 pos)
         {
-            Program.SpawnMagicExplosionEffect(pos, Color, Math.Max(1.4f, Size / 6f));
+            SpellVfx.Impact(Program.GetParticleList(), Element, pos, Math.Max(1.4f, Size / 6f));
         }
 
-        // Laisse derrière le projectile de petites particules de la couleur du sort,
-        // puis un peu plus loin (plus en arrière) de la fumée qui se dissipe lentement.
         protected void SpawnTrail(Vector2 fromPosition, Vector2 toPosition)
         {
             float segmentLength = Vector2.Distance(fromPosition, toPosition);
             if (segmentLength < 0.001f) return;
             Vector2 dir = (toPosition - fromPosition) / segmentLength;
-            Vector2 backward = -dir;
-
-            _trailDistanceAccum += segmentLength;
-            while (_trailDistanceAccum >= TrailSpawnSpacing)
+            float spacing = SpellVfx.TrailSpacing(Element);
+            float traveled = 0f;
+            float distanceToNext = spacing - _trailDistanceAccum;
+            while (distanceToNext <= segmentLength - traveled)
             {
-                _trailDistanceAccum -= TrailSpawnSpacing;
-                float t = _trailDistanceAccum / segmentLength;
-                Vector2 point = Vector2.Lerp(toPosition, fromPosition, Math.Clamp(t, 0f, 1f));
-                float speedFactor = (float)(Random.Shared.NextDouble() * 20f - 10f);
-                Vector2 vel = backward * speedFactor + new Vector2((float)(Random.Shared.NextDouble() * 20f - 10f), (float)(Random.Shared.NextDouble() * 20f - 10f));
-                float size = Math.Max(2f, Size * 0.28f) * (0.7f + (float)Random.Shared.NextDouble() * 0.5f);
-                Program.GetParticleList().Add(new Particle(point, vel, ParticleColor, size, 0.25f + (float)Random.Shared.NextDouble() * 0.15f));
+                traveled += distanceToNext;
+                Vector2 point = fromPosition + dir * traveled;
+                SpellVfx.EmitTrail(Program.GetParticleList(), Element, point, -dir, Size);
+                distanceToNext = spacing;
             }
-
-            _smokeDistanceAccum += segmentLength;
-            while (_smokeDistanceAccum >= SmokeSpawnSpacing)
-            {
-                _smokeDistanceAccum -= SmokeSpawnSpacing;
-                float t = _smokeDistanceAccum / segmentLength;
-                Vector2 point = Vector2.Lerp(toPosition, fromPosition, Math.Clamp(t, 0f, 1f));
-                // La fumée apparaît un peu plus loin en arrière du projectile que les particules de couleur.
-                point += backward * (Size * 1.2f + 6f);
-                Vector2 smokeVel = backward * (10f + (float)Random.Shared.NextDouble() * 15f) + new Vector2(0f, -8f - (float)Random.Shared.NextDouble() * 10f);
-                Color smokeBase = new Color((byte)150, (byte)150, (byte)150, (byte)120);
-                float smokeSize = Math.Max(4f, Size * 0.55f) * (0.8f + (float)Random.Shared.NextDouble() * 0.6f);
-                Program.GetParticleList().Add(new Particle(point, smokeVel, smokeBase, smokeSize, 0.5f + (float)Random.Shared.NextDouble() * 0.35f));
-            }
+            _trailDistanceAccum = (_trailDistanceAccum + segmentLength) % spacing;
         }
 
         protected bool TryExplodeOnTileHit(Vector2 fromPosition, Vector2 toPosition)
@@ -528,7 +542,7 @@ namespace Soulfract
                 return;
             }
 
-            Vector2 playerPos = Program.GetPlayerPosition();
+            Vector2 playerPos = World.GetEntityGroundPosition(Program.GetPlayerPosition());
             if (Vector2.Distance(Position, playerPos) < 16f)
             {
                 Program.DamagePlayer(Math.Max(1, (int)Damage));
@@ -554,8 +568,8 @@ namespace Soulfract
 
     public class HomingProjectile : SpellProjectile
     {
-        public HomingProjectile(Vector2 pos, Vector2 target, float speed, float damage, Color color, Color particleColor)
-            : base(pos, Vector2.Normalize(target - pos), speed, damage, color, particleColor, SpellElement.Fire, true)
+        public HomingProjectile(Vector2 pos, Vector2 target, float speed, float damage, Color color, Color particleColor, SpellElement element = SpellElement.Fire)
+            : base(pos, target == pos ? Vector2.UnitX : Vector2.Normalize(target - pos), speed, damage, color, particleColor, element, true)
         { }
     }
 
@@ -564,28 +578,33 @@ namespace Soulfract
         public float GroundY;
         public float Gravity = 800f;
 
-        public RainProjectile(Vector2 pos, float groundY, float damage, Color color, Color particleColor)
-            : base(pos, new Vector2(0, 50f), 0f, damage, color, particleColor, SpellElement.Water, false)
+        public RainProjectile(Vector2 pos, float groundY, float damage, Color color, Color particleColor, SpellElement element = SpellElement.Water)
+            : base(pos, new Vector2(0, 50f), 0f, damage, color, particleColor, element, false)
         {
             GroundY = groundY;
-            Size = 4f;
+            Size = 6.5f;
             Lifetime = 3f;
             Velocity = new Vector2(0, 50f);
         }
 
         public override void Update(float dt, List<Entity> entities)
         {
+            if (!IsAlive) return;
+
             // Gravité
             Vector2 previousPosition = Position;
             Velocity.Y += Gravity * dt;
             Position += Velocity * dt;
             Lifetime -= dt;
+            SpawnTrail(previousPosition, Position);
 
             if (TryExplodeOnTileHit(previousPosition, Position))
                 return;
 
             if (Lifetime <= 0 || Position.Y >= GroundY)
             {
+                if (Position.Y >= GroundY)
+                    ExplodeAt(new Vector2(Position.X, GroundY));
                 Kill();
                 return;
             }
@@ -619,20 +638,23 @@ namespace Soulfract
         public float Angle;
         public float OrbitSpeed;
 
-        public OrbitalProjectile(Vector2 center, Vector2 dir, float speed, float damage, Color color, Color particleColor, SpellElement element)
-            : base(center + dir * 30f, Vector2.Zero, 0, damage, color, particleColor, element, false)
+        public OrbitalProjectile(Vector2 center, Vector2 dir, float damage, Color color, Color particleColor, SpellElement element)
+            : base(center + dir * 40f, Vector2.Zero, 0, damage, color, particleColor, element, false)
         {
             Center = center;
             Angle = MathF.Atan2(dir.Y, dir.X);
-            OrbitSpeed = speed * 0.1f;
+            OrbitSpeed = 2.4f;
             Lifetime = 5f;
         }
 
         public override void Update(float dt, List<Entity> entities)
         {
             Angle += OrbitSpeed * dt;
-            Position = Center + new Vector2(MathF.Cos(Angle), MathF.Sin(Angle)) * 30f;
+            Position = Center + new Vector2(MathF.Cos(Angle), MathF.Sin(Angle)) * 40f;
             Lifetime -= dt;
+            if ((float)Random.Shared.NextDouble() < dt * 20f)
+                SpellVfx.EmitTrail(Program.GetParticleList(), Element, Position,
+                    new Vector2(MathF.Sin(Angle), -MathF.Cos(Angle)), Size * 0.7f);
             if (Lifetime <= 0) Kill();
 
         }
@@ -641,9 +663,10 @@ namespace Soulfract
     public class SummonProjectile : SpellProjectile
     {
         private float _timer = 1.5f;
+        public float Progress => Math.Clamp(1f - _timer / 1.5f, 0f, 1f);
 
-        public SummonProjectile(Vector2 pos, float damage, Color color, Color particleColor)
-            : base(pos, Vector2.Zero, 0f, damage, color, particleColor, SpellElement.Dark, false)
+        public SummonProjectile(Vector2 pos, float damage, Color color, Color particleColor, SpellElement element = SpellElement.Dark)
+            : base(pos, Vector2.Zero, 0f, damage, color, particleColor, element, false)
         {
             Size = 20f;
             Lifetime = 1.5f;
@@ -655,7 +678,7 @@ namespace Soulfract
             _timer -= dt;
             if (_timer <= 0)
             {
-                SpellCaster.CreateExplosion(Position, 50f, Damage, Color, Color);
+                SpellCaster.CreateExplosion(Position, 50f, Damage, Element);
                 Kill();
             }
 

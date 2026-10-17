@@ -2526,11 +2526,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 		//  TOUCHES RÉASSIGNABLES
 		// ─────────────────────────────────────────────────────────────────────────
 		// Actions de gameplay dont la touche peut être changée depuis l'onglet
-		// "Contrôles" du menu Options. Volontairement limité aux actions clavier
-		// simples et sans ambiguïté (déplacement, sprint, interagir, inventaire,
-		// personnage, lâcher un objet) : les actions à la souris (clic gauche/droit,
-		// molette) et les touches fixes (hotbar 1-0, Entrée pour le chat, Echap)
-		// restent telles quelles pour l'instant.
+		// "Contrôles" du menu Options.
 		public enum GameAction
 		{
 			MoveUp,
@@ -2545,7 +2541,34 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			RadialMenu,      // Nouveau
 			ChatToggle,      // Nouveau
 			PushToTalk,
-			PauseMenu        // Nouveau
+			PauseMenu,       // Nouveau
+			MagicMenu,
+			GuildMenu,
+			Map,
+			Bestiary,
+			QuickSave,
+			ReloadData,
+			ToggleDebug,
+			TimeSkip,
+			SelectStructureCorner1,
+			SelectStructureCorner2,
+			Fullscreen,
+			ItemsMenu,
+			HotbarSlot1,
+			HotbarSlot2,
+			HotbarSlot3,
+			HotbarSlot4,
+			HotbarSlot5,
+			HotbarSlot6,
+			HotbarSlot7,
+			HotbarSlot8,
+			HotbarSlot9,
+			HotbarSlot10,
+			EmoteWheel,
+			ArmorStandPose,
+			WagonLink,
+			BoatRow,
+			CarMode
 		}
 
 		static void LoadAssets(Action<string, float>? onProgress = null)

@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SoulfractLauncher</AssemblyName>
     <RootNamespace>SoulfractLauncher</RootNamespace>
+    <ApplicationIcon>..\assets\launcher\launcher_icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\assets\title.png"
@@ -17,5 +18,7 @@
                       LogicalName="SoulfractLauncher.Assets.Launcher.caution_sign.png" />
     <EmbeddedResource Include="..\assets\launcher\discord_icon.png"
                       LogicalName="SoulfractLauncher.Assets.Launcher.discord_icon.png" />
+    <EmbeddedResource Include="..\assets\launcher\launcher_icon.ico"
+                      LogicalName="SoulfractLauncher.Assets.Launcher.launcher_icon.ico" />
   </ItemGroup>
 </Project>

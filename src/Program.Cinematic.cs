@@ -13,6 +13,11 @@ namespace Soulfract
 		private const float SoulMaterializationDuration = 4.2f;
 		public const float SoulMaterializationRevealStart = 1.9f;
 		public const float SoulMaterializationColorStart = 2.75f;
+		// Bandes cinématiques (letterbox) en haut et en bas de l'écran pendant toute l'introduction
+		// (cinématique d'arrivée + matérialisation du personnage).
+		private const float SoulIntroBarsHeightRatio = 0.12f;
+		private const float SoulIntroBarsSlideInDuration = 1.2f;
+		private const float SoulIntroBarsSlideOutDuration = 0.9f;
 		private static readonly string[] SoulArrivalLines =
 		{
 			"Before time, there was only silence.",
@@ -31,6 +36,7 @@ namespace Soulfract
 		private static RenderTexture2D _soulArrivalSceneTexture;
 		private static RenderTexture2D _soulArrivalPreviousSceneTexture;
 		private static bool _isSoulMaterializing;
+		private static float _soulIntroBarsAmount; // 0 = rétractées, 1 = pleinement déployées
 		private static float _soulMaterializationTimer;
 		private static Shader _soulMaterializationShader;
 		private static bool _soulMaterializationShaderInitialized;
@@ -203,6 +209,28 @@ void main()
 			ClearSoulTrail("materialization");
 		}
 
+		// Les bandes se déploient dès le début de la cinématique et ne se rétractent qu'une fois
+		// la matérialisation terminée, c'est-à-dire quand le personnage a pleinement spawn.
+		private static void UpdateSoulIntroBars(float dt)
+		{
+			bool barsWanted = _isSoulArrivalCinematic || _isSoulMaterializing;
+			if (barsWanted)
+				_soulIntroBarsAmount = Math.Min(1f, _soulIntroBarsAmount + dt / SoulIntroBarsSlideInDuration);
+			else if (_soulIntroBarsAmount > 0f)
+				_soulIntroBarsAmount = Math.Max(0f, _soulIntroBarsAmount - dt / SoulIntroBarsSlideOutDuration);
+		}
+
+		private static void DrawSoulIntroBars()
+		{
+			if (_soulIntroBarsAmount <= 0f) return;
+			int screenWidth = Raylib.GetScreenWidth();
+			int screenHeight = Raylib.GetScreenHeight();
+			int barHeight = (int)MathF.Ceiling(screenHeight * SoulIntroBarsHeightRatio * SmoothStep(_soulIntroBarsAmount));
+			if (barHeight <= 0) return;
+			Raylib.DrawRectangle(0, 0, screenWidth, barHeight, Color.Black);
+			Raylib.DrawRectangle(0, screenHeight - barHeight, screenWidth, barHeight, Color.Black);
+		}
+
 		private static void UpdateSoulMaterialization(float dt)
 		{
 			if (!_isSoulMaterializing) return;
@@ -314,6 +342,7 @@ void main()
 				UnloadSoulArrivalSpaceTextures();
 			_soulArrivalPlanetRandom = new Random();
 			_isSoulArrivalCinematic = true;
+			_soulIntroBarsAmount = 0f;
 			_soulArrivalLineIndex = 0;
 			_soulArrivalPreviousLineIndex = -1;
 			_soulArrivalSceneTimer = 0f;
@@ -417,6 +446,9 @@ void main()
 			{
 				DrawSoulArrivalScene(_soulArrivalLineIndex, time, centerX, centerY, 1f);
 			}
+
+			// Bandes dessinées sous le titre et la légende pour que le texte reste lisible par-dessus.
+			DrawSoulIntroBars();
 
 			string title = Localization.GetOrDefault("soularrival.title", "The arrival of a soul");
 			int titleSize = Math.Clamp(screenWidth / 42, 20, 34);

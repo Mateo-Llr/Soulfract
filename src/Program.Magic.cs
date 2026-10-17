@@ -116,8 +116,23 @@ namespace Soulfract
 
 		const float MAX_CHARGE_TIME = 1.5f;
 
-		// temps max pour charge complète
 		const float MIN_CHARGE_THRESHOLD = 0.2f;
+		private const float LIGHT_SPELL_REPEAT_INTERVAL = 0.5f;
+		private static float _leftSpellNextCastTime;
+		private static float _rightSpellNextCastTime;
+
+		private static void CastAssignedSpell(SpellData spell, float chargeRatio, Camera2D camera)
+		{
+			Vector2 playerVisualPos = GetPlayerVisualPosition(_playerPos);
+			Vector2 mouseWorldPos = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
+			Vector2 direction = mouseWorldPos - playerVisualPos;
+			if (direction.LengthSquared() < 0.0001f)
+				direction = Vector2.UnitX;
+			else
+				direction = Vector2.Normalize(direction);
+
+			SpellCaster.CastSpell(spell, playerVisualPos, direction, mouseWorldPos, chargeRatio);
+		}
 
 		//  ÉCRAN DE CHARGEMENT AVEC FONDU ────────────────────────────────────
         // Le chargement d'une sauvegarde est étalé sur plusieurs frames (génération
@@ -147,6 +162,28 @@ namespace Soulfract
 		public static void SetLeftClickSpell(SpellData spell) => _leftClickSpell = spell;
 
 		public static void SetRightClickSpell(SpellData spell) => _rightClickSpell = spell;
+
+		private static SpellData GetSavedSpell(SpellElement element, SpellType type, PowerLevel power)
+		{
+			return new SpellData
+			{
+				Element = Enum.IsDefined(element) ? element : SpellElement.Fire,
+				Type = Enum.IsDefined(type) ? type : SpellType.Projectile,
+				Power = Enum.IsDefined(power) ? power : PowerLevel.Medium
+			};
+		}
+
+		static void RestoreAssignedSpells(GameSaveData saveData)
+		{
+			_leftClickSpell = GetSavedSpell(saveData.LeftClickSpellElement, saveData.LeftClickSpellType, saveData.LeftClickSpellPower);
+			_rightClickSpell = GetSavedSpell(saveData.RightClickSpellElement, saveData.RightClickSpellType, saveData.RightClickSpellPower);
+		}
+
+		static void ResetAssignedSpells()
+		{
+			_leftClickSpell = GetSavedSpell(SpellElement.Fire, SpellType.Projectile, PowerLevel.Medium);
+			_rightClickSpell = _leftClickSpell;
+		}
 
 		// true => à reconstruire au prochain Draw
 
@@ -1906,29 +1943,41 @@ namespace Soulfract
 		static readonly Dictionary<long, (float minX, float minY, float maxX, float maxY)> _classicPreviewTextureAlphaBoundsCache = new();
 		static readonly Dictionary<(string species, float scale), (float top, float bottom)> _classicPreviewVerticalBoundsCache = new();
 
-		static (float minX, float minY, float maxX, float maxY) GetClassicPreviewTextureAlphaBounds(Texture2D texture)
+		static unsafe (float minX, float minY, float maxX, float maxY) GetClassicPreviewTextureAlphaBounds(Texture2D texture)
 		{
 			long textureId = texture.Id;
 			if (_classicPreviewTextureAlphaBoundsCache.TryGetValue(textureId, out var cachedBounds))
 				return cachedBounds;
 
 			Image image = Raylib.LoadImageFromTexture(texture);
+			Color* pixels = Raylib.LoadImageColors(image);
 			int minX = image.Width;
 			int minY = image.Height;
 			int maxX = -1;
 			int maxY = -1;
-			for (int y = 0; y < image.Height; y++)
+			try
 			{
-				for (int x = 0; x < image.Width; x++)
+				if (pixels == null)
+					throw new InvalidOperationException("Impossible de lire les pixels de l'aperçu du personnage.");
+
+				for (int y = 0; y < image.Height; y++)
 				{
-					if (Raylib.GetImageColor(image, x, y).A <= 8) continue;
-					minX = Math.Min(minX, x);
-					minY = Math.Min(minY, y);
-					maxX = Math.Max(maxX, x);
-					maxY = Math.Max(maxY, y);
+					for (int x = 0; x < image.Width; x++)
+					{
+						if (pixels[y * image.Width + x].A <= 8) continue;
+						minX = Math.Min(minX, x);
+						minY = Math.Min(minY, y);
+						maxX = Math.Max(maxX, x);
+						maxY = Math.Max(maxY, y);
+					}
 				}
 			}
-			Raylib.UnloadImage(image);
+			finally
+			{
+				if (pixels != null)
+					Raylib.UnloadImageColors(pixels);
+				Raylib.UnloadImage(image);
+			}
 
 			var bounds = maxX >= minX ? (minX, minY, maxX + 1f, maxY + 1f) : (0f, 0f, 0f, 0f);
 			_classicPreviewTextureAlphaBoundsCache[textureId] = bounds;

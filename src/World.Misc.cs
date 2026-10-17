@@ -66,6 +66,11 @@ namespace Soulfract
 			_treeHitSways[(treeX, treeY)] = (currentTime, direction);
 		}
 
+		public static float GetTreeHitSwayDirection(int worldX, int worldY)
+		{
+			return _treeHitSways.TryGetValue((worldX, worldY), out var sway) ? sway.direction : 1f;
+		}
+
 		public static float GetTreeHitSwayAngle(int worldX, int worldY, float currentTime)
 		{
 			if (!_treeHitSways.TryGetValue((worldX, worldY), out var sway)) return 0f;
@@ -324,7 +329,7 @@ namespace Soulfract
 
 		public static void DrawProjectileRenderTag(ProjectileRenderTag tag)
 		{
-			if (tag.VisualTexture.Id != 0 && tag.VisualTexture.Width > 0 && tag.VisualTexture.Height > 0)
+			if (tag.HasTexture && tag.VisualTexture.Id != 0 && tag.VisualTexture.Width > 0 && tag.VisualTexture.Height > 0)
 			{
 				float scale = tag.Size / Math.Max(8f, tag.VisualTexture.Width / 2f);
 				Vector2 origin = new Vector2(tag.VisualTexture.Width / 2f, tag.VisualTexture.Height / 2f);
@@ -337,7 +342,7 @@ namespace Soulfract
 				return;
 			}
 
-			Raylib.DrawCircle((int)tag.Position.X, (int)tag.Position.Y, (int)tag.Size, tag.Color);
+			SpellVfx.DrawProjectile(tag.Projectile, tag.Position);
 		}
 
 		private static Dictionary<(int x, int y), int> _seaFloorHeights = new();
@@ -2283,7 +2288,7 @@ namespace Soulfract
             );
         }
 
-		// Hitbox de dégâts : plus grande, couvrant le corps de l'entité pour les attaques et les impacts.
+		// Hitbox de dégâts : plus grande, centrée sur le corps pour les attaques et les impacts.
         public static Rectangle GetEntityDamageHitbox(Entity entity, int ts)
         {
 			return GetEntityDamageHitbox(entity.VisualWorldPos, entity.Species, ts, entity.Scale);
@@ -2301,9 +2306,10 @@ namespace Soulfract
 			Vector2 dim = GetEntityDimensions(species) * Math.Clamp(scale, 0.25f, 4f);
 			Vector2 damageDim = new Vector2(dim.X * 2f, dim.Y * 5.5f);
 		    float entityBaseY = GetEntityGroundPosition(worldPos).Y + Program.FeetOffsetY;
+			float entityCenterY = entityBaseY - dim.Y / 2f;
 		    return new Rectangle(
 		        worldPos.X - damageDim.X / 2f,
-		        entityBaseY - damageDim.Y,
+		        entityCenterY - damageDim.Y / 2f,
                 damageDim.X,
                 damageDim.Y
             );

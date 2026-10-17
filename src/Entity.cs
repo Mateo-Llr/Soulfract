@@ -80,9 +80,9 @@ namespace Soulfract
     public enum AttackPhase
     {
         None,
-        Telegraph,   // Immobile 0.3s
-        Charge,      // Lunge 0.4s
-        Recovery     // Immobile 0.2s
+        Telegraph,   // Armement (durée : CombatProfile.Windup)
+        Charge,      // Frappe : élan et/ou instant d'impact (CombatProfile.Strike)
+        Recovery     // Récupération, pieds plantés (CombatProfile.Recovery)
     }
 
     public enum TamedAnimalMode { Follow, Stay, Roam, Attack }
@@ -463,20 +463,195 @@ namespace Soulfract
         private const float RECOVERY_DURATION = 0.2f;
         private const float CHARGE_SPEED = 420f;
 
-        //  Coup direct (Strike) : quand la cible est déjà à portée de contact
-        // (AttackHitRange), inutile de faire attendre puis charger/foncer — l'entité
-        // tente juste un coup rapide sur place, comme un vrai coup au corps à corps.
+        // ==================== IA DE COMBAT UNIFIÉE (mêlée + distance) ====================
+        //  Un SEUL automate d'attaque pour tous les mobs :
+        //      Approche -> Armement (Telegraph) -> Frappe (Charge) -> Récupération (Recovery) -> Approche
+        //  Ce qui distingue un gobelin, un loup, un bolet ou un archer n'est plus du code dupliqué
+        //  mais un CombatProfile (voir GetCombatProfile) : durées, élan, type d'impact.
+        //  Le swing visuel (GetAttackSwingProgress), la frame d'animation du squelette
+        //  (SyncAttackAnimation) et l'instant d'impact sont tous dérivés des MÊMES durées :
+        //  ils ne peuvent plus se désynchroniser.
+        //  Entre deux attaques, les combattants se repositionnent et attendent un nouveau créneau
+        //  d'engagement au lieu d'enchaîner leurs coups sans laisser de fenêtre au joueur.
+        public const float GOBLIN_ATTACK_REACH = 60f;     // portée de frappe des gobelins (= rayon d'attaque du joueur)
+        private const float SWING_IMPACT_PROGRESS = 0.88f; // progression du swing visuel à l'instant de l'impact
+        private const float STRIKE_REACH_TOLERANCE = 6f;   // marge de portée à l'impact (frappes de « duelliste »)
 
-        // ==================== IA DE COMBAT (approche / cercle / recul) ====================
-        //  Plutôt que de foncer en permanence droit sur la cible, l'entité en Chase alterne
-        // entre plusieurs sous-états de déplacement tant qu'elle n'a pas déclenché d'attaque.
-        // Cela casse le pattern "charge constante" qui rendait le combat prévisible et
-        // désagréable, en s'inspirant de l'approche "poke / reposition / commit" des jeux
-        // d'action (Zelda, Dark Souls...).
-        private float _combatDecisionTimer = 0f;
+        private enum CombatImpactKind { Strike, Spores, Arrow }
+
+        private readonly struct CombatProfile
+        {
+            public readonly CombatImpactKind Kind;
+            public readonly float Windup;         // armement
+            public readonly float Strike;         // durée de la phase de frappe (Charge)
+            public readonly float ImpactDelay;    // >= 0 : impact unique à cet instant ; < 0 : au premier contact pendant la frappe
+            public readonly float Recovery;       // récupération
+            public readonly float CooldownMin;    // délai minimal avant de relancer un armement
+            public readonly float CooldownJitter; // + variation aléatoire (évite un rythme métronomique)
+            public readonly float LungeSpeed;     // 0 = pieds plantés pendant la frappe
+            public readonly float Shake;          // secousse d'écran à l'impact sur le joueur
+            public readonly bool FrontOnly;       // ne touche que devant lui
+            public readonly bool Tracks;          // continue de se rapprocher pendant l'armement s'il est hors de portée
+
+            public CombatProfile(CombatImpactKind kind, float windup, float strike, float impactDelay, float recovery,
+                float cooldownMin, float cooldownJitter, float lungeSpeed, bool frontOnly, bool tracks, float shake)
+            {
+                Kind = kind; Windup = windup; Strike = strike; ImpactDelay = impactDelay; Recovery = recovery;
+                CooldownMin = cooldownMin; CooldownJitter = cooldownJitter; LungeSpeed = lungeSpeed;
+                FrontOnly = frontOnly; Tracks = tracks; Shake = shake;
+            }
+        }
+
+        // Gobelins / gardes : frappe précise, pieds plantés, impact unique synchronisé avec le geste.
+        private static readonly CombatProfile DuelistProfile = new(CombatImpactKind.Strike,
+            windup: 0.26f, strike: 0.08f, impactDelay: 0.08f, recovery: 0.28f,
+            cooldownMin: 1.00f, cooldownJitter: 0.80f, lungeSpeed: 0f, frontOnly: true, tracks: true, shake: 3f);
+
+        // Bêtes : armement puis élan en ligne droite, touche au premier contact.
+        private static readonly CombatProfile BeastProfile = new(CombatImpactKind.Strike,
+            windup: TELEGRAPH_DURATION, strike: CHARGE_DURATION, impactDelay: -1f, recovery: RECOVERY_DURATION,
+            cooldownMin: 0.90f, cooldownJitter: 0.90f, lungeSpeed: CHARGE_SPEED, frontOnly: false, tracks: false, shake: 4f);
+
+        // Bolet : immobile, relâche un nuage de spores au début de la phase de frappe.
+        private static readonly CombatProfile SporeProfile = new(CombatImpactKind.Spores,
+            windup: TELEGRAPH_DURATION, strike: CHARGE_DURATION, impactDelay: 0f, recovery: RECOVERY_DURATION,
+            cooldownMin: 0.90f, cooldownJitter: 0.90f, lungeSpeed: 0f, frontOnly: false, tracks: false, shake: 0f);
+
+        // Archers : tir immobile après armement ; 1,0 à 1,6 s entre deux tirs (récupération incluse).
+        private static readonly CombatProfile ArcherProfile = new(CombatImpactKind.Arrow,
+            windup: RANGED_TELEGRAPH_DURATION, strike: 0f, impactDelay: 0f, recovery: 0.15f,
+            cooldownMin: 0.85f, cooldownJitter: 0.6f, lungeSpeed: 0f, frontOnly: false, tracks: false, shake: 0f);
+
+        private sealed class ContextMap
+        {
+            public const int Slots = 16;
+            public static readonly Vector2[] Directions = BuildDirections();
+
+            public readonly float[] Interest = new float[Slots];
+            public readonly float[] Danger = new float[Slots];
+            public readonly float[] RawDanger = new float[Slots];
+            private readonly float[] _smoothedInterest = new float[Slots];
+
+            public float Timer;
+            public bool HasResult;
+            public Vector2 Direction;
+            public float Strength;
+
+            private static Vector2[] BuildDirections()
+            {
+                var directions = new Vector2[Slots];
+                for (int i = 0; i < Slots; i++)
+                {
+                    float angle = i * (MathF.Tau / Slots);
+                    directions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                }
+
+                return directions;
+            }
+
+            public void BeginBuild()
+            {
+                Array.Clear(Interest, 0, Interest.Length);
+                Array.Clear(Danger, 0, Danger.Length);
+                Array.Clear(RawDanger, 0, RawDanger.Length);
+            }
+
+            public void FinalizeDanger()
+            {
+                for (int i = 0; i < Slots; i++)
+                {
+                    float neighbourDanger = MathF.Max(
+                        RawDanger[(i + Slots - 1) % Slots],
+                        RawDanger[(i + 1) % Slots]);
+                    Danger[i] = MathF.Max(RawDanger[i], neighbourDanger * 0.4f);
+                }
+            }
+
+            public void Reset()
+            {
+                Array.Clear(_smoothedInterest, 0, _smoothedInterest.Length);
+                Timer = 0f;
+                HasResult = false;
+                Direction = Vector2.Zero;
+                Strength = 0f;
+            }
+
+            public bool Resolve(float smoothing)
+            {
+                float minDanger = float.MaxValue;
+                for (int i = 0; i < Slots; i++)
+                    minDanger = MathF.Min(minDanger, Danger[i]);
+
+                Span<float> maskedInterest = stackalloc float[Slots];
+                float bestInterest = 0f;
+                int bestIndex = -1;
+                for (int i = 0; i < Slots; i++)
+                {
+                    _smoothedInterest[i] += (Interest[i] - _smoothedInterest[i]) * smoothing;
+                    maskedInterest[i] = Danger[i] > minDanger + 0.001f ? 0f : _smoothedInterest[i];
+                    if (maskedInterest[i] > bestInterest)
+                    {
+                        bestInterest = maskedInterest[i];
+                        bestIndex = i;
+                    }
+                }
+
+                if (bestIndex < 0 || bestInterest < 0.03f)
+                {
+                    HasResult = false;
+                    Strength = 0f;
+                    return false;
+                }
+
+                float left = maskedInterest[(bestIndex + Slots - 1) % Slots];
+                float right = maskedInterest[(bestIndex + 1) % Slots];
+                float denominator = left - 2f * bestInterest + right;
+                float offset = MathF.Abs(denominator) > 0.0001f
+                    ? Math.Clamp(0.5f * (left - right) / denominator, -0.5f, 0.5f)
+                    : 0f;
+                float angle = (bestIndex + offset) * (MathF.Tau / Slots);
+
+                Direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                Strength = Math.Clamp(bestInterest, 0f, 1f);
+                HasResult = true;
+                return true;
+            }
+        }
+
+        private const float CONTEXT_UPDATE_INTERVAL = 0.07f;
+        private const float CONTEXT_WANDER_INTERVAL = 0.15f;
+        private const float CONTEXT_SMOOTHING = 0.55f;
+        private const float COMBAT_CONTEXT_RANGE = 260f;
+        private const float ORBIT_MIN_EDGE_DISTANCE = 45f;
+        private const float ORBIT_APPROACH_BAND = 60f;
+        private const float ENGAGE_HESITATION_MIN = 0.5f;
+        private const float ENGAGE_HESITATION_MAX = 1.3f;
+        private const float ENGAGE_TIMEOUT = 2.5f;
+        private const float SEPARATION_RADIUS = 70f;
+        private const float WANDER_NOISE_RATE = 0.45f;
+        private const float WANDER_MAX_SWAY = 1.6f;
+        public static int MaxSimultaneousEngagers = 2;
+
+        private ContextMap? _contextMap;
+        private bool _combatActive;
+        private bool _isEngaging;
+        private float _engageWaitTimer;
+        private float _engageTimeout;
+        private float _orbitRadiusFactor = 1f;
+        private float _strafeFlipTimer;
+        private Entity? _engagementTargetEntity;
+        private int _engagementPlayerConnectionId = -1;
+        private bool _wanderActive;
+        private bool _wanderAnchorSet;
+        private Vector2 _wanderAnchor;
+        private float _wanderBaseHeading;
+        private float _wanderNoiseTime;
+        private float _wanderNoiseSeed;
+
+        private bool UsesMeanderWander => !IsVillager && !IsTamed && !IsSlime && !IsPlayer
+            && !IsPetCompanion && !IsBoss && !IsMounted && !IsRidingMount;
+
         private int _strafeDir = 1;
-        private float _combatRangeWobble = 0f;
-        private float _combatRangeChangeTimer = 0f;
         // Après une attaque (ou une charge manquée), on force une phase de repositionnement
         // avant de pouvoir en redéclencher une : évite le "spam" d'attaques dos à dos.
         private float _postAttackCooldown = 0f;
@@ -484,43 +659,57 @@ namespace Soulfract
         // ---- Combat à distance (arc) ----
         private const float RANGED_PREFERRED_MIN = 180f;
         private const float RANGED_PREFERRED_MAX = 320f;
-        private const float RANGED_RETREAT_DIST = 140f;
         private const float RANGED_ARROW_SPEED = 620f;
         private const float RANGED_TELEGRAPH_DURATION = 0.35f;
-        private bool _rangedTelegraphing = false;
-        private float _rangedTelegraphTimer = 0f;
-        private float _rangedShootCooldown = 0f;
+
+        private bool IsGoblinMeleeStyle =>
+            string.Equals(Species, "Goblin", StringComparison.OrdinalIgnoreCase) || IsVillageGuard;
+
+        private CombatProfile GetCombatProfile()
+        {
+            if (HasRangedWeapon) return ArcherProfile;
+            if (IsGoblinMeleeStyle) return DuelistProfile;
+            if (string.Equals(Species, "bolet", StringComparison.OrdinalIgnoreCase)) return SporeProfile;
+            return BeastProfile;
+        }
 
         // Propriétés pour l'UI
         public bool IsChargingAttack => _attackPhase == AttackPhase.Telegraph || _attackPhase == AttackPhase.Charge;
         public float GetChargeProgress()
         {
             if (_attackPhase == AttackPhase.Telegraph)
-                return Math.Clamp(_telegraphTimer / TELEGRAPH_DURATION, 0f, 1f);
+                return Math.Clamp(_telegraphTimer / Math.Max(0.0001f, GetCombatProfile().Windup), 0f, 1f);
             if (_attackPhase == AttackPhase.Charge)
                 return 1f;
             return 0f;
         }
 
+        // Progression UNIQUE du geste d'attaque (0 = repos, 1 = fin du geste), pour toutes les espèces :
+        //   Armement  : 0    -> 0.5   (bras levé)
+        //   Frappe    : 0.5  -> 0.88  (descente ; 0.88 est atteint EXACTEMENT à l'instant de l'impact
+        //                              pour les profils à impact unique)
+        //   Récup.    : 0.88 -> 1     (retour au repos)
         public float GetAttackSwingProgress()
         {
-            bool isGoblinStyle = string.Equals(Species, "Goblin", StringComparison.OrdinalIgnoreCase) || IsVillageGuard;
-            return _attackPhase switch
+            if (_attackPhase == AttackPhase.None) return 0f;
+            CombatProfile p = GetCombatProfile();
+            switch (_attackPhase)
             {
-                AttackPhase.Telegraph => isGoblinStyle
-                    ? Math.Clamp(_telegraphTimer / TELEGRAPH_DURATION, 0f, 1f) * 0.5f
-                    : Math.Clamp(_telegraphTimer / (TELEGRAPH_DURATION + CHARGE_DURATION), 0f, 0.4f),
-                AttackPhase.Charge => 0.4f + Math.Clamp(_chargeTimer / CHARGE_DURATION, 0f, 1f) * 0.4f,
-                AttackPhase.Recovery => (isGoblinStyle ? 0.5f : 0.8f)
-                    + Math.Clamp(_recoveryTimer / RECOVERY_DURATION, 0f, 1f) * (isGoblinStyle ? 0.5f : 0.2f),
-                _ => 0f
-            };
+                case AttackPhase.Telegraph:
+                    return Math.Clamp(_telegraphTimer / Math.Max(0.0001f, p.Windup), 0f, 1f) * 0.5f;
+                case AttackPhase.Charge:
+                    return 0.5f + Math.Clamp(_chargeTimer / Math.Max(0.0001f, p.Strike), 0f, 1f) * (SWING_IMPACT_PROGRESS - 0.5f);
+                case AttackPhase.Recovery:
+                    return SWING_IMPACT_PROGRESS + Math.Clamp(_recoveryTimer / Math.Max(0.0001f, p.Recovery), 0f, 1f) * (1f - SWING_IMPACT_PROGRESS);
+                default:
+                    return 0f;
+            }
         }
 
         // Pour compatibilité (si utilisé ailleurs)
         public bool IsWindUp => _attackPhase == AttackPhase.Telegraph || _attackPhase == AttackPhase.Charge;
         public float WindUpTimer => _attackPhase == AttackPhase.Telegraph ? _telegraphTimer : _chargeTimer;
-        public float WindUpDuration => TELEGRAPH_DURATION + CHARGE_DURATION;
+        public float WindUpDuration { get { CombatProfile p = GetCombatProfile(); return p.Windup + p.Strike; } }
 
         // ==================== AUTRES PROPRIÉTÉS ====================
         public bool IsBoss { get; set; }
@@ -1704,6 +1893,7 @@ namespace Soulfract
 
         public void Mount(Entity rider)
         {
+            ResetMoveMomentum();
             IsMounted = true;
             Rider = rider;
             Behavior = "mounted";
@@ -1753,6 +1943,86 @@ namespace Soulfract
             OwnedMount?.Dismount();
             IsRidingMount = false;
             Speed = SpeciesData.GetSpeed(Species);
+        }
+
+        // ==================== MOMENTUM DE DÉPLACEMENT ====================
+        //  Avant, l'entité se déplaçait à vitesse constante dans la direction exacte de son
+        // prochain nœud (dir * Speed * dt) : démarrage instantané, arrêt instantané et virages
+        // parfaitement anguleux. On conserve désormais une vitesse persistante (_moveVelocity)
+        // qui rejoint progressivement la vitesse voulue : l'entité accélère au départ, prend un
+        // léger élan dans les virages (elle dévie de la ligne droite au lieu de pivoter net) et
+        // glisse un court instant en s'arrêtant.
+        //   MOVE_ACCEL_TIME : temps pour atteindre la pleine vitesse (et pour se réorienter).
+        //   MOVE_BRAKE_TIME : constante de temps du freinage quand plus rien ne la pilote
+        //                     (décroissance exponentielle : ~12 px de glissement en course).
+        //   AccelerationFactor : réglage par entité (> 1 = plus nerveuse, < 1 = plus lourde).
+        private Vector2 _moveVelocity = Vector2.Zero;
+        private bool _steeredThisFrame = false;
+        private const float MOVE_ACCEL_TIME = 0.30f;
+        private const float MOVE_BRAKE_TIME = 0.18f;
+        private const float MOVE_MOMENTUM_EPSILON = 1.5f; // px/s : en dessous, on considère l'entité arrêtée
+        public float AccelerationFactor = 1f;
+
+        //  Fait tendre la vitesse courante vers la vitesse voulue sans jamais dépasser
+        // l'accélération maximale (changement de vitesse VECTORIEL : un demi-tour exige donc
+        // plus de temps qu'une simple accélération, d'où l'élan dans les virages).
+        private Vector2 SteerVelocity(Vector2 desired, float dt, float responseTime)
+        {
+            float reference = MathF.Max(desired.Length(), _moveVelocity.Length());
+            if (reference <= 0.0001f)
+                return Vector2.Zero;
+
+            float maxDelta = reference / MathF.Max(0.01f, responseTime) * MathF.Max(0.05f, AccelerationFactor) * dt;
+            Vector2 delta = desired - _moveVelocity;
+            float deltaLength = delta.Length();
+            if (deltaLength <= maxDelta || deltaLength < 0.0001f)
+                return desired;
+
+            return _moveVelocity + delta / deltaLength * maxDelta;
+        }
+
+        private void ResetMoveMomentum()
+        {
+            _moveVelocity = Vector2.Zero;
+        }
+
+        //  Appelée une fois par Update, après l'exécution de l'état d'IA : si aucun déplacement
+        // piloté n'a eu lieu cette frame (arrêt, Idle, arrivée...), l'entité décélère et
+        // parcourt la petite distance restante au lieu de s'arrêter net.
+        private void ApplyResidualMomentum(float dt, HashSet<string> destroyed)
+        {
+            bool steered = _steeredThisFrame;
+            _steeredThisFrame = false;
+            if (steered || _moveVelocity == Vector2.Zero)
+                return;
+
+            //  Pas de glissement quand l'entité est censée être plantée au sol, assise, ou en pleine
+            // attaque (frappes « pieds plantés ») : on coupe l'élan net.
+            if (_isSleeping || _attackPhase != AttackPhase.None || IsInPlayerDialogue
+                || AiState == NpcAiState.Sitting || AiState == NpcAiState.HealingAtInfirmary
+                || IsKnockedBack || IsMounted)
+            {
+                ResetMoveMomentum();
+                return;
+            }
+
+            _moveVelocity = SteerVelocity(Vector2.Zero, dt, MOVE_BRAKE_TIME);
+            if (_moveVelocity.LengthSquared() < MOVE_MOMENTUM_EPSILON * MOVE_MOMENTUM_EPSILON)
+            {
+                ResetMoveMomentum();
+                return;
+            }
+
+            Vector2 move = _moveVelocity * dt;
+            if (!World.IsCollidingEntity(WorldPos + new Vector2(move.X, 0f), destroyed, Species))
+                WorldPos.X += move.X;
+            else
+                _moveVelocity.X = 0f;
+
+            if (!World.IsCollidingEntity(WorldPos + new Vector2(0f, move.Y), destroyed, Species))
+                WorldPos.Y += move.Y;
+            else
+                _moveVelocity.Y = 0f;
         }
 
         // Pathfinding
@@ -1883,7 +2153,7 @@ namespace Soulfract
                 AttackHitRange = 25f;
                 if (string.Equals(species, "Goblin", StringComparison.OrdinalIgnoreCase))
                 {
-                    AttackHitRange = 90f;
+                    AttackHitRange = GOBLIN_ATTACK_REACH;
                 }
                 GrowthTime = speciesInfo.GrowthTime;
             }
@@ -2322,7 +2592,7 @@ namespace Soulfract
 
         //  Donne à un gobelin une arme au hasard : épée en bois (item 16) pour un combattant
         // de mêlée, ou une arme à distance (arc ou mousquet) pour un tireur. C'est cette arme,
-        // une fois en main, qui pilote le choix entre MeleeCombatBehavior et RangedCombatBehavior.
+        // une fois en main, qui pilote le choix du profil de combat (voir GetCombatProfile : mêlée / distance).
         private void EquipGoblinWeapon()
         {
             Equipment ??= new Equipment();
@@ -2851,11 +3121,9 @@ namespace Soulfract
         // du signal aux entités hostiles proches.
         public void TriggerAlertSignal(Vector2 targetPos, int targetConnectionId)
         {
-            //  Déjà en poursuite directe / combat : pas besoin de ré-afficher l'icône
-            //  ni de reprogrammer un signal de relai supplémentaire. Le point d'exclamation
-            //  ne doit servir qu'au moment où l'entité vient de détecter la menace, pas à chaque
-            //  coup d'écho de poursuite déjà engagée.
-            if (AiState == NpcAiState.Chase)
+            // L'appel de détection intervient après le passage à Chase : ce n'est donc pas
+            // un motif pour supprimer le signal. Éviter uniquement de programmer deux relais.
+            if (_pendingSignalDelay >= 0f)
                 return;
 
             ShowAlertIcon = true;
@@ -2876,10 +3144,11 @@ namespace Soulfract
         public void ReceiveAlertSignal(Vector2 targetPos, int targetConnectionId)
         {
             if (!IsAlive || IsTamed || (Behavior != "hostile" && Behavior != "neutral")) return;
+            if (AiState == NpcAiState.Flee || _currentGoalPriority >= NpcPriority.Survival)
+                return;
             if (AiState == NpcAiState.Chase)
                 return; // déjà en poursuite active : ne pas re-warn pendant que le combat est engagé
             if (HasPropagatedSignal) return; // déjà alertée et déjà relayée
-            if (_currentGoalPriority > NpcPriority.Combat) return; // ex : en train de fuir pour sa survie, ignore l'écho
 
             ResetPathfinding();
             ForceGoal(NpcPriority.Combat, 1.2f);
@@ -5012,6 +5281,7 @@ namespace Soulfract
             // Gestion du sommeil
             if (_isSleeping)
             {
+                ResetMoveMomentum();
                 const float SLEEP_ANIM_SPEED = 0.5f;
                 AnimProgress += dt * SLEEP_ANIM_SPEED;
                 if (AnimProgress >= 1f)
@@ -5116,7 +5386,7 @@ namespace Soulfract
                 Vector2 newPosY = WorldPos + new Vector2(0, move.Y);
                 if (!World.IsCollidingEntity(newPosY, destroyed, Species))
                     WorldPos.Y += move.Y;
-                KnockbackVelocity *= 0.85f;
+                KnockbackVelocity *= MathF.Pow(0.92f, dt * 60f);
                 if (KnockbackVelocity.LengthSquared() < 5f)
                 {
                     IsKnockedBack = false;
@@ -5677,10 +5947,7 @@ namespace Soulfract
                     float distToTarget = Vector2.Distance(WorldPos, AiTarget);
                     if (_attackPhase != AttackPhase.None || distToTarget <= Math.Max(AttackHitRange * 2f, 250f))
                     {
-                        if (HasRangedWeapon)
-                            RangedCombatBehavior(dt, destroyed, AiTarget);
-                        else
-                            MeleeCombatBehavior(dt, destroyed, AiTarget);
+                        CombatBehavior(dt, destroyed, AiTarget);
                     }
                 }
                 return;
@@ -5689,6 +5956,7 @@ namespace Soulfract
             if (IsInPlayerDialogue)
             {
                 Speed = 0f;
+                ResetMoveMomentum();
                 return;
             }
 
@@ -5735,6 +6003,7 @@ namespace Soulfract
                 AiState = NpcAiState.Idle;
                 AiTarget = WorldPos;
                 _currentPath.Clear();
+                ResetMoveMomentum();
                 return;
             }
 
@@ -5769,6 +6038,16 @@ namespace Soulfract
 
             if (isRetaliating || _combatTargetEntity != null)
                 shouldChase = true;
+
+            // Une fuite de survie ne peut pas être interrompue par une détection visuelle,
+            // une riposte mémorisée ou une alerte reçue d'une autre entité.
+            bool isFleeingForSurvival = AiState == NpcAiState.Flee
+                || _currentGoalPriority >= NpcPriority.Survival;
+            if (isFleeingForSurvival)
+            {
+                shouldChase = false;
+                ShowAlertIcon = false;
+            }
 
             if ((IsVillageGuard || IsSpiritAnimal) && _combatTargetEntity == null && !isRetaliating && AiState == NpcAiState.Chase)
             {
@@ -5984,7 +6263,13 @@ namespace Soulfract
             // qu'un PNJ qui a "quelque chose en tête" a toujours de quoi s'y rendre : dès qu'il
             // est dans un état de déplacement mais que Speed est resté à 0, on le corrige
             // immédiatement (le PNJ agit sans attendre un correctif tiers).
-            bool isMovementState = IsMovementState(AiState);
+            if (AiState != NpcAiState.Chase && _combatActive && _attackPhase == AttackPhase.None)
+                ResetCombatState();
+            if (AiState != NpcAiState.Wander)
+                _wanderActive = false;
+
+            bool isMovementState = IsMovementState(AiState)
+                && !(AiState == NpcAiState.Wander && UsesMeanderWander);
             if (isMovementState && Speed <= 0f)
             {
                 Speed = BaseSpeed > 0f ? BaseSpeed : SpeciesData.GetSpeed(Species);
@@ -6271,6 +6556,9 @@ namespace Soulfract
                     UpdateGoalArrival(dt, destroyed);
                     break;
             }
+
+            //  Décélération / glissement résiduel si aucun déplacement piloté n'a eu lieu cette frame.
+            ApplyResidualMomentum(dt, destroyed);
         }
 
         private void HealAtInfirmary(float dt)
@@ -6581,6 +6869,7 @@ namespace Soulfract
         private void StartSitting()
 		{
 			_walkingToBench = false;
+			ResetMoveMomentum();
 			AiState = NpcAiState.Sitting;
 			AnimState = "sit";
 			WorldPos = _benchSeatVisualPos;
@@ -6770,7 +7059,9 @@ namespace Soulfract
                 return;
             }
 
-            float effectiveArrivalRadius = (AiState == NpcAiState.Chase) ? AttackHitRange : arrivalRadius;
+            float effectiveArrivalRadius = AiState == NpcAiState.Chase
+                ? Math.Max(AttackHitRange, arrivalRadius)
+                : arrivalRadius;
 
             Vector2 target = AiTarget;
 
@@ -6924,8 +7215,14 @@ namespace Soulfract
             if (IsRidingMount && OwnedMount != null && OwnedMount.IsAlive)
                 effectiveSpeed = Math.Max(effectiveSpeed, OwnedMount.RunSpeed);
 
-            Vector2 move = dir * (IsInWater ? effectiveSpeed * 0.5f : effectiveSpeed) * dt;
-            Facing = move.X >= 0 ? 1f : -1f;
+            //  MOMENTUM : au lieu de se téléporter à la vitesse voulue dans la direction exacte du
+            // nœud, la vitesse réelle rejoint progressivement la vitesse voulue (voir
+            // SteerVelocity). Le sprite, lui, regarde toujours dans le sens de l'intention.
+            float desiredSpeed = IsInWater ? effectiveSpeed * 0.5f : effectiveSpeed;
+            _moveVelocity = SteerVelocity(dir * desiredSpeed, dt, MOVE_ACCEL_TIME);
+            _steeredThisFrame = true;
+            Vector2 move = _moveVelocity * dt;
+            Facing = dir.X >= 0 ? 1f : -1f;
 
             // Si l'entité chevauche sa monture, elle doit être assise
             if (IsRidingMount)
@@ -6948,6 +7245,10 @@ namespace Soulfract
                 WorldPos.X += move.X;
                 movedX = true;
             }
+            else
+            {
+                _moveVelocity.X = 0f; // mur sur l'axe X : l'élan ne doit pas continuer à pousser dedans
+            }
 
             Vector2 newPosY = WorldPos + new Vector2(0, move.Y);
             bool movedY = false;
@@ -6956,9 +7257,14 @@ namespace Soulfract
                 WorldPos.Y += move.Y;
                 movedY = true;
             }
+            else
+            {
+                _moveVelocity.Y = 0f;
+            }
 
             if (!movedX && !movedY)
             {
+                ResetMoveMomentum();
                 //  Blocage complet (coin de mur) : avant d'abandonner et de recalculer tout le
                 // chemin, on tente un léger glissement latéral perpendiculaire à la direction
                 // voulue. Ça évite l'effet "collé/accroché" contre l'angle et laisse l'entité
@@ -7021,10 +7327,127 @@ namespace Soulfract
                 return;
             }
 
+            if (UsesMeanderWander)
+            {
+                MeanderWander(dt, destroyed);
+                return;
+            }
+
             //  Le wander suit désormais le chemin calculé par le pathfinding vers AiTarget,
             // exactement comme WalkToTarget, au lieu d'avancer en ligne droite dans une direction
             // aléatoire (ce qui causait les NPC coincés contre les murs/obstacles).
             MoveTowardTarget(dt, destroyed, arrivalRadius: 30f);
+        }
+
+        private static float GetWanderNoiseGradient(int index)
+        {
+            unchecked
+            {
+                uint hash = (uint)index * 2654435761u;
+                hash ^= hash >> 15;
+                hash *= 2246822519u;
+                hash ^= hash >> 13;
+                return (hash & 0xFFFF) / 32767.5f - 1f;
+            }
+        }
+
+        private static float GetWanderNoise(float value)
+        {
+            int index = (int)MathF.Floor(value);
+            float fraction = value - index;
+            float smooth = fraction * fraction * fraction * (fraction * (fraction * 6f - 15f) + 10f);
+            float left = GetWanderNoiseGradient(index) * fraction;
+            float right = GetWanderNoiseGradient(index + 1) * (fraction - 1f);
+            return (left + (right - left) * smooth) * 2f;
+        }
+
+        private void MeanderWander(float dt, HashSet<string> destroyed)
+        {
+            float speed = BaseSpeed > 0.01f ? BaseSpeed : SpeciesData.GetSpeed(Species);
+            Speed = speed;
+            if (speed <= 0.01f)
+            {
+                AnimState = "idle";
+                return;
+            }
+
+            float tileSize = Program.TileSize;
+            if (!_wanderActive)
+            {
+                _wanderActive = true;
+                if (!_wanderAnchorSet
+                    || Vector2.DistanceSquared(WorldPos, _wanderAnchor) > tileSize * tileSize * 196f)
+                {
+                    _wanderAnchor = HomePosition != Vector2.Zero ? HomePosition : WorldPos;
+                    if (Vector2.DistanceSquared(WorldPos, _wanderAnchor) > tileSize * tileSize * 196f)
+                        _wanderAnchor = WorldPos;
+                    _wanderAnchorSet = true;
+                }
+
+                _wanderBaseHeading = RandomRange(0f, MathF.Tau);
+                _wanderNoiseSeed = RandomRange(0f, 1000f);
+                _wanderNoiseTime = RandomRange(0f, 100f);
+                _contextMap ??= new ContextMap();
+                _contextMap.Reset();
+                _currentPath.Clear();
+                _pathRecalcTimer = 0f;
+            }
+
+            ContextMap context = _contextMap ??= new ContextMap();
+            _wanderNoiseTime += dt * WANDER_NOISE_RATE;
+            float sway = GetWanderNoise(_wanderNoiseTime + _wanderNoiseSeed) * WANDER_MAX_SWAY;
+            float heading = _wanderBaseHeading + sway;
+            Vector2 desiredDirection = new(MathF.Cos(heading), MathF.Sin(heading));
+
+            Vector2 toAnchor = _wanderAnchor - WorldPos;
+            float anchorDistance = toAnchor.Length();
+            float anchorPull = Math.Clamp((anchorDistance - tileSize * 2f) / (tileSize * 5f), 0f, 1f);
+            anchorPull *= anchorPull;
+            if (anchorPull > 0.001f && anchorDistance > 1f)
+            {
+                Vector2 blendedDirection = Vector2.Lerp(desiredDirection, toAnchor / anchorDistance, anchorPull * 0.9f);
+                if (blendedDirection.LengthSquared() > 0.0001f)
+                    desiredDirection = Vector2.Normalize(blendedDirection);
+            }
+
+            context.Timer -= dt;
+            if (context.Timer <= 0f)
+            {
+                context.Timer = CONTEXT_WANDER_INTERVAL;
+                context.BeginBuild();
+                for (int i = 0; i < ContextMap.Slots; i++)
+                    context.Interest[i] = MathF.Max(0f, Vector2.Dot(ContextMap.Directions[i], desiredDirection));
+
+                BuildTerrainDanger(context, destroyed, new Vector2(float.MaxValue / 4f), onlyInterestingSlots: true);
+                if (!context.Resolve(0.6f))
+                {
+                    _wanderBaseHeading += (Random.Shared.NextDouble() < 0.5 ? 1f : -1f)
+                        * RandomRange(1.8f, 2.8f);
+                }
+                else if (Vector2.Dot(context.Direction, desiredDirection) < 0.64f)
+                {
+                    _wanderBaseHeading = MathF.Atan2(context.Direction.Y, context.Direction.X) - sway;
+                }
+            }
+
+            Vector2 desiredVelocity = context.HasResult
+                ? context.Direction * speed * (0.55f + 0.45f * context.Strength) * (IsInWater ? 0.5f : 1f)
+                : Vector2.Zero;
+            bool moved = MoveWithVelocity(dt, destroyed, desiredVelocity);
+            _stuckProgressTimer = 0f;
+            _stuckProgressCheckPos = WorldPos;
+
+            if (moved && _moveVelocity.LengthSquared() > 4f)
+            {
+                if (MathF.Abs(_moveVelocity.X) > 1f)
+                    Facing = _moveVelocity.X >= 0f ? 1f : -1f;
+                AnimState = speed > BaseSpeed * 1.2f ? "run" : "walk";
+                AiTarget = WorldPos + Vector2.Normalize(_moveVelocity) * 80f;
+            }
+            else
+            {
+                AnimState = "idle";
+            }
         }
 
         void Flee(float dt, HashSet<string> destroyed, Vector2 playerPos)
@@ -7055,16 +7478,22 @@ namespace Soulfract
                 // Garder une tentative locale quand le pathfinder ne trouve pas encore
                 // d'itinéraire, sans traverser les obstacles.
                 Vector2 startPos = WorldPos;
-                Vector2 move = fleeDir * Speed * dt;
-                Facing = move.X >= 0 ? 1f : -1f;
+                _moveVelocity = SteerVelocity(fleeDir * Speed, dt, MOVE_ACCEL_TIME);
+                _steeredThisFrame = true;
+                Vector2 move = _moveVelocity * dt;
+                Facing = fleeDir.X >= 0 ? 1f : -1f;
 
                 Vector2 newPosX = WorldPos + new Vector2(move.X, 0);
                 if (!World.IsCollidingEntity(newPosX, destroyed, Species))
                     WorldPos.X += move.X;
+                else
+                    _moveVelocity.X = 0f;
 
                 Vector2 newPosY = WorldPos + new Vector2(0, move.Y);
                 if (!World.IsCollidingEntity(newPosY, destroyed, Species))
                     WorldPos.Y += move.Y;
+                else
+                    _moveVelocity.Y = 0f;
 
                 bool moved = WorldPos != startPos;
                 if (IsRidingMount)
@@ -7123,7 +7552,7 @@ namespace Soulfract
                 knockbackDirection = Vector2.Normalize(knockbackDirection);
             else
                 knockbackDirection = new Vector2(Facing, 0f);
-            target.ApplyKnockback(knockbackDirection, 35f);
+            target.ApplyKnockback(knockbackDirection, 100f);
             Program.AddFloatingDamage(
                 World.GetEntityGroundPosition(target.WorldPos) - new Vector2(0f, 20f),
                 damage, damage >= 10);
@@ -7144,308 +7573,591 @@ namespace Soulfract
                 return;
             }
 
-            if (HasRangedWeapon)
-                RangedCombatBehavior(dt, destroyed, targetPos);
-            else
-                MeleeCombatBehavior(dt, destroyed, targetPos);
+            CombatBehavior(dt, destroyed, targetPos);
         }
 
-        // ==================== COMBAT DE MÊLÉE (approche simple -> attaque) ====================
-        void MeleeCombatBehavior(float dt, HashSet<string> destroyed, Vector2 targetPos)
+        // ==================== COMBAT : POINT D'ENTRÉE UNIQUE ====================
+        void CombatBehavior(float dt, HashSet<string> destroyed, Vector2 targetPos)
         {
-            bool isGoblin = string.Equals(Species, "Goblin", StringComparison.OrdinalIgnoreCase);
-            bool usesGoblinMeleeStyle = isGoblin || IsVillageGuard;
-            bool isbolet = string.Equals(Species, "bolet", StringComparison.OrdinalIgnoreCase);
+            CombatProfile profile = GetCombatProfile();
+
+            if (_attackPhase != AttackPhase.None)
+            {
+                TickAttackPhases(dt, destroyed, targetPos, profile);
+                SyncAttackAnimation();
+                return;
+            }
+
+            if (_postAttackCooldown > 0f) _postAttackCooldown -= dt;
+
+            if (profile.Kind == CombatImpactKind.Arrow)
+                ArcherPositioning(dt, destroyed, targetPos, profile);
+            else
+                MeleePositioning(dt, destroyed, targetPos, profile);
+
+            SyncAttackAnimation();
+        }
+
+        private float GetDistanceToCombatTarget(Vector2 targetPos)
+        {
             Rectangle targetDamageHitbox = _combatTargetEntity != null
                 ? World.GetEntityDamageHitbox(_combatTargetEntity, Program.TileSize)
                 : World.GetEntityDamageHitbox(targetPos, "human", Program.TileSize);
-            float distToPlayer = World.GetDistanceToDamageHitbox(
-                World.GetEntityGroundPosition(WorldPos), targetDamageHitbox);
-            _combatRangeChangeTimer -= dt;
-            if (_combatRangeChangeTimer <= 0f)
+            return World.GetDistanceToDamageHitbox(World.GetEntityGroundPosition(WorldPos), targetDamageHitbox);
+        }
+
+        private void BeginCombatIfNeeded()
+        {
+            bool targetChanged = !_combatActive
+                || !ReferenceEquals(_engagementTargetEntity, _combatTargetEntity)
+                || (_combatTargetEntity == null && _engagementPlayerConnectionId != AiTargetConnectionId);
+            if (!targetChanged)
+                return;
+
+            ResetCombatState();
+            _combatActive = true;
+            _engagementTargetEntity = _combatTargetEntity;
+            _engagementPlayerConnectionId = _combatTargetEntity == null ? AiTargetConnectionId : -1;
+            _engageWaitTimer = RandomRange(ENGAGE_HESITATION_MIN, ENGAGE_HESITATION_MAX);
+            _orbitRadiusFactor = RandomRange(0.9f, 1.25f);
+            _strafeDir = Random.Shared.NextDouble() < 0.5 ? -1 : 1;
+            _strafeFlipTimer = RandomRange(1.8f, 4.5f);
+            _contextMap ??= new ContextMap();
+            _contextMap.Reset();
+        }
+
+        private void ResetCombatState()
+        {
+            _combatActive = false;
+            _isEngaging = false;
+            _engageWaitTimer = 0f;
+            _engageTimeout = 0f;
+            _engagementTargetEntity = null;
+            _engagementPlayerConnectionId = -1;
+            _contextMap?.Reset();
+        }
+
+        private bool HasSameEngagementTarget(Entity other)
+        {
+            if (_engagementTargetEntity != null)
+                return ReferenceEquals(other._engagementTargetEntity, _engagementTargetEntity);
+
+            return other._engagementTargetEntity == null
+                && other._engagementPlayerConnectionId == _engagementPlayerConnectionId;
+        }
+
+        private int CountCurrentTargetEngagers()
+        {
+            int count = 0;
+            foreach (Entity other in Program.entities)
             {
-                _combatRangeChangeTimer = 0.8f + (float)Random.Shared.NextDouble() * 1.4f;
-                _combatRangeWobble = ((float)Random.Shared.NextDouble() * 2f - 1f) * 0.18f;
+                if (ReferenceEquals(other, this) || !other.IsAlive || !other._combatActive)
+                    continue;
+                if (!other._isEngaging && other._attackPhase == AttackPhase.None)
+                    continue;
+                if (HasSameEngagementTarget(other))
+                    count++;
             }
 
-            float baseAttackTriggerRange = isGoblin || IsVillageGuard ? Math.Max(90f, AttackHitRange) : AttackHitRange;
-            float attackTriggerRange = Math.Max(AttackHitRange * 0.9f, baseAttackTriggerRange * (1f + _combatRangeWobble));
+            return count;
+        }
 
-            //  Un PNJ monté reste sur sa monture tant que son objectif de poursuite est actif.
-            //  Il ne descendra qu'une fois passé en Idle ou ayant perdu sa cible.
+        private void TickEngagement(float dt, float distance, float acquireDistance)
+        {
+            if (_engageWaitTimer > 0f)
+                _engageWaitTimer = Math.Max(0f, _engageWaitTimer - dt);
 
-            // ---- Phase 1 : Télégraphie (immobile) ----
-            if (_attackPhase == AttackPhase.Telegraph)
+            if (_isEngaging)
             {
-                _telegraphTimer += dt;
-                AiTarget = targetPos;
-                Speed = usesGoblinMeleeStyle ? Math.Max(BaseSpeed * 0.5f, 60f) : 0f;
-                
-                if (IsRidingMount)
-                    AnimState = "sit";
-                else
-                    AnimState = usesGoblinMeleeStyle ? "walk" : "attack";
-
-                if (usesGoblinMeleeStyle && !(IsMounted && Rider != null))
+                _engageTimeout -= dt;
+                if (_engageTimeout <= 0f)
                 {
-                    PerformMovement(dt, destroyed, attackTriggerRange);
-                }
-
-                if (_telegraphTimer >= TELEGRAPH_DURATION)
-                {
-                    if (usesGoblinMeleeStyle)
-                    {
-                        _attackPhase = AttackPhase.Recovery;
-                        _recoveryTimer = 0f;
-                        _hasDealtDamage = false;
-                    }
-                    else
-                    {
-                        _attackPhase = AttackPhase.Charge;
-                        _chargeTimer = 0f;
-                        _hasDealtDamage = false;
-                    }
+                    _isEngaging = false;
+                    _engageWaitTimer = RandomRange(0.35f, 0.8f);
                 }
                 return;
             }
 
-            // ---- Phase 2 : Charge (lunge) ----
-            if (_attackPhase == AttackPhase.Charge)
+            if (_postAttackCooldown > 0f || _engageWaitTimer > 0f || distance > acquireDistance)
+                return;
+
+            int maxEngagers = Math.Max(1, MaxSimultaneousEngagers);
+            if (CountCurrentTargetEngagers() >= maxEngagers)
             {
-                _chargeTimer += dt;
+                _engageWaitTimer = RandomRange(0.35f, 0.8f);
+                return;
+            }
 
-                if (!isbolet)
+            _isEngaging = true;
+            _engageTimeout = ENGAGE_TIMEOUT;
+        }
+
+        private float GetOrbitDistance()
+        {
+            return MathF.Max(ORBIT_MIN_EDGE_DISTANCE, AttackHitRange * 1.8f) * _orbitRadiusFactor;
+        }
+
+        private bool ContextProbeBlocked(Vector2 position, HashSet<string> destroyed, Vector2? ignoredTarget, float ignoreRadius)
+        {
+            if (ignoredTarget.HasValue
+                && Vector2.DistanceSquared(position, ignoredTarget.Value) < ignoreRadius * ignoreRadius)
+                return false;
+
+            return World.IsCollidingEntity(position, destroyed, Species);
+        }
+
+        private bool HasClearLine(Vector2 from, Vector2 to, HashSet<string> destroyed)
+        {
+            Vector2 delta = to - from;
+            float length = delta.Length();
+            if (length < 50f)
+                return true;
+
+            Vector2 step = delta / length * 22f;
+            Vector2 probe = from;
+            float probeLength = MathF.Min(length, 220f);
+            for (float travelled = 22f; travelled < probeLength; travelled += 22f)
+            {
+                probe += step;
+                if (ContextProbeBlocked(probe, destroyed, to, 26f))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private void BuildTerrainDanger(ContextMap context, HashSet<string> destroyed, Vector2? ignoredTarget,
+            bool onlyInterestingSlots)
+        {
+            Vector2 dimensions = World.GetEntityDimensions(Species);
+            float halfDiagonal = MathF.Sqrt(dimensions.X * dimensions.X + dimensions.Y * dimensions.Y) * 0.5f;
+            float nearDistance = MathF.Max(18f, halfDiagonal * 0.9f);
+            float farDistance = nearDistance * 2.2f;
+
+            for (int i = 0; i < ContextMap.Slots; i++)
+            {
+                if (onlyInterestingSlots && context.Interest[i] <= 0.001f)
+                    continue;
+
+                Vector2 direction = ContextMap.Directions[i];
+                if (ContextProbeBlocked(WorldPos + direction * nearDistance, destroyed, ignoredTarget, 22f))
+                    context.RawDanger[i] = 1f;
+                else if (ContextProbeBlocked(WorldPos + direction * farDistance, destroyed, ignoredTarget, 22f))
+                    context.RawDanger[i] = 0.5f;
+            }
+
+            context.FinalizeDanger();
+        }
+
+        private void AddSeparationInterest(ContextMap context)
+        {
+            int neighbours = 0;
+            foreach (Entity other in Program.entities)
+            {
+                if (neighbours >= 6)
+                    break;
+                if (ReferenceEquals(other, this) || !other.IsAlive || ReferenceEquals(other, _combatTargetEntity))
+                    continue;
+
+                Vector2 away = WorldPos - other.WorldPos;
+                float distanceSquared = away.LengthSquared();
+                if (distanceSquared >= SEPARATION_RADIUS * SEPARATION_RADIUS)
+                    continue;
+
+                neighbours++;
+                float distance = MathF.Sqrt(distanceSquared);
+                Vector2 awayDirection = distance > 0.01f ? away / distance : new Vector2(1f, 0f);
+                float proximity = 1f - distance / SEPARATION_RADIUS;
+                for (int i = 0; i < ContextMap.Slots; i++)
                 {
-                    // Déplacement en ligne droite dans la direction verrouillée.
-                    Vector2 chargeMove = _lockedDirection * CHARGE_SPEED * dt;
-                    Vector2 newPosX = WorldPos + new Vector2(chargeMove.X, 0);
-                    if (!World.IsCollidingEntity(newPosX, destroyed, Species))
-                        WorldPos.X += chargeMove.X;
-                    Vector2 newPosY = WorldPos + new Vector2(0, chargeMove.Y);
-                    if (!World.IsCollidingEntity(newPosY, destroyed, Species))
-                        WorldPos.Y += chargeMove.Y;
-
-                    if (_lockedDirection.X != 0)
-                        Facing = Math.Sign(_lockedDirection.X);
+                    Vector2 slotDirection = ContextMap.Directions[i];
+                    float angle = MathF.Acos(Math.Clamp(Vector2.Dot(slotDirection, awayDirection), -1f, 1f));
+                    float angleWeight = Math.Clamp(1f - MathF.Abs(angle - 0.9f) / 1.6f, 0f, 1f);
+                    float cross = awayDirection.X * slotDirection.Y - awayDirection.Y * slotDirection.X;
+                    float sideBias = cross * _strafeDir > 0f ? 1f : 0.7f;
+                    context.Interest[i] += 0.9f * proximity * angleWeight * sideBias;
                 }
-                else
-                {
-                    // Le bolet ne charge pas : il reste immobile et relâche simplement ses
-                    // nuages de spores autour de lui (voir plus bas).
-                    Speed = 0f;
-                }
+            }
+        }
 
-                // Infliger les dégâts une seule fois, en utilisant AttackHitRange.
-                //  Le bolet ne vise pas un coup précis : une fois qu'il s'est arrêté pour
-                // attaquer (télégraphie terminée), il relâche son nuage de spores quoi qu'il
-                // arrive, même si la cible s'est entre-temps éloignée hors de portée.
-                if (!_hasDealtDamage && (isbolet || distToPlayer < AttackHitRange))
+        private void CombatContextMove(float dt, HashSet<string> destroyed, Vector2 targetPos, float distance,
+            float inner, float outer, float approachBand, bool charging)
+        {
+            ContextMap context = _contextMap ??= new ContextMap();
+            _strafeFlipTimer -= dt;
+            if (_strafeFlipTimer <= 0f)
+            {
+                _strafeFlipTimer = RandomRange(1.8f, 4.5f);
+                if (Random.Shared.NextDouble() < 0.6)
+                    _strafeDir = -_strafeDir;
+            }
+
+            context.Timer -= dt;
+            if (context.Timer <= 0f)
+            {
+                context.Timer = CONTEXT_UPDATE_INTERVAL;
+                context.BeginBuild();
+
+                Vector2 toTarget = targetPos - WorldPos;
+                float targetDistance = toTarget.Length();
+                Vector2 targetDirection = targetDistance > 0.01f
+                    ? toTarget / targetDistance
+                    : new Vector2(Facing, 0f);
+                Vector2 goalDirection = targetDirection;
+                if (!HasClearLine(WorldPos, targetPos, destroyed))
                 {
-                    if (string.Equals(Species, "bolet", StringComparison.OrdinalIgnoreCase))
+                    for (int i = 0; i < _currentPath.Count && i < 3; i++)
                     {
-                        //  Le bolet ne frappe pas directement : il relâche une salve de
-                        // nuages de spores empoisonnées autour de lui (voir
-                        // Program.SpawnPoisonCloudBurst). Ce sont les nuages eux-mêmes qui
-                        // empoisonnent les entités (dont le joueur) qui s'y attardent.
-                        Program.SpawnPoisonCloudBurst(WorldPos, this, AiTargetConnectionId);
-                        Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
-                    }
-                    else
-                    {
-                        float poisonDuration = string.Equals(Species, "scorpio", StringComparison.OrdinalIgnoreCase) ? 6f : 0f;
-                        if (_combatTargetEntity != null)
-                            DamageCombatTarget(_combatTargetEntity);
-                        else
+                        Vector2 toNode = _currentPath[i] - WorldPos;
+                        if (toNode.LengthSquared() > 100f)
                         {
-                            Program.DamagePlayerTarget(Attack, AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species), poisonDuration);
-                            Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
-                            Program.ApplyScreenShake(4f, 0.15f);
+                            goalDirection = Vector2.Normalize(toNode);
+                            break;
                         }
                     }
-                    _hasDealtDamage = true;
                 }
 
-                if (_chargeTimer >= CHARGE_DURATION)
+                float approach = charging
+                    ? 1f
+                    : Math.Clamp((distance - outer) / MathF.Max(1f, approachBand), 0f, 1f);
+                float retreat = charging
+                    ? 0f
+                    : Math.Clamp((inner - distance) / MathF.Max(1f, inner * 0.5f), 0f, 1f);
+                float strafe = charging ? 0.15f : 1f - approach;
+                for (int i = 0; i < ContextMap.Slots; i++)
                 {
-                    _attackPhase = AttackPhase.Recovery;
-                    _recoveryTimer = 0f;
-                    Speed = 0f;
-                    AnimState = "idle";
+                    Vector2 direction = ContextMap.Directions[i];
+                    float goalDot = Vector2.Dot(direction, goalDirection);
+                    float targetDot = Vector2.Dot(direction, targetDirection);
+                    float cross = targetDirection.X * direction.Y - targetDirection.Y * direction.X;
+                    float sideBias = cross * _strafeDir > 0f ? 1f : 0.25f;
+                    context.Interest[i] = approach * MathF.Max(0f, goalDot)
+                        + retreat * 1.2f * MathF.Max(0f, -targetDot)
+                        + strafe * MathF.Abs(cross) * sideBias;
                 }
-                return;
+
+                AddSeparationInterest(context);
+                BuildTerrainDanger(context, destroyed, targetPos, onlyInterestingSlots: false);
+                if (!context.Resolve(CONTEXT_SMOOTHING))
+                    _strafeDir = -_strafeDir;
             }
 
-            // ---- Phase 3 : Recovery (immobile) ----
-            if (_attackPhase == AttackPhase.Recovery)
+            _stuckProgressTimer = 0f;
+            _stuckProgressCheckPos = WorldPos;
+            float approachSpeed = charging
+                ? 1f
+                : Math.Clamp((distance - outer) / MathF.Max(1f, approachBand), 0f, 1f);
+            float speed = charging ? RunSpeed : MathHelper.Lerp(BaseSpeed, RunSpeed, approachSpeed);
+            if (IsRidingMount && OwnedMount != null && OwnedMount.IsAlive)
+                speed = Math.Max(speed, OwnedMount.RunSpeed);
+            Speed = speed;
+
+            Vector2 desiredVelocity = Vector2.Zero;
+            if (context.HasResult)
             {
-                _recoveryTimer += dt;
-                AiTarget = targetPos;
-                Speed = usesGoblinMeleeStyle ? Math.Max(BaseSpeed * 0.35f, 45f) : 0f;
-                
-                if (IsRidingMount)
-                    AnimState = "sit";
-                else
-                    AnimState = usesGoblinMeleeStyle ? "walk" : "idle";
-
-                if (usesGoblinMeleeStyle && !(IsMounted && Rider != null))
-                {
-                    PerformMovement(dt, destroyed, attackTriggerRange);
-                }
-
-                if (usesGoblinMeleeStyle && !_hasDealtDamage && _recoveryTimer >= 0.08f && distToPlayer < AttackHitRange)
-                {
-                    float poisonDuration = string.Equals(Species, "scorpio", StringComparison.OrdinalIgnoreCase) ? 6f : 0f;
-                    if (_combatTargetEntity != null)
-                        DamageCombatTarget(_combatTargetEntity);
-                    else
-                    {
-                        Program.DamagePlayerTarget(Attack, AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species), poisonDuration);
-                        Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
-                        Program.ApplyScreenShake(2f, 0.1f);
-                    }
-                    _hasDealtDamage = true;
-                }
-
-                if (_recoveryTimer >= RECOVERY_DURATION)
-                {
-                    _attackPhase = AttackPhase.None;
-                    Speed = RunSpeed;
-                    _postAttackCooldown = usesGoblinMeleeStyle ? 0.25f : 0.15f;
-                }
-                return;
+                float strengthFactor = 0.45f + 0.55f * context.Strength;
+                desiredVelocity = context.Direction * speed * strengthFactor * (IsInWater ? 0.5f : 1f);
             }
 
-            // ---- Phase 0 : approche directe ----
+            bool moved = MoveWithVelocity(dt, destroyed, desiredVelocity);
+            if (IsRidingMount)
+                AnimState = "sit";
+            else if (moved && _moveVelocity.LengthSquared() > 9f)
+                AnimState = speed > BaseSpeed * 1.2f ? "run" : "walk";
+            else
+                AnimState = "idle";
+        }
+
+        private bool MoveWithVelocity(float dt, HashSet<string> destroyed, Vector2 desiredVelocity)
+        {
+            _moveVelocity = SteerVelocity(desiredVelocity, dt, MOVE_ACCEL_TIME);
+            _steeredThisFrame = true;
+
+            Vector2 start = WorldPos;
+            Vector2 move = _moveVelocity * dt;
+            if (!World.IsCollidingEntity(WorldPos + new Vector2(move.X, 0f), destroyed, Species))
+                WorldPos.X += move.X;
+            else
+                _moveVelocity.X = 0f;
+
+            if (!World.IsCollidingEntity(WorldPos + new Vector2(0f, move.Y), destroyed, Species))
+                WorldPos.Y += move.Y;
+            else
+                _moveVelocity.Y = 0f;
+
+            return WorldPos != start;
+        }
+
+        // ---- Approche, orbite et déclenchement (mêlée) ----
+        void MeleePositioning(float dt, HashSet<string> destroyed, Vector2 targetPos, CombatProfile p)
+        {
             AiTarget = targetPos;
-            if (_postAttackCooldown > 0f)
-            {
-                _postAttackCooldown -= dt;
-                Speed = BaseSpeed;
-                AnimState = "walk";
-                return;
-            }
+            float distToTarget = GetDistanceToCombatTarget(targetPos);
+            BeginCombatIfNeeded();
+            float orbit = GetOrbitDistance();
+            TickEngagement(dt, distToTarget, orbit + ORBIT_APPROACH_BAND + 40f);
+            Facing = targetPos.X >= WorldPos.X ? 1f : -1f;
 
-            Vector2 dirToPlayer = targetPos - WorldPos;
-            float distNow = dirToPlayer.Length();
-            if (distNow > 0.01f) dirToPlayer /= distNow;
-            else dirToPlayer = new Vector2(Facing, 0);
-
-            Facing = dirToPlayer.X >= 0 ? 1f : -1f;
-
-            if (distToPlayer > attackTriggerRange)
+            float triggerRange = AttackHitRange + (p.FrontOnly ? STRIKE_REACH_TOLERANCE : 0f);
+            bool requiresPathfinding = p.Kind == CombatImpactKind.Spores || IsMounted;
+            if (distToTarget > orbit + COMBAT_CONTEXT_RANGE
+                || (requiresPathfinding && distToTarget > triggerRange))
             {
                 Speed = RunSpeed;
-                PerformMovement(dt, destroyed, attackTriggerRange);
+                PerformMovement(dt, destroyed, requiresPathfinding ? triggerRange : orbit + 15f);
                 AnimState = _currentPath.Count > 0 ? "run" : "idle";
                 return;
             }
 
-            Speed = BaseSpeed;
-            AnimState = "walk";
-
-            if (distToPlayer < attackTriggerRange * 1.02f && _attackPhase == AttackPhase.None)
+            if (_isEngaging && distToTarget <= triggerRange && _postAttackCooldown <= 0f)
             {
-                _attackPhase = AttackPhase.Telegraph;
-                _telegraphTimer = 0f;
-                Speed = usesGoblinMeleeStyle ? Math.Max(BaseSpeed * 0.5f, 60f) : 0f;
-                AnimState = usesGoblinMeleeStyle ? "walk" : "attack";
-
-                if (usesGoblinMeleeStyle)
-                    PlayAttackSound();
-
-                Vector2 dirToTarget = targetPos - WorldPos;
-                if (dirToTarget.Length() > 0.01f)
-                    _lockedDirection = Vector2.Normalize(dirToTarget);
-                else
-                    _lockedDirection = new Vector2(Facing, 0);
-
-                _hasDealtDamage = false;
+                _isEngaging = false;
+                BeginAttack(targetPos);
+                return;
             }
+
+            if (requiresPathfinding && distToTarget <= triggerRange)
+            {
+                Speed = 0f;
+                AnimState = IsRidingMount ? "sit" : "idle";
+                return;
+            }
+
+            CombatContextMove(dt, destroyed, targetPos, distToTarget,
+                inner: orbit - 25f, outer: orbit + 10f, approachBand: ORBIT_APPROACH_BAND, charging: _isEngaging);
         }
 
-        // ==================== COMBAT À DISTANCE (arc) ====================
-        //  Un tireur essaie de rester dans une fenêtre de distance confortable : s'il est trop
-        // près il recule, trop loin il approche, et dans la bonne fenêtre il alterne entre
-        // tourner autour de la cible et s'arrêter pour tirer une flèche.
-        void RangedCombatBehavior(float dt, HashSet<string> destroyed, Vector2 playerPos)
+        // ---- Positionnement des archers : fenêtre de tir, recul, rotation autour de la cible ----
+        void ArcherPositioning(float dt, HashSet<string> destroyed, Vector2 targetPos, CombatProfile p)
         {
-            float distToPlayer = Vector2.Distance(
-                World.GetEntityGroundPosition(WorldPos),
-                World.GetEntityGroundPosition(playerPos));
+            Vector2 myGround = World.GetEntityGroundPosition(WorldPos);
+            Vector2 targetGround = World.GetEntityGroundPosition(targetPos);
+            float dist = Vector2.Distance(myGround, targetGround);
+            BeginCombatIfNeeded();
+            TickEngagement(dt, dist, RANGED_PREFERRED_MAX + 110f);
+            Facing = targetGround.X >= myGround.X ? 1f : -1f;
 
-            if (_rangedShootCooldown > 0f) _rangedShootCooldown -= dt;
-
-            Vector2 dirToPlayer = World.GetEntityGroundPosition(playerPos) - World.GetEntityGroundPosition(WorldPos);
-            if (dirToPlayer.Length() > 0.01f) dirToPlayer = Vector2.Normalize(dirToPlayer);
-            else dirToPlayer = new Vector2(Facing, 0);
-            Facing = dirToPlayer.X >= 0 ? 1f : -1f;
-
-            // ---- Tir en cours : immobile le temps de la télégraphie, puis lâche la flèche ----
-            if (_rangedTelegraphing)
+            if (dist > RANGED_PREFERRED_MAX + COMBAT_CONTEXT_RANGE)
             {
-                _rangedTelegraphTimer += dt;
-                Speed = 0f;
-                AnimState = IsRidingMount ? "sit" : "attack";
-
-                if (_rangedTelegraphTimer >= RANGED_TELEGRAPH_DURATION)
-                {
-                    _rangedTelegraphing = false;
-                    Vector2 shootDir = dirToPlayer;
-                    Program.SpawnHostileArrow(
-                        World.GetEntityGroundPosition(WorldPos), shootDir, RANGED_ARROW_SPEED, Attack,
-                        _combatTargetEntity, this, AiTargetConnectionId);
-                    _rangedShootCooldown = (float)(Random.Shared.NextDouble() * 0.6f + 1.0f); // 1–1.6s
-                    // Après avoir tiré, on se replace un peu avant de retirer.
-                    _combatDecisionTimer = 0.6f;
-                }
-                return;
-            }
-
-            // ---- Trop près : recul prioritaire ----
-            if (distToPlayer < RANGED_RETREAT_DIST)
-            {
-                Speed = RunSpeed;
-                Vector2 away = WorldPos - dirToPlayer * (Speed * dt);
-                if (!World.IsCollidingEntity(away, destroyed, Species))
-                    WorldPos = away;
-                AnimState = IsRidingMount ? "sit" : "walk";
-                return;
-            }
-
-            // ---- Trop loin : se rapprocher jusqu'à la fenêtre de tir ----
-            if (distToPlayer > RANGED_PREFERRED_MAX)
-            {
-                AiTarget = playerPos;
+                AiTarget = targetPos;
                 Speed = BaseSpeed;
                 MoveTowardTarget(dt, destroyed, RANGED_PREFERRED_MAX * 0.8f);
                 return;
             }
 
-            // ---- Dans la fenêtre idéale : tourner autour de la cible, et de temps en temps
-            // s'arrêter pour tirer ----
-            _combatDecisionTimer -= dt;
-            if (_combatDecisionTimer <= 0f)
+            if (_isEngaging && dist >= RANGED_PREFERRED_MIN && dist <= RANGED_PREFERRED_MAX
+                && _postAttackCooldown <= 0f)
             {
-                _strafeDir = Random.Shared.NextDouble() < 0.5 ? 1 : -1;
-                _combatDecisionTimer = (float)(Random.Shared.NextDouble() * 1.0f + 0.8f);
-            }
-
-            bool inShootWindow = distToPlayer >= RANGED_PREFERRED_MIN && distToPlayer <= RANGED_PREFERRED_MAX;
-            if (inShootWindow && _rangedShootCooldown <= 0f)
-            {
-                _rangedTelegraphing = true;
-                _rangedTelegraphTimer = 0f;
-                Speed = 0f;
-                AnimState = IsRidingMount ? "sit" : "attack";
+                _isEngaging = false;
+                BeginAttack(targetPos);
                 return;
             }
 
-            Speed = BaseSpeed;
-            Vector2 tangent = new Vector2(-dirToPlayer.Y, dirToPlayer.X) * _strafeDir;
-            Vector2 strafePos = WorldPos + tangent * (Speed * dt);
-            if (!World.IsCollidingEntity(strafePos, destroyed, Species))
-                WorldPos = strafePos;
-            AnimState = IsRidingMount ? "sit" : "walk";
+            CombatContextMove(dt, destroyed, targetPos, dist,
+                inner: RANGED_PREFERRED_MIN, outer: RANGED_PREFERRED_MAX, approachBand: 110f, charging: false);
+        }
+
+        private void BeginAttack(Vector2 targetPos)
+        {
+            _attackPhase = AttackPhase.Telegraph;
+            _telegraphTimer = 0f;
+            _hasDealtDamage = false;
+            Speed = 0f;
+            ResetMoveMomentum();
+
+            Vector2 dirToTarget = targetPos - WorldPos;
+            _lockedDirection = dirToTarget.LengthSquared() > 0.0001f
+                ? Vector2.Normalize(dirToTarget)
+                : new Vector2(Facing, 0f);
+
+            if (IsGoblinMeleeStyle)
+                PlayAttackSound();
+
+            SetCombatAnim(GetCombatAnimName());
+        }
+
+        // ---- Automate d'attaque : Armement -> Frappe -> Récupération ----
+        //  Le temps excédentaire d'une phase est reporté sur la suivante (phaseDt) : aucune perte
+        //  d'une frame par transition, donc pas de dérive entre le geste et l'impact.
+        void TickAttackPhases(float dt, HashSet<string> destroyed, Vector2 targetPos, CombatProfile p)
+        {
+            AiTarget = targetPos;
+            float distToTarget = GetDistanceToCombatTarget(targetPos);
+            string anim = GetCombatAnimName();
+            float phaseDt = dt;
+
+            // ---- Armement ----
+            if (_attackPhase == AttackPhase.Telegraph)
+            {
+                _telegraphTimer += dt;
+
+                if (p.Tracks && distToTarget > AttackHitRange && !(IsMounted && Rider != null))
+                {
+                    Speed = Math.Max(BaseSpeed * 0.5f, 60f);
+                    PerformMovement(dt, destroyed, AttackHitRange);
+                }
+                else
+                {
+                    Speed = 0f;
+                }
+
+                // La poursuite peut orienter le sprite selon le détour du chemin ; en fin
+                // d'armement, la frappe doit rester tournée vers la cible elle-même.
+                if (p.LungeSpeed <= 0f && MathF.Abs(targetPos.X - WorldPos.X) > 8f)
+                    Facing = targetPos.X >= WorldPos.X ? 1f : -1f;
+
+                SetCombatAnim(anim);
+
+                if (_telegraphTimer < p.Windup) return;
+
+                phaseDt = _telegraphTimer - p.Windup;
+                _attackPhase = AttackPhase.Charge;
+                _chargeTimer = 0f;
+                _hasDealtDamage = false;
+            }
+
+            // ---- Frappe ----
+            if (_attackPhase == AttackPhase.Charge)
+            {
+                _chargeTimer += phaseDt;
+                SetCombatAnim(anim);
+
+                if (p.LungeSpeed > 0f)
+                {
+                    // Élan en ligne droite dans la direction verrouillée au début de l'armement.
+                    Vector2 chargeMove = _lockedDirection * p.LungeSpeed * phaseDt;
+                    Vector2 newPosX = WorldPos + new Vector2(chargeMove.X, 0f);
+                    if (!World.IsCollidingEntity(newPosX, destroyed, Species))
+                        WorldPos.X += chargeMove.X;
+                    Vector2 newPosY = WorldPos + new Vector2(0f, chargeMove.Y);
+                    if (!World.IsCollidingEntity(newPosY, destroyed, Species))
+                        WorldPos.Y += chargeMove.Y;
+
+                    if (_lockedDirection.X != 0f)
+                        Facing = Math.Sign(_lockedDirection.X);
+                }
+                else
+                {
+                    Speed = 0f;
+                }
+
+                // IMPACT : une seule évaluation par attaque (touche ou rate, elle est consommée).
+                if (!_hasDealtDamage)
+                {
+                    float impactDistance = p.LungeSpeed > 0f
+                        ? GetDistanceToCombatTarget(targetPos)
+                        : distToTarget;
+                    bool impactNow = p.ImpactDelay >= 0f
+                        ? _chargeTimer >= p.ImpactDelay
+                        : IsStrikeOnTarget(p, impactDistance, targetPos);
+                    if (impactNow)
+                    {
+                        _hasDealtDamage = true;
+                        PerformAttackImpact(p, targetPos, impactDistance);
+                    }
+                }
+
+                if (_chargeTimer < p.Strike) return;
+
+                phaseDt = _chargeTimer - p.Strike;
+                _attackPhase = AttackPhase.Recovery;
+                _recoveryTimer = 0f;
+            }
+
+            // ---- Récupération (pieds plantés) ----
+            if (_attackPhase == AttackPhase.Recovery)
+            {
+                _recoveryTimer += phaseDt;
+                Speed = 0f;
+                SetCombatAnim(anim);
+
+                if (_recoveryTimer >= p.Recovery)
+                {
+                    _attackPhase = AttackPhase.None;
+                    Speed = RunSpeed;
+                    _postAttackCooldown = p.CooldownMin + (float)Random.Shared.NextDouble() * p.CooldownJitter;
+                }
+            }
+        }
+
+        // Le coup ne touche que si la cible est à portée (et devant l'attaquant pour les « duellistes »).
+        private bool IsStrikeOnTarget(CombatProfile p, float distToTarget, Vector2 targetPos)
+        {
+            float reach = AttackHitRange + (p.FrontOnly ? STRIKE_REACH_TOLERANCE : 0f);
+            if (distToTarget >= reach) return false;
+            if (!p.FrontOnly) return true;
+            float dx = targetPos.X - WorldPos.X;
+            return MathF.Abs(dx) < 12f || Math.Sign(dx) == Math.Sign(Facing);
+        }
+
+        private void PerformAttackImpact(CombatProfile p, Vector2 targetPos, float distToTarget)
+        {
+            switch (p.Kind)
+            {
+                case CombatImpactKind.Arrow:
+                {
+                    Vector2 origin = World.GetEntityGroundPosition(WorldPos);
+                    Vector2 shootDir = World.GetEntityGroundPosition(targetPos) - origin;
+                    shootDir = shootDir.LengthSquared() > 0.0001f ? Vector2.Normalize(shootDir) : new Vector2(Facing, 0f);
+                    Program.SpawnHostileArrow(origin, shootDir, RANGED_ARROW_SPEED, Attack,
+                        _combatTargetEntity, this, AiTargetConnectionId);
+                    return;
+                }
+                case CombatImpactKind.Spores:
+                    // Le bolet ne frappe pas : il relâche des nuages de spores empoisonnées autour de lui
+                    // (voir Program.SpawnPoisonCloudBurst), quoi qu'il arrive à sa cible.
+                    Program.SpawnPoisonCloudBurst(WorldPos, this, AiTargetConnectionId);
+                    Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
+                    return;
+                default:
+                {
+                    if (!IsStrikeOnTarget(p, distToTarget, targetPos)) return;
+                    float poisonDuration = string.Equals(Species, "scorpio", StringComparison.OrdinalIgnoreCase) ? 6f : 0f;
+                    if (_combatTargetEntity != null)
+                    {
+                        DamageCombatTarget(_combatTargetEntity);
+                    }
+                    else
+                    {
+                        Program.DamagePlayerTarget(Attack, AiTargetConnectionId, GetDisplayName(),
+                            Program.InferDeathCauseFromSpecies(Species), poisonDuration);
+                        Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
+                        Program.ApplyScreenShake(p.Shake, 0.12f);
+                    }
+                    return;
+                }
+            }
+        }
+
+        // ---- Animation du squelette synchronisée sur l'automate ----
+        //  Sans cela, l'animation "attack" tournait librement (frame et vitesse sans rapport avec
+        //  les durées d'armement/frappe/récupération) : le geste visible était décalé du coup réel.
+        private void SetCombatAnim(string anim) => AnimState = IsRidingMount ? "sit" : anim;
+
+        private int GetSkeletonAnimFrameCount(string anim)
+        {
+            if (SpeciesData.Skeletons.TryGetValue(Species, out var skeleton))
+            {
+                var firstPart = skeleton.FirstOrDefault();
+                if (firstPart != null && firstPart.Animations.TryGetValue(anim, out var frames))
+                    return frames.Count;
+            }
+            return 0;
+        }
+
+        private string GetCombatAnimName() => GetSkeletonAnimFrameCount("attack") > 0 ? "attack" : "idle";
+
+        private void SyncAttackAnimation()
+        {
+            if (_attackPhase == AttackPhase.None || IsRidingMount || AnimState != "attack") return;
+            int frameCount = GetSkeletonAnimFrameCount("attack");
+            if (frameCount <= 0) return;
+
+            float x = Math.Clamp(GetAttackSwingProgress(), 0f, 1f) * frameCount;
+            int frame = (int)x;
+            if (frame >= frameCount) { frame = 0; x = 0f; }
+            CurrentFrame = frame;
+            AnimProgress = x - frame;
         }
 
         // ==================== MÉTHODES PRIVÉES ====================
@@ -7628,7 +8340,8 @@ namespace Soulfract
             {
                 float angle = i * (MathF.PI * 2f / count);
                 Vector2 dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                var projectile = new KhamsinProjectile(WorldPos, dir, speed, Math.Max(4f, Attack * 0.6f), color, color);
+                var projectile = new KhamsinProjectile(
+                    World.GetEntityGroundPosition(WorldPos), dir, speed, Math.Max(4f, Attack * 0.6f), color, color);
                 Program.AddSpellProjectile(projectile);
             }
 
@@ -8124,7 +8837,8 @@ namespace Soulfract
             {
                 float angle = _geLaserAngle + arm * (MathF.PI / 2f);
                 Vector2 dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                var projectile = new KhamsinProjectile(WorldPos, dir, speed, Math.Max(4f, Attack * 0.4f), color, color);
+                var projectile = new KhamsinProjectile(
+                    World.GetEntityGroundPosition(WorldPos), dir, speed, Math.Max(4f, Attack * 0.4f), color, color);
                 Program.AddSpellProjectile(projectile);
             }
         }

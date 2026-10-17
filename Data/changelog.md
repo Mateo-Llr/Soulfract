@@ -1311,21 +1311,24 @@
 - [FIXED] Les zones de travail des fermiers sont conservées au rechargement et les anciennes zones sont récupérées depuis les terres cultivées
 - [FIXED] Les fermiers choisissent les cases de culture du centre vers les bords au lieu de former une rangée
 - [FIXED] Les créatures qui fuient suivent leur chemin pour contourner les obstacles, avec un objectif de fuite stable
-- [CLEANUP] Suppression des champs, états et blocs privés d'IA d'entité sans aucune référence active
-- [CLEANUP] Suppression de champs privés de rendu, réseau et interface remplacés ou sans aucune référence
-- [CLEANUP] Retrait d'anciens tags de rendu jamais construits et de leurs méthodes vides
-- [CLEANUP] Suppression d'anciens helpers privés sans appel, dont des chemins de rendu remplacés
-- [CLEANUP] Suppression d'une ancienne réécriture de carte entière laissée désactivée et jamais intégrée
-- [CLEANUP] Retrait d'états d'IA et d'un état d'interface déclarés mais jamais utilisés
-- [CLEANUP] Suppression de constantes et couleurs privées sans aucune référence active
-- [CLEANUP] Retrait d'anciens rendus HUD/inventaire/artisanat et helpers qui n'étaient plus appelés
-- [CLEANUP] Suppression de helpers publics obsolètes ou sans appelant (barre de charge, visée, inventaire legacy, description de profession)
-- [CLEANUP] Découpage du code des PNJ entre interactions, jeu de cartes, créatures, objets et écran de mort
+- [PERF] Suppression des champs, états et blocs privés d'IA d'entité sans aucune référence active
+- [PERF] Suppression de champs privés de rendu, réseau et interface remplacés ou sans aucune référence
+- [PERF] Retrait d'anciens tags de rendu jamais construits et de leurs méthodes vides
+- [PERF] Suppression d'anciens helpers privés sans appel, dont des chemins de rendu remplacés
+- [PERF] Suppression d'une ancienne réécriture de carte entière laissée désactivée et jamais intégrée
+- [PERF] Retrait d'états d'IA et d'un état d'interface déclarés mais jamais utilisés
+- [PERF] Suppression de constantes et couleurs privées sans aucune référence active
+- [PERF] Retrait d'anciens rendus HUD/inventaire/artisanat et helpers qui n'étaient plus appelés
+- [PERF] Suppression de helpers publics obsolètes ou sans appelant (barre de charge, visée, inventaire legacy, description de profession)
+- [PERF] Découpage du code des PNJ entre interactions, jeu de cartes, créatures, objets et écran de mort
 - [CHANGED] Regroupement du rendu, de l'animation et du chargement des ressources de l'écran de mort
-- [CLEANUP] Réorganisation des membres partiels de `Program` selon leurs responsabilités (interface, rendu, magie et créatures)
+- [PERF] Réorganisation des membres partiels de `Program` selon leurs responsabilités (interface, rendu, magie et créatures)
 
 ### 16 octobre
 
+- [CHANGED] Menu pause légèrement agrandi en hauteur et resserré en largeur
+- [CHANGED] Boutons du menu pause présentés sur des zones légèrement assombries, davantage au survol, avec libellés blancs à contour noir et panneau légèrement agrandi
+- [ADDED] Bordures hautes et basses du parchemin de pause dessinées en three-slice horizontal et alignées sur ses coins
 - [CHANGED] Les disques spatiaux uniformes des biomes, liquides et géantes gazeuses sont générés en cercle à partir de leur couleur, sans charger les textures d'aplat correspondantes
 - [FIXED] Le Veilleur se couche à l'intérieur de sa tente, à la position calculée depuis sa hitbox au lieu d'un point décalé sous celle-ci
 - [CHANGED] Prompts d'interaction générés à partir des capacités des objets (conteneur, meuble utilisable, station, récolte) ; les feux de camp et le pot déclarent leurs actions dans les données
@@ -1359,6 +1362,38 @@
 - [CHANGED] Changelog présenté par mois, avec titre suivant la section consultée et modifications regroupées par date et catégorie
 - [FIXED] Accès à l'ensemble des dates du changelog, sans limite aux 50 dernières journées
 - [PERF] Chargement progressif du changelog et réduction des recalculs lors du redimensionnement du launcher
+
+### 17 octobre
+
+- [CHANGED] Interface de création de sorts repensée : sélection des éléments, formes et puissances, aperçu animé et assignation aux clics gauche et droit, conservée dans les sauvegardes
+- [CHANGED] Chargement des sorts moyens et puissants : leur puissance évolue avec la durée de maintien, tandis que les sorts faibles se lancent à cadence régulière tant que le clic est maintenu
+- [ADDED] Effets visuels dédiés aux éléments et formes de sorts : projectiles, traînées, impacts, explosions, éclairs, runes, icônes et indicateurs de charge
+- [FIXED] Les éclairs touchent les entités traversées par leurs ramifications ; les explosions d'explosifs évaluent dégâts et recul depuis la position au sol et prennent en compte le dénivelé des tuiles
+- [FIXED] L'utilisation de la baguette magique est ignorée lorsque le curseur survole une interface ou que le menu de création de sorts est ouvert
+- [CHANGED] Police pixel globale mise à jour ; conservation de la version précédente dans `pixel_font2.ttf`
+- [ADDED] Icône de bouton magique destinée à la barre d'interface
+- [ADDED] Abattage des chênes avec chute animée du houppier, souche destructible et récupération de bûches
+- [CHANGED] Feuilles éparpillées progressivement pendant la chute du chêne, qui s'efface ensuite dans un léger nuage de fumée
+- [CHANGED] Chute des arbres dans le sens de la dernière poussée, avec souches et animation préparées pour les épicéas, bouleaux et palmiers
+- [CHANGED] Feuillage du bouleau teinté avec des variantes vertes, dorées et cuivrées, ainsi que de rares fleurs roses
+- [CHANGED] IA des ennemis : déplacement contextuel, contournement des obstacles, orbite et séparation des combattants, avec délai et quota d'attaques simultanées
+- [FIXED] Origine de l'attaque du joueur et hitboxes de dégâts des entités centrées sur le corps plutôt que sur les pieds
+- [FIXED] Déclenchement des alertes et propagation aux entités hostiles proches lors d'une nouvelle détection
+- [FIXED] Les PNJ en fuite pour leur survie ignorent les alertes de combat et ne reprennent pas la poursuite
+- [FIXED] Position des particules de saignement recalée sur le sol visuel des falaises
+- [CHANGED] Recul des entités renforcé et amorti progressivement après un impact
+- [CHANGED] Les ennemis maintiennent une orbite de combat plus proche ; l'impact des charges est évalué après le déplacement réel
+- [FIXED] Orientation des ennemis recentrée sur leur cible après le déplacement de poursuite pendant l'armement
+- [FIXED] Clignement rétabli pour le joueur ; l'aperçu d'inventaire respecte sa forme morphée
+- [ADDED] Boss Génie invoqué avec sa lampe : illusions, salves de projectiles, tempêtes de sable, lave et lasers en trois phases ; la lampe posée éclaire les environs
+- [CHANGED] Génération du terrain enrichie de rivières sinueuses et de lacs, avec rééquilibrage des sommets, marais et biomes d'altitude
+- [PERF] Calcul du climat et du relief partagé entre les systèmes de terrain, avec moins de recalculs par tuile
+- [FIXED] Caches de terrain invalidés lors d'un changement de monde et limités en taille pour éviter données périmées et croissance mémoire
+- [ADDED] Commandes réassignables au clavier ou à la manette, dont les actions de jeu et les dix emplacements de la barre rapide
+- [CHANGED] Menu d'options refondu avec mise à l'échelle adaptative, onglets défilants et dialogues modaux
+- [FIXED] Zoom et déplacement de la carte recentrés pour conserver sous le curseur la zone visée
+- [CHANGED] Bandes cinématiques animées pendant l'arrivée et la matérialisation du personnage
+- [ADDED] Icône dédiée pour le lanceur du jeu
 
 ---
 

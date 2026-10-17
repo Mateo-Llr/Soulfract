@@ -136,7 +136,7 @@ namespace Soulfract
 
 		public const float ATTACK_ANGLE = 75f;
 
-		public const float ATTACK_KNOCKBACK = 80f;
+		public const float ATTACK_KNOCKBACK = 140f;
 
 		static List<FloatingDamage> _floatingDamages = new();
 
@@ -146,11 +146,7 @@ namespace Soulfract
 
 		private static Vector2 GetPlayerAttackOrigin(Vector2 playerPos)
 		{
-			int ts = TileSize;
-			Vector2 visualPos = GetPlayerVisualPosition(playerPos);
-			Vector2 playerDim = new Vector2(ts * 1.6f, ts * 0.5f);
-			float baseY = visualPos.Y + FeetOffsetY;
-			return new Vector2(visualPos.X, baseY - playerDim.Y / 2f);
+			return GetPlayerVisualPosition(playerPos);
 		}
 
 		private static Vector2 GetPlayerAttackDirection(Vector2 playerPos, Vector2 targetPos, float facing)

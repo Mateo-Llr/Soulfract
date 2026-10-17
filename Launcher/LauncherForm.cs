@@ -103,6 +103,7 @@ internal sealed class LauncherForm : Form
 
         _languageCode = LoadPreferredLanguage();
         Text = "Soulfract";
+        Icon = LoadLauncherIcon();
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = true;
@@ -1965,6 +1966,14 @@ internal sealed class LauncherForm : Form
             ?? throw new InvalidOperationException("L'icône Discord du lanceur est introuvable.");
         using Image source = Image.FromStream(stream);
         return new Bitmap(source);
+    }
+
+    private static Icon LoadLauncherIcon()
+    {
+        using Stream stream = typeof(LauncherForm).Assembly.GetManifestResourceStream(
+            "SoulfractLauncher.Assets.Launcher.launcher_icon.ico")
+            ?? throw new InvalidOperationException("L'icône du lanceur est introuvable.");
+        return new Icon(stream);
     }
 
     private static Button CreateButton(string text, Color background, Color foreground, int width, int height)

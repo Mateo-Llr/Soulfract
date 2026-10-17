@@ -340,12 +340,10 @@ namespace Soulfract
             float scale = BASE_ENTITY_SCALE * customScale * (SpeciesData.GetSpeciesInfo(speciesKey)?.Scale ?? 1f);
             Vector2 partOffset = GetStaticPartOffset(skeleton, bodyPart, scale, facing);
             float waterOffset = inWater ? SpeciesData.LegHeights.GetValueOrDefault(speciesKey, 0f) : 0f;
-            Vector2 partCenter = (visualPosition ?? entity.WorldPos) + partOffset + new Vector2(0f, waterOffset);
-
-            Vector2 groundPosition = visualPosition ?? entity.WorldPos;
-            int tileX = (int)MathF.Floor(groundPosition.X / Program.TileSize);
-            int tileY = (int)MathF.Floor(groundPosition.Y / Program.TileSize);
-            float groundY = groundPosition.Y - World.GetHeightAt(tileX, tileY) * Program.TileSize / 4f + Program.FeetOffsetY;
+            Vector2 entityVisualPosition = visualPosition
+                ?? World.GetEntityGroundPosition(entity.VisualWorldPos) - new Vector2(0f, entity.VisualOffsetY);
+            Vector2 partCenter = entityVisualPosition + partOffset + new Vector2(0f, waterOffset);
+            float groundY = entityVisualPosition.Y + Program.FeetOffsetY + waterOffset;
             List<Particle> particles = Program.GetParticleList();
 
             for (int i = 0; i < dropletCount; i++)

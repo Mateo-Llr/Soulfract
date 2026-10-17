@@ -410,6 +410,7 @@ void main()
                     UpdateAdditionalLocalPlayers(dt, hitboxDim, camera);
                     if (_fadeOutOverlayActive) UpdateLoadingFadeOutOverlay(dt);
 					UpdateSoulMaterialization(dt);
+					UpdateSoulIntroBars(dt);
                     if (_mainMenuFadePhase != MainMenuFadePhase.None) UpdateMainMenuFade(dt);
 
                     if (_gameState == GameState.Loading) UpdateLoadingScreen(dt);
@@ -759,8 +760,8 @@ void main()
 			if (_isDraggingMap && Raylib.IsMouseButtonDown(MouseButton.Left))
 			{
 				Vector2 delta = mousePos - _mapDragStart;
-				_mapOffset.X += delta.X / currentTileSize;
-				_mapOffset.Y += delta.Y / currentTileSize;
+				_mapOffset.X -= delta.X / currentTileSize;
+				_mapOffset.Y -= delta.Y / currentTileSize;
 				_mapDragStart = mousePos;
 			}
 			if (Raylib.IsMouseButtonReleased(MouseButton.Left)) _isDraggingMap = false;
@@ -770,25 +771,20 @@ void main()
 				float wheel = Raylib.GetMouseWheelMove();
 				if (wheel != 0)
 				{
-					Vector2 mouseMapPos = new Vector2(
-						(mousePos.X - mapX) / currentTileSize,
-						(mousePos.Y - mapY) / currentTileSize
+					Vector2 anchorTilePos = new Vector2(
+						startTileX + (mousePos.X - mapX) / currentTileSize,
+						startTileY + (mousePos.Y - mapY) / currentTileSize
 					);
 
 					_mapZoom = Math.Clamp(_mapZoom + wheel * MAP_ZOOM_STEP, MAP_ZOOM_MIN, MAP_ZOOM_MAX);
 					MapLayout newLayout = ComputeMapLayout(sw, sh, _mapZoom);
 
-
-					Vector2 newMouseMapPos = new Vector2(
-						(mousePos.X - newLayout.MapX) / newLayout.TileSize,
-						(mousePos.Y - newLayout.MapY) / newLayout.TileSize
+					_mapOffset = new Vector2(
+						anchorTilePos.X - playerTilePos.X + newLayout.VisibleTilesX / 2f
+							- (mousePos.X - newLayout.MapX) / newLayout.TileSize,
+						anchorTilePos.Y - playerTilePos.Y + newLayout.VisibleTilesY / 2f
+							- (mousePos.Y - newLayout.MapY) / newLayout.TileSize
 					);
-
-					float oldHalfWidth = visibleTilesX / 2f;
-					float oldHalfHeight = visibleTilesY / 2f;
-					float newHalfHeight = newLayout.VisibleTilesY / 2f;
-
-					_mapOffset += (mouseMapPos - newMouseMapPos);
 				}
 			}
 
@@ -824,7 +820,7 @@ void main()
 
 			if (QuestJournalUI.IsOpen)
 			{
-				if (Raylib.IsKeyPressed(KeyboardKey.G) || Raylib.IsKeyPressed(KeyboardKey.Escape))
+				if (KeyBindings.IsPressed(GameAction.GuildMenu) || Raylib.IsKeyPressed(KeyboardKey.Escape))
 				{
 					QuestJournalUI.Close();
 					return;
@@ -842,7 +838,7 @@ void main()
 			// TELECHARGEMENT DE STRUCTURE (F7/F8) - fonctionne même si souris sur UI
 			if (!InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen)
 			{
-				if (Raylib.IsKeyPressed(KeyboardKey.F7))
+				if (KeyBindings.IsPressed(GameAction.SelectStructureCorner1))
 				{
 					Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), inputCamera);
 					int tileX = (int)(mouseWorld.X / TileSize);
@@ -851,7 +847,7 @@ void main()
 					AddNotification(new Notification($"Premier coin sélectionné : ({tileX}, {tileY})", Color.Yellow, 2f));
 					_selectionCorner2 = null;
 				}
-				else if (Raylib.IsKeyPressed(KeyboardKey.F8))
+				else if (KeyBindings.IsPressed(GameAction.SelectStructureCorner2))
 				{
 					if (_selectionCorner1 == null)
 					{
@@ -871,19 +867,19 @@ void main()
 		}
 		
 		// Avance rapide du temps (F6) - tant que la touche est tenue
-		if (Raylib.IsKeyDown(KeyboardKey.F6))
+		if (KeyBindings.IsDown(GameAction.TimeSkip))
 		{
 			_timeSkipRemaining += dt * 60f;  // Le temps avance 60x plus vite tant que F6 est pressé
 		}
 		
 		// Rechargement des données (F4)
-		if (Raylib.IsKeyPressed(KeyboardKey.F4) && _gameState == GameState.Playing && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen && !QuestDialogUI.IsOpen)
+		if (KeyBindings.IsPressed(GameAction.ReloadData) && _gameState == GameState.Playing && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen && !QuestDialogUI.IsOpen)
 			{
 				ReloadData();
 			}
 			
 			// Carte (M)
-			if (Raylib.IsKeyPressed(KeyboardKey.M) && (_gameState == GameState.Playing || _gameState == GameState.Map))
+			if (KeyBindings.IsPressed(GameAction.Map) && (_gameState == GameState.Playing || _gameState == GameState.Map))
 			{
 				if (_gameState == GameState.Map)
 				{
@@ -914,7 +910,7 @@ void main()
 			}
 
 			// Bestiaire (Y)
-			if (Raylib.IsKeyPressed(KeyboardKey.Y) && _gameState == GameState.Playing && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen)
+			if (KeyBindings.IsPressed(GameAction.Bestiary) && _gameState == GameState.Playing && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen)
 			{
 				if (BestiaryUI.IsOpen)
 					UIManager.PopUI();
@@ -929,13 +925,13 @@ void main()
 			}
 			
 			// Debug (F3)
-			if (Raylib.IsKeyPressed(KeyboardKey.F3) && _gameState == GameState.Playing)
+			if (KeyBindings.IsPressed(GameAction.ToggleDebug) && _gameState == GameState.Playing)
 			{
 				_showDebug = !_showDebug;
 			}
 			
 			// Fullscreen (F11)
-			if (Raylib.IsKeyPressed(KeyboardKey.F11))
+			if (KeyBindings.IsPressed(GameAction.Fullscreen))
 			{
 				_fullscreen = !_fullscreen;
 				if (_fullscreen)
@@ -956,7 +952,7 @@ void main()
 			}
 			
 			// Touche J : ouvrir/fermer l'interface de création de sort (si baguette en main)
-			if (Raylib.IsKeyPressed(KeyboardKey.J) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
+			if (KeyBindings.IsPressed(GameAction.MagicMenu) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
 			{
 				Item? heldItem = InventoryRenderer.GetHotbarItem(hotbarSlot);
 				if (heldItem != null && Program.GetItemId(heldItem.Name) == GameData.GetItemId("magic_wand"))
@@ -975,14 +971,14 @@ void main()
 			}
 			
 			// Sauvegarde rapide (F5)
-			if (Raylib.IsKeyPressed(KeyboardKey.F5) && _gameState == GameState.Playing && !string.IsNullOrEmpty(_currentSaveName))
+			if (KeyBindings.IsPressed(GameAction.QuickSave) && _gameState == GameState.Playing && !string.IsNullOrEmpty(_currentSaveName))
 			{
 				SaveCurrentGame();
 				ShowSavingIcon();
 			}
 			
 			// Touche R sur un wagon (sous la souris) : lier / délier des wagons
-			if (Raylib.IsKeyPressed(KeyboardKey.R) && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen
+			if (KeyBindings.IsPressed(GameAction.WagonLink) && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen
 				&& !QuestDialogUI.IsOpen && PlayerCurrentCar == null)
 				TryHandleWagonLinkClick(inputCamera, inputViewport);
 
@@ -1039,7 +1035,7 @@ void main()
 			}
 
 			// ITEMS (K)
-			if (IsGodMode && Raylib.IsKeyPressed(KeyboardKey.K) && _gameState == GameState.Playing)
+			if (IsGodMode && KeyBindings.IsPressed(GameAction.ItemsMenu) && _gameState == GameState.Playing)
 			{
 				if (ItemMenuUI.IsOpen)
 					UIManager.PopUI();
@@ -1059,7 +1055,7 @@ void main()
 			}
 			
 // GUILDE (G)
-				if (Raylib.IsKeyPressed(KeyboardKey.G) && _gameState == GameState.Playing)
+				if (KeyBindings.IsPressed(GameAction.GuildMenu) && _gameState == GameState.Playing)
 				{
 					if (GuildUI.IsOpen)
 						UIManager.PopUI();
@@ -1077,7 +1073,8 @@ void main()
 			// ========================================================
 			// 4. GESTION DE L'ESCAPE / PAUSE (fermeture des UI + MENU PAUSE)
 			// ========================================================
-			if (Raylib.IsKeyPressed(KeyboardKey.Escape) || KeyBindings.IsPressed(GameAction.PauseMenu))
+			bool pauseActionPressed = KeyBindings.IsPressed(GameAction.PauseMenu);
+			if (Raylib.IsKeyPressed(KeyboardKey.Escape) || pauseActionPressed)
 			{
 				if (QuestJournalUI.IsOpen)
 				{
@@ -1117,6 +1114,9 @@ void main()
 						UIManager.PopUI();
 						return;
 					}
+					if (!pauseActionPressed)
+						return;
+
 					// Si aucune UI n'est ouverte, on met en pause
 					_gameState = GameState.Paused;
 					_pauseMenuClosing = false; // le menu part de _pauseMenuSlide (généralement 0) et glisse vers le bas à l'ouverture
@@ -1209,6 +1209,49 @@ void main()
 				if (heldCardDeck != null && GetItemId(heldCardDeck.Name) == GameData.GetItemId("card_deck"))
 				{
 					CartesGameUI.OpenStandaloneCards();
+					_rightClickConsumed = true;
+					return;
+				}
+			}
+
+			// L'invocation doit précéder les interactions génériques au clic droit,
+			// qui peuvent consommer l'action avant que la lampe ne soit traitée.
+			if (Raylib.IsMouseButtonPressed(MouseButton.Right) && !_rightClickConsumed
+				&& PlayerCurrentCar == null && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen
+				&& !QuestDialogUI.IsOpen)
+			{
+				Item? heldLamp = equipment.MainHand;
+				if (heldLamp != null && GetItemId(heldLamp.Name) == GameData.GetItemId("genie_lamp"))
+				{
+					if (CurrentBoss != null && CurrentBoss.IsAlive)
+					{
+						AddNotification(new Notification(" Un danger rôde déjà... Ce n'est pas le moment.", new Color(220, 100, 100, 255), 2f));
+					}
+					else
+					{
+						Vector2 spawnPos = _playerPos + new Vector2(0f, -140f);
+						int spawnTileX = (int)(spawnPos.X / TileSize);
+						int spawnTileY = (int)(spawnPos.Y / TileSize);
+						int spawnGroundId = World.GetGroundTileIdAt(spawnTileX, spawnTileY);
+						var spawnGround = WorldTileRegistry.GetTile(spawnGroundId);
+						if (spawnGround == null || !spawnGround.Walkable || World.GetObjectIdAt(spawnTileX, spawnTileY) != 0)
+							spawnPos = _playerPos + new Vector2(160f, 0f);
+
+						spawnTileX = (int)(spawnPos.X / TileSize);
+						spawnTileY = (int)(spawnPos.Y / TileSize);
+						RemoveItemFromInventory(heldLamp.Name, 1);
+						Entity.SpawnGenieSmoke(spawnPos, 1.6f);
+						Program.ApplyScreenShake(5f, 0.3f);
+
+						var genie = new Entity(spawnPos, "Genie", false);
+						genie.CustomName = "Génie de la Lampe";
+						GetEntities().Add(genie);
+						var spawnChunk = World.GetChunkAt(spawnTileX, spawnTileY);
+						if (spawnChunk != null) spawnChunk.Entities.Add(genie);
+						CurrentBoss = genie;
+
+						AddNotification(new Notification(" \"QUI OSE ME RÉVEILLER ?!\" Le Génie de la Lampe apparaît !", new Color(255, 200, 80, 255), 3.5f));
+					}
 					_rightClickConsumed = true;
 					return;
 				}
@@ -1538,42 +1581,6 @@ void main()
 						}
 					}
 			
-			// Invocation du boss "Génie de la Lampe" (clic droit avec la lampe genie_lamp)
-			if (Raylib.IsMouseButtonPressed(MouseButton.Right) && !_rightClickConsumed && PlayerCurrentCar == null && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen && !QuestDialogUI.IsOpen)
-			{
-				Item? heldLamp = equipment.MainHand;
-				if (heldLamp != null && GetItemId(heldLamp.Name) == GameData.GetItemId("genie_lamp"))
-				{
-					if (CurrentBoss != null && CurrentBoss.IsAlive)
-					{
-						AddNotification(new Notification(" Un danger rôde déjà... Ce n'est pas le moment.", new Color(220, 100, 100, 255), 2f));
-					}
-					else
-					{
-						Vector2 spawnPos = _playerPos + new Vector2(0f, -140f);
-						int spTileX = (int)(spawnPos.X / TileSize);
-						int spTileY = (int)(spawnPos.Y / TileSize);
-						int spGround = World.GetGroundTileIdAt(spTileX, spTileY);
-						var spGroundTile = WorldTileRegistry.GetTile(spGround);
-						if (spGroundTile == null || !spGroundTile.Walkable || World.GetObjectIdAt(spTileX, spTileY) != 0)
-							spawnPos = _playerPos + new Vector2(160f, 0f); // secours si la case au-dessus est bloquée
-
-						RemoveItemFromInventory(heldLamp.Name, 1);
-						Entity.SpawnGenieSmoke(spawnPos, 1.6f);
-						Program.ApplyScreenShake(5f, 0.3f);
-
-						var genie = new Entity(spawnPos, "Genie", false);
-						genie.CustomName = "Génie de la Lampe";
-						GetEntities().Add(genie);
-						var spawnChunk = World.GetChunkAt(spTileX, spTileY);
-						if (spawnChunk != null) spawnChunk.Entities.Add(genie);
-
-						AddNotification(new Notification(" \"QUI OSE ME RÉVEILLER ?!\" Le Génie de la Lampe apparaît !", new Color(255, 200, 80, 255), 3.5f));
-					}
-					_rightClickConsumed = true;
-				}
-			}
-
 			if (MountedAnimal != null)
 			{
 				if (KeyBindings.IsPressed(GameAction.Interact))
@@ -1585,7 +1592,7 @@ void main()
 			}
 
 			// Emote wheel (B)
-			if (Raylib.IsKeyPressed(KeyboardKey.B) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
+			if (KeyBindings.IsPressed(GameAction.EmoteWheel) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
 			{
 				_isEmoteWheelOpen = true;
 				_emoteWheelHoverIndex = -1;
@@ -1594,7 +1601,7 @@ void main()
 			if (_isEmoteWheelOpen)
 			{
 				UpdateEmoteWheel(Raylib.GetMousePosition());
-				if (Raylib.IsKeyReleased(KeyboardKey.B))
+				if (KeyBindings.IsReleased(GameAction.EmoteWheel))
 				{
 					if (_emoteWheelHoverIndex >= 0 && _emoteWheelHoverIndex < _emoteWheelOptions.Length)
 					{
@@ -1614,7 +1621,7 @@ void main()
 			}
 			
 			// Changement de pose du porte-armure (R)
-			if (Raylib.IsKeyPressed(KeyboardKey.R) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
+			if (KeyBindings.IsPressed(GameAction.ArmorStandPose) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
 			{
 				Vector2 mouseWorldPos = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 				int ts = TileSize;
@@ -1665,9 +1672,8 @@ void main()
 					return;
 				}
 
-				for (int k = 1; k <= 9; k++)
-					if (Raylib.IsKeyPressed(KeyboardKey.One + (k - 1))) hotbarSlot = k - 1;
-				if (Raylib.IsKeyPressed(KeyboardKey.Zero)) hotbarSlot = 9;
+				for (int slot = 0; slot < 10; slot++)
+					if (KeyBindings.IsHotbarSlotPressed(slot)) hotbarSlot = slot;
 				UpdateMainHandFromHotbar();
 			}
 			
@@ -1938,6 +1944,7 @@ void main()
 
 		static void StartNewGame()
 		{
+			ResetAssignedSpells();
 			Weather.ResetForWorld();
 			ClearWagonLinks();
 			if (!string.IsNullOrEmpty(_newWorldSeed) && int.TryParse(_newWorldSeed, out int parsedSeed) && parsedSeed != 0)
@@ -2265,6 +2272,7 @@ void main()
 			_particles.Clear();
 
 			var saveData = SaveSystem.LoadGame(saveName);
+			RestoreAssignedSpells(saveData);
 			//  BUG CORRIGÉ : WorldSeed restait à 0 (ou à la seed aléatoire du monde-vitrine
 			// du menu principal) après le chargement d'une partie, au lieu de reprendre la
 			// seed réellement utilisée à la création du monde. Les chunks déjà sauvegardés sur
@@ -2638,6 +2646,12 @@ void main()
 				PreviouslyOwnedItemIds = PreviouslyOwnedItemIds.ToList(),
 				HotbarSlot = 0,
 				CameraZoom = 1f,
+				LeftClickSpellElement = _leftClickSpell.Element,
+				LeftClickSpellType = _leftClickSpell.Type,
+				LeftClickSpellPower = _leftClickSpell.Power,
+				RightClickSpellElement = _rightClickSpell.Element,
+				RightClickSpellType = _rightClickSpell.Type,
+				RightClickSpellPower = _rightClickSpell.Power,
 				Quests = QuestManager.GetPersistedQuestsSnapshot()
 					.Select(q => new QuestSaveData
 					{
@@ -3366,7 +3380,7 @@ void main()
 			}
 			
 			// Touche R pour changer la pose du porte-armure (plus bloqué par l'inventaire)
-			if (Raylib.IsKeyPressed(KeyboardKey.R) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
+			if (KeyBindings.IsPressed(GameAction.ArmorStandPose) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
 			{
 				Vector2 mouseWorldPos = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 				int ts = TileSize;
@@ -3398,7 +3412,7 @@ void main()
 			}
 			
 			// Touche G : rame uniquement sur bateau
-			if (!ChatSystem.IsOpen && PlayerCurrentCar == null && Raylib.IsKeyPressed(KeyboardKey.G))
+			if (!ChatSystem.IsOpen && PlayerCurrentCar == null && KeyBindings.IsPressed(GameAction.BoatRow))
 			{
 				Boat? currentBoat = World.GetBoatAtPosition(_playerPos, TileSize);
 				if (currentBoat != null && currentBoat.RowingCooldown <= 0f)
@@ -3468,65 +3482,92 @@ void main()
 				Item? heldItemWeapon = InventoryRenderer.GetHotbarItem(hotbarSlot);
 				bool hasMagicWand = heldItemWeapon != null && GetItemId(heldItemWeapon.Name) == GameData.GetItemId("magic_wand");
 
-				if (hasMagicWand)
+				if (hasMagicWand && !mouseOverUI && !SpellCraftingUI.IsOpen)
 				{
-					// ========== CLIC GAUCHE (charge) ==========
+					float now = (float)Raylib.GetTime();
+
+					// Léger : tir immédiat puis répétition cadencée tant que le clic est maintenu.
 					if (Raylib.IsMouseButtonPressed(MouseButton.Left) && !_isChargingRightClick)
 					{
 						_isChargingLeftClick = true;
 						_leftClickCharge = 0f;
-						_leftClickStartTime = (float)Raylib.GetTime();
+						_leftClickStartTime = now;
+						if (_leftClickSpell.Power == PowerLevel.Weak)
+						{
+							CastAssignedSpell(_leftClickSpell, 0f, camera);
+							_leftSpellNextCastTime = now + LIGHT_SPELL_REPEAT_INTERVAL;
+						}
 					}
 					else if (_isChargingLeftClick)
 					{
 						if (Raylib.IsMouseButtonDown(MouseButton.Left))
 						{
-							float holdTime = (float)Raylib.GetTime() - _leftClickStartTime;
-							_leftClickCharge = Math.Min(1f, holdTime / MAX_CHARGE_TIME);
+							if (_leftClickSpell.Power == PowerLevel.Weak)
+							{
+								if (now >= _leftSpellNextCastTime)
+								{
+									CastAssignedSpell(_leftClickSpell, 0f, camera);
+									_leftSpellNextCastTime = now + LIGHT_SPELL_REPEAT_INTERVAL;
+								}
+							}
+							else
+							{
+								float holdTime = now - _leftClickStartTime;
+								_leftClickCharge = Math.Min(1f, holdTime / MAX_CHARGE_TIME);
+							}
 						}
 						else if (Raylib.IsMouseButtonReleased(MouseButton.Left))
 						{
-							if (_leftClickCharge >= MIN_CHARGE_THRESHOLD)
+							float holdTime = now - _leftClickStartTime;
+							if (_leftClickSpell.Power == PowerLevel.Medium
+								|| (_leftClickSpell.Power == PowerLevel.Strong && holdTime >= MIN_CHARGE_THRESHOLD))
 							{
-								// Lancer le sort assigné au clic gauche
-								Vector2 playerVisualPos = GetPlayerVisualPosition(_playerPos);
-								Vector2 mouseWorldPos = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
-								Vector2 direction = mouseWorldPos - playerVisualPos;
-								if (direction.Length() < 0.01f) direction = new Vector2(1, 0);
-								direction = Vector2.Normalize(direction);
-								
-								SpellCaster.CastSpell(_leftClickSpell, playerVisualPos, direction, mouseWorldPos, _leftClickCharge);
+								float charge = Math.Min(1f, holdTime / MAX_CHARGE_TIME);
+								CastAssignedSpell(_leftClickSpell, charge, camera);
 							}
 							_isChargingLeftClick = false;
 							_leftClickCharge = 0f;
 						}
 					}
 
-					// ========== CLIC DROIT (charge) ==========
+					// Même cadence de tir pour le clic droit.
 					if (Raylib.IsMouseButtonPressed(MouseButton.Right) && !_isChargingLeftClick)
 					{
 						_isChargingRightClick = true;
 						_rightClickCharge = 0f;
-						_rightClickStartTime = (float)Raylib.GetTime();
+						_rightClickStartTime = now;
+						if (_rightClickSpell.Power == PowerLevel.Weak)
+						{
+							CastAssignedSpell(_rightClickSpell, 0f, camera);
+							_rightSpellNextCastTime = now + LIGHT_SPELL_REPEAT_INTERVAL;
+						}
 					}
 					else if (_isChargingRightClick)
 					{
 						if (Raylib.IsMouseButtonDown(MouseButton.Right))
 						{
-							float holdTime = (float)Raylib.GetTime() - _rightClickStartTime;
-							_rightClickCharge = Math.Min(1f, holdTime / MAX_CHARGE_TIME);
+							if (_rightClickSpell.Power == PowerLevel.Weak)
+							{
+								if (now >= _rightSpellNextCastTime)
+								{
+									CastAssignedSpell(_rightClickSpell, 0f, camera);
+									_rightSpellNextCastTime = now + LIGHT_SPELL_REPEAT_INTERVAL;
+								}
+							}
+							else
+							{
+								float holdTime = now - _rightClickStartTime;
+								_rightClickCharge = Math.Min(1f, holdTime / MAX_CHARGE_TIME);
+							}
 						}
 						else if (Raylib.IsMouseButtonReleased(MouseButton.Right))
 						{
-							if (_rightClickCharge >= MIN_CHARGE_THRESHOLD)
+							float holdTime = now - _rightClickStartTime;
+							if (_rightClickSpell.Power == PowerLevel.Medium
+								|| (_rightClickSpell.Power == PowerLevel.Strong && holdTime >= MIN_CHARGE_THRESHOLD))
 							{
-								Vector2 playerVisualPos = GetPlayerVisualPosition(_playerPos);
-								Vector2 mouseWorldPos = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
-								Vector2 direction = mouseWorldPos - playerVisualPos;
-								if (direction.Length() < 0.01f) direction = new Vector2(1, 0);
-								direction = Vector2.Normalize(direction);
-								
-								SpellCaster.CastSpell(_rightClickSpell, playerVisualPos, direction, mouseWorldPos, _rightClickCharge);
+								float charge = Math.Min(1f, holdTime / MAX_CHARGE_TIME);
+								CastAssignedSpell(_rightClickSpell, charge, camera);
 							}
 							_isChargingRightClick = false;
 							_rightClickCharge = 0f;
@@ -3743,9 +3784,8 @@ void main()
 			if (_shootCooldown > 0f) _shootCooldown -= dt;
 			
 			// Touches de raccourci
-		for (int k = 1; k <= 9; k++)
-			if (Raylib.IsKeyPressed(KeyboardKey.One + (k - 1))) hotbarSlot = k - 1;
-		if (Raylib.IsKeyPressed(KeyboardKey.Zero)) hotbarSlot = 9;
+		for (int slot = 0; slot < 10; slot++)
+			if (KeyBindings.IsHotbarSlotPressed(slot)) hotbarSlot = slot;
 		
 		float wheel = Raylib.GetMouseWheelMove();
 		if (wheel != 0 && !IsMouseOverAnyUI() && !_radialMenu.IsOpen)
@@ -4031,7 +4071,7 @@ void main()
 				}
 				
 				// Mode voiture (touche R)
-				if (Raylib.IsKeyPressed(KeyboardKey.R))
+				if (KeyBindings.IsPressed(GameAction.CarMode))
 				{
 					isCarMode = PlayerCurrentCar == null;
 					if (isCarMode)
@@ -4724,7 +4764,6 @@ void main()
 					if (e.IsBoss && string.Equals(e.Species, "Khamsin", StringComparison.OrdinalIgnoreCase))
 					{
 						GiveItemToPlayer(GameData.GetItemId("khamsin_heart"), 1, e.WorldPos);
-						AddNotification(new Notification(" Coeur de Khamsin récupéré !", new Color(255, 120, 120, 255), 3f));
 					}
 					if (e.IsBoss && string.Equals(e.Species, "Genie", StringComparison.OrdinalIgnoreCase))
 					{
@@ -4737,7 +4776,6 @@ void main()
 						Entity.SpawnGenieSmoke(e.WorldPos, 2f);
 						Program.ApplyScreenShake(6f, 0.3f);
 						string genieRuneLabel = genieRuneType == RuneType.Solar ? "Solaire" : "Givrée";
-						AddNotification(new Notification($" Le Génie de la Lampe se dissout dans un nuage doré... 3x Coeur du Génie + 1x Pierre runique {genieRuneLabel} récupérés !", new Color(255, 210, 90, 255), 4f));
 					}
 					int tileX = (int)(e.WorldPos.X / TileSize);
 					int tileY = (int)(e.WorldPos.Y / TileSize);
@@ -4836,7 +4874,6 @@ void main()
 					{
 						// Retirer 1 flute de l'inventaire si présente
 						if (RemoveItemFromInventoryById(GameData.GetItemId("flute"), 1))
-							AddNotification(new Notification("La flûte s'est brisée.", new Color(200, 150, 100, 255), 2f));
 						_pendingFluteRemovals.RemoveAt(i);
 					}
 				}
@@ -4854,6 +4891,7 @@ void main()
 				_floatingDamages[i].Update(dt);
 				if (!_floatingDamages[i].IsAlive) _floatingDamages.RemoveAt(i);
 			}
+			World.UpdateTreeFalls(dt, _particles);
 			for (int i = _particles.Count - 1; i >= 0; i--)
 			{
 				_particles[i].Update(dt);
@@ -5507,6 +5545,9 @@ void main()
 
 		private static bool IsMouseOnAnyOpenUIAtPosition(Vector2 mousePos)
 		{
+			if (UIManager.IsPointOverRegisteredUI(mousePos))
+				return true;
+
 			if (QuestDialogUI.IsOpen)
 				return true;
 
@@ -5805,7 +5846,7 @@ void main()
 					if (objId == 408) continue; // Les ampoules électriques sont dessinées selon leur état alimenté ci-dessous.
 					if (World.HasInputPort(objId) && !World.IsPoweredOrUnwiredLight(x, y))
 						continue;
-					float lightY = y * ts + ts / 2f;
+					float lightY = y * ts + ts / 2f - World.GetHeightAt(x, y) * ts / 4f;
 					if (hasWallTorch)
 					{
 						var wallData = WorldTileRegistry.GetTile(objId);
@@ -5842,7 +5883,8 @@ void main()
 							var tileData = WorldTileRegistry.GetTile(408);
 							if (tileData != null)
 							{
-								Vector2 worldPos = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f);
+								float yOffset = -World.GetHeightAt(x, y) * ts / 4f;
+								Vector2 worldPos = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f + yOffset);
 								
 								int radius = 350; // Ajustez selon vos besoins
 								Color lightColor = new Color(255, 220, 150, 200);
@@ -5856,7 +5898,9 @@ void main()
 
 			// ========== LUMIÈRE DE LA TORCHE EN MAIN ==========
 			Vector2 resolvedPlayerPosition = playerPosition ?? _playerPos;
-			Vector2 playerWorld = resolvedPlayerPosition;
+			Vector2 playerWorld = _isSitting
+				? GetSittingVisualPosition()
+				: GetPlayerVisualPosition(resolvedPlayerPosition);
 			
 			Item? held = equipment.MainHand;
 			if (held != null)
@@ -5904,10 +5948,10 @@ void main()
 				var info = SpeciesData.GetSpeciesInfo(entity.Species);
 				if (info != null && info.IsLightSource)
 				{
-					Vector2 pos = entity.WorldPos;
+					Vector2 pos = entity.VisualWorldPos;
 					int height = World.GetHeightAt((int)(pos.X / ts), (int)(pos.Y / ts));
 					float yOffset = -height * ts / 4;
-					Vector2 visualPos = new Vector2(pos.X, pos.Y + yOffset);
+					Vector2 visualPos = new Vector2(pos.X, pos.Y + yOffset - entity.VisualOffsetY);
 					
 					int radius = info.LightRadius;
 					Color lightColor = info.LightColor;
@@ -6079,7 +6123,6 @@ void main()
 						// fixes puisque le bateau se déplace ; nécessiterait un message réseau dédié
 						// identifiant le bateau par son id plutôt que par une tuile).
 						ContainerUI.Open(boatContainer, playerIndex);
-						AddNotification(new Notification(" Coffre ouvert (bateau)", new Color(100, 200, 255, 255), 1.5f));
 						return true;
 					}
 					
@@ -6087,7 +6130,6 @@ void main()
 					if (bestTileData.IsArmorStand == true && nearbyBoat.ArmorStands.TryGetValue((bestRelX, bestRelY), out var boatStand))
 					{
 						ArmorStandUI.Open(boatStand, playerIndex);
-						AddNotification(new Notification(" Porte-armure ouvert (bateau)", new Color(200, 180, 100, 255), 1.5f));
 						return true;
 					}
 					
@@ -6099,41 +6141,34 @@ void main()
 						{
 							Program.ActiveStation = "workbench";
 							CraftingUI.Toggle("workbench", playerIndex);
-							AddNotification(new Notification(" Établi ouvert (bateau) !", new Color(100, 200, 255, 255), 1.5f));
 						}
 						else if (stationType == "furnace")
 						{
 							Program.ActiveStation = "furnace";
 							CraftingUI.Toggle("furnace", playerIndex);
-							AddNotification(new Notification(" Fourneau ouvert (bateau) !", new Color(100, 200, 255, 255), 1.5f));
 						}
 						else if (stationType == "anvil")
 						{
 							Program.ActiveStation = "anvil";
 							CraftingUI.Toggle("anvil", playerIndex);
-							AddNotification(new Notification(" Enclume ouvert (bateau) !", new Color(200, 180, 100, 255), 1.5f));
 						}
 						else if (stationType == "loom")
 						{
 							Program.ActiveStation = "loom";
 							CraftingUI.Toggle("loom", playerIndex);
-							AddNotification(new Notification(" Métier à tisser ouvert (bateau) !", new Color(200, 180, 150, 255), 1.5f));
 						}
 						else if (stationType == "carpentry")
 						{
 							Program.ActiveStation = "carpentry";
 							CraftingUI.Toggle("carpentry", playerIndex);
-							AddNotification(new Notification(" Établi de menuisier ouvert (bateau) !", new Color(200, 180, 100, 255), 1.5f));
 						}
 						else if (stationType == "cauldron")
 						{
 							CauldronUI.Open(playerIndex);
-							AddNotification(new Notification(" Chaudron ouvert (bateau) !", new Color(100, 200, 255, 255), 1.5f));
 						}
 						else if (stationType == "mirror")
 						{
 							CharacterCustomizationUI.Open();
-							AddNotification(new Notification(" Miroir ouvert (bateau) !", new Color(100, 200, 255, 255), 1.5f));
 						}
 						return true;
 					}
@@ -6157,7 +6192,6 @@ void main()
 							boatSitPosition = GetFurnitureSitPosition(boatSitPosition, bestTileData.CollisionSize.Width, bestTileData.CollisionSize.Height, mouseWorld);
 						
 						SetSitting(true, boatSitPosition, sitHeightOffset, "sit");
-						AddNotification(new Notification($" Vous vous asseyez sur {bestTileData.Name} (bateau)", new Color(150, 200, 255, 255), 2f));
 						return true;
 					}
 				}
@@ -6212,7 +6246,6 @@ void main()
 					{
 						World.SetTileMeta(tileX, tileY, flowerMetaKey, heldFlowerId.ToString());
 						RemoveItemFromInventory(heldItem.Name, 1);
-						AddNotification(new Notification($" {heldItem.Name} plantée dans le pot !", new Color(100, 200, 100, 255), 1.5f));
 						return true;
 					}
 				}
@@ -6259,7 +6292,6 @@ void main()
                                 World.PlantCrop(tileX, tileY, cropId, GetGameTime());
 								SoundEffects.PlayPlant();
                                 RemoveItemFromInventory(heldItem.Name, 1);
-                                AddNotification(new Notification($" {heldItem.Name} plantée !", new Color(100, 200, 100, 255), 1.5f));
                                 return true;
                             }
                         }
@@ -7660,9 +7692,14 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				}
 				// ==================== FIN DÉGÂTS FLOTTANTS ====================
 				
+				SpellVfx.DrawBatched(_particles);
 				foreach (var particle in _particles)
 				{
-					if (particle is MagicExplosionEffect explosion)
+					if (particle is SpellFxParticle)
+					{
+						continue;
+					}
+					else if (particle is MagicExplosionEffect explosion)
 					{
 						explosion.Draw();
 					}
@@ -7961,30 +7998,16 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				}
 
 				// Jauge de charge pour le clic gauche
-				if (_isChargingLeftClick && PlayerCurrentCar == null && !InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen)
+				if (_isChargingLeftClick && _leftClickSpell.Power != PowerLevel.Weak && PlayerCurrentCar == null && !InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen)
 				{
 					Vector2 playerScreen = Raylib.GetWorldToScreen2D(GetPlayerVisualPosition(_playerPos), camera);
-					float radius = 20f + _leftClickCharge * 40f;
-					Color spellColor = _leftClickSpell.GetElementColor();
-					Raylib.DrawCircleLines((int)playerScreen.X, (int)playerScreen.Y, radius, spellColor);
-					int barWidth = 100;
-					int barX = (int)playerScreen.X - barWidth / 2;
-					int barY = (int)playerScreen.Y - 60;
-					Raylib.DrawRectangle(barX, barY, barWidth, 8, new Color(50, 50, 50, 200));
-					Raylib.DrawRectangle(barX, barY, (int)(barWidth * _leftClickCharge), 8, spellColor);
+					SpellVfx.DrawChargeIndicator(_leftClickSpell.Element, playerScreen, _leftClickCharge, 60f);
 				}
 				// Jauge de charge pour le clic droit
-				if (_isChargingRightClick && PlayerCurrentCar == null && !InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen)
+				if (_isChargingRightClick && _rightClickSpell.Power != PowerLevel.Weak && PlayerCurrentCar == null && !InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen)
 				{
 					Vector2 playerScreen = Raylib.GetWorldToScreen2D(GetPlayerVisualPosition(_playerPos), camera);
-					float radius = 20f + _rightClickCharge * 40f;
-					Color spellColor = _rightClickSpell.GetElementColor();
-					Raylib.DrawCircleLines((int)playerScreen.X, (int)playerScreen.Y, radius, spellColor);
-					int barWidth = 100;
-					int barX = (int)playerScreen.X - barWidth / 2;
-					int barY = (int)playerScreen.Y - 80; // décalé pour éviter superposition
-					Raylib.DrawRectangle(barX, barY, barWidth, 8, new Color(50, 50, 50, 200));
-					Raylib.DrawRectangle(barX, barY, (int)(barWidth * _rightClickCharge), 8, spellColor);
+					SpellVfx.DrawChargeIndicator(_rightClickSpell.Element, playerScreen, _rightClickCharge, 80f);
 				}
 				
 				if (_hoveredMachine.HasValue)
@@ -8393,6 +8416,11 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			{
 				DrawLoadingFadeOutOverlay();
 			}
+
+			// Bandes cinématiques de l'introduction (matérialisation du personnage + rétractation).
+			// Pendant la cinématique d'arrivée, elles sont dessinées par DrawSoulArrivalCinematic.
+			if (!_isSoulArrivalCinematic)
+				DrawSoulIntroBars();
 
 			QuestSplashUI.Draw();
 
@@ -8898,7 +8926,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			Raylib.DrawRectangle(0, 0, sw, sh, new Color(0, 0, 0, (int)(120 * eased)));
 
 			// ── Panneau nine-slice "scroll" ──
-			int panelWidth = 460;
+			int panelWidth = 450;
 			bool canHost = !NetworkManager.IsOnline;
 			var pauseMenuItemsList = new List<(string Key, string Label)>
 			{
@@ -8910,12 +8938,12 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			var pauseMenuItems = pauseMenuItemsList.ToArray();
 
 			int titleAreaHeight = 140; // Réduit pour laisser plus de place au titre
-			int buttonWidth = 260;
-			int buttonHeight = 50;
-			int buttonSpacing = 18;
+			int buttonWidth = 320;
+			int buttonHeight = 56;
+			int buttonSpacing = 22;
 			int panelPadding = 30;
 			int buttonsHeight = pauseMenuItems.Length * buttonHeight + (pauseMenuItems.Length - 1) * buttonSpacing;
-			int panelHeight = titleAreaHeight + buttonsHeight + panelPadding * 2;
+			int panelHeight = titleAreaHeight + buttonsHeight + panelPadding * 2 + 75;
 
 			int panelX = (sw - panelWidth) / 2;
 			int restingPanelY = (sh - panelHeight) / 2;
@@ -8926,6 +8954,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			if (UIManager.ScrollPanelTexture != null && UIManager.ScrollPanelTexture.IsValid)
 			{
 				UIManager.ScrollPanelTexture.Draw(panelRect, Color.White);
+				UIManager.ScrollBorderTexture?.DrawAlignedToNineSlice(panelRect, UIManager.ScrollPanelTexture, Color.White);
 			}
 			else
 			{
@@ -8973,23 +9002,18 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					if (isHovered) _prevPauseButtonsHovered.Add(i); else _prevPauseButtonsHovered.Remove(i);
 				}
 
-				if (UIManager.InventoryPanel != null && UIManager.InventoryPanel.IsValid)
-				{
-					Color tint = isHovered ? new Color(255, 235, 190, 255) : Color.White;
-					UIManager.InventoryPanel.Draw(buttonRect, tint);
-				}
-				else
-				{
-					Color buttonBg = isHovered ? new Color(60, 50, 35, 220) : new Color(25, 25, 35, 180);
-					Raylib.DrawRectangleRounded(buttonRect, 0.2f, 8, buttonBg);
-					Color borderColor = isHovered ? new Color(200, 170, 100, 255) : new Color(100, 90, 70, 180);
-					Raylib.DrawRectangleRoundedLines(buttonRect, 0.2f, 8, 2, borderColor);
-				}
-
-				int fontSize = 24;
+				int fontSize = 28;
 				int textWidth = FontManager.MeasureText(pauseMenuItems[i].Label, fontSize);
-				Color textColor = isHovered ? Color.White : new Color(60, 45, 30, 255);
-				FontManager.DrawText(pauseMenuItems[i].Label, (int)(buttonX + buttonWidth / 2 - textWidth / 2), (int)(currentButtonY + buttonHeight / 2 - fontSize / 2), fontSize, textColor);
+				Color buttonShade = isHovered
+					? new Color(92, 48, 26, 125)
+					: new Color(120, 68, 38, 55);
+				Raylib.DrawRectangleRounded(buttonRect, 0.12f, 6, buttonShade);
+				DrawCreationText(
+					pauseMenuItems[i].Label,
+					(int)(buttonX + buttonWidth / 2 - textWidth / 2),
+					(int)(currentButtonY + buttonHeight / 2 - fontSize / 2),
+					fontSize,
+					Color.White);
 
 				if (isHovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
 				{
@@ -9914,6 +9938,33 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				{ GameAction.ChatToggle, new() { new(InputType.Keyboard, (int)KeyboardKey.T) } },
 				{ GameAction.PushToTalk, new() { new(InputType.Keyboard, (int)KeyboardKey.V) } },
 				{ GameAction.PauseMenu, new() { new(InputType.Keyboard, (int)KeyboardKey.Escape) } },
+				{ GameAction.MagicMenu, new() { new(InputType.Keyboard, (int)KeyboardKey.J) } },
+				{ GameAction.GuildMenu, new() { new(InputType.Keyboard, (int)KeyboardKey.G) } },
+				{ GameAction.Map, new() { new(InputType.Keyboard, (int)KeyboardKey.M) } },
+				{ GameAction.Bestiary, new() { new(InputType.Keyboard, (int)KeyboardKey.Y) } },
+				{ GameAction.QuickSave, new() { new(InputType.Keyboard, (int)KeyboardKey.F5) } },
+				{ GameAction.ReloadData, new() { new(InputType.Keyboard, (int)KeyboardKey.F4) } },
+				{ GameAction.ToggleDebug, new() { new(InputType.Keyboard, (int)KeyboardKey.F3) } },
+				{ GameAction.TimeSkip, new() { new(InputType.Keyboard, (int)KeyboardKey.F6) } },
+				{ GameAction.SelectStructureCorner1, new() { new(InputType.Keyboard, (int)KeyboardKey.F7) } },
+				{ GameAction.SelectStructureCorner2, new() { new(InputType.Keyboard, (int)KeyboardKey.F8) } },
+				{ GameAction.Fullscreen, new() { new(InputType.Keyboard, (int)KeyboardKey.F11) } },
+				{ GameAction.ItemsMenu, new() { new(InputType.Keyboard, (int)KeyboardKey.K) } },
+				{ GameAction.HotbarSlot1, new() { new(InputType.Keyboard, (int)KeyboardKey.One) } },
+				{ GameAction.HotbarSlot2, new() { new(InputType.Keyboard, (int)KeyboardKey.Two) } },
+				{ GameAction.HotbarSlot3, new() { new(InputType.Keyboard, (int)KeyboardKey.Three) } },
+				{ GameAction.HotbarSlot4, new() { new(InputType.Keyboard, (int)KeyboardKey.Four) } },
+				{ GameAction.HotbarSlot5, new() { new(InputType.Keyboard, (int)KeyboardKey.Five) } },
+				{ GameAction.HotbarSlot6, new() { new(InputType.Keyboard, (int)KeyboardKey.Six) } },
+				{ GameAction.HotbarSlot7, new() { new(InputType.Keyboard, (int)KeyboardKey.Seven) } },
+				{ GameAction.HotbarSlot8, new() { new(InputType.Keyboard, (int)KeyboardKey.Eight) } },
+				{ GameAction.HotbarSlot9, new() { new(InputType.Keyboard, (int)KeyboardKey.Nine) } },
+				{ GameAction.HotbarSlot10, new() { new(InputType.Keyboard, (int)KeyboardKey.Zero) } },
+				{ GameAction.EmoteWheel, new() { new(InputType.Keyboard, (int)KeyboardKey.B) } },
+				{ GameAction.ArmorStandPose, new() { new(InputType.Keyboard, (int)KeyboardKey.R) } },
+				{ GameAction.WagonLink, new() { new(InputType.Keyboard, (int)KeyboardKey.R) } },
+				{ GameAction.BoatRow, new() { new(InputType.Keyboard, (int)KeyboardKey.G) } },
+				{ GameAction.CarMode, new() { new(InputType.Keyboard, (int)KeyboardKey.R) } },
 			};
 
 			public static Dictionary<GameAction, List<InputBinding>> Current = CloneBindings(_defaults);
@@ -9966,6 +10017,14 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			public static bool IsReleased(GameAction action)
 			{
 				return Current[action].Any(IsReleased);
+			}
+
+			public static bool IsHotbarSlotPressed(int slot)
+			{
+				if (slot < 0 || slot >= 10)
+					throw new ArgumentOutOfRangeException(nameof(slot));
+
+				return IsPressed((GameAction)((int)GameAction.HotbarSlot1 + slot));
 			}
 
 			private static bool IsDown(InputBinding binding)
@@ -10075,23 +10134,48 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 
 			public static IReadOnlyList<InputBinding> GetBindings(GameAction action) => Current[action];
 
-			public static string DisplayName(GameAction action) => action switch
+			public static string DisplayName(GameAction action)
 			{
-				GameAction.MoveUp => Localization.GetOrDefault("controls.move_up", "Avancer"),
-				GameAction.MoveDown => Localization.GetOrDefault("controls.move_down", "Reculer"),
-				GameAction.MoveLeft => Localization.GetOrDefault("controls.move_left", "Aller à gauche"),
-				GameAction.MoveRight => Localization.GetOrDefault("controls.move_right", "Aller à droite"),
-				GameAction.Sprint => Localization.GetOrDefault("controls.sprint", "Sprinter"),
-				GameAction.Interact => Localization.GetOrDefault("controls.interact", "Interagir"),
-				GameAction.Inventory => Localization.GetOrDefault("controls.inventory", "Inventaire"),
-				GameAction.Character => Localization.GetOrDefault("controls.character", "Fiche de personnage"),
-				GameAction.Drop => Localization.GetOrDefault("controls.drop", "Ramasser un meuble"),
-				GameAction.RadialMenu => Localization.GetOrDefault("controls.radial_menu", "Menu radial"),
-				GameAction.ChatToggle => Localization.GetOrDefault("controls.chat_toggle", "Chat"),
-				GameAction.PushToTalk => Localization.GetOrDefault("controls.push_to_talk", "Push to talk"),
-				GameAction.PauseMenu => Localization.GetOrDefault("controls.pause_menu", "Pause / Retour"),
-				_ => action.ToString()
-			};
+				int hotbarSlot = (int)action - (int)GameAction.HotbarSlot1;
+				if (hotbarSlot >= 0 && hotbarSlot < 10)
+					return Localization.GetOrDefault($"controls.hotbar_slot_{hotbarSlot + 1}",
+						hotbarSlot == 9 ? "Emplacement 0 de la barre d'objets" : $"Emplacement {hotbarSlot + 1} de la barre d'objets");
+
+				return action switch
+				{
+					GameAction.MoveUp => Localization.GetOrDefault("controls.move_up", "Avancer"),
+					GameAction.MoveDown => Localization.GetOrDefault("controls.move_down", "Reculer"),
+					GameAction.MoveLeft => Localization.GetOrDefault("controls.move_left", "Aller à gauche"),
+					GameAction.MoveRight => Localization.GetOrDefault("controls.move_right", "Aller à droite"),
+					GameAction.Sprint => Localization.GetOrDefault("controls.sprint", "Sprinter"),
+					GameAction.Interact => Localization.GetOrDefault("controls.interact", "Interagir"),
+					GameAction.Inventory => Localization.GetOrDefault("controls.inventory", "Inventaire"),
+					GameAction.Character => Localization.GetOrDefault("controls.character", "Fiche de personnage"),
+					GameAction.Drop => Localization.GetOrDefault("controls.drop", "Ramasser un meuble"),
+					GameAction.RadialMenu => Localization.GetOrDefault("controls.radial_menu", "Menu radial"),
+					GameAction.ChatToggle => Localization.GetOrDefault("controls.chat_toggle", "Chat"),
+					GameAction.PushToTalk => Localization.GetOrDefault("controls.push_to_talk", "Push to talk"),
+					GameAction.PauseMenu => Localization.GetOrDefault("controls.pause_menu", "Pause / Retour"),
+					GameAction.MagicMenu => Localization.GetOrDefault("controls.magic_menu", "Menu de magie"),
+					GameAction.GuildMenu => Localization.GetOrDefault("controls.guild_menu", "Guilde"),
+					GameAction.Map => Localization.GetOrDefault("controls.map", "Carte"),
+					GameAction.Bestiary => Localization.GetOrDefault("controls.bestiary", "Bestiaire"),
+					GameAction.QuickSave => Localization.GetOrDefault("controls.quick_save", "Sauvegarde rapide"),
+					GameAction.ReloadData => Localization.GetOrDefault("controls.reload_data", "Recharger les données du projet"),
+					GameAction.ToggleDebug => Localization.GetOrDefault("controls.toggle_debug", "Afficher le debug"),
+					GameAction.TimeSkip => Localization.GetOrDefault("controls.time_skip", "Accélérer le temps"),
+					GameAction.SelectStructureCorner1 => Localization.GetOrDefault("controls.structure_corner_1", "Structure : premier coin"),
+					GameAction.SelectStructureCorner2 => Localization.GetOrDefault("controls.structure_corner_2", "Structure : deuxième coin / enregistrer"),
+					GameAction.Fullscreen => Localization.GetOrDefault("controls.fullscreen", "Plein écran"),
+					GameAction.ItemsMenu => Localization.GetOrDefault("controls.items_menu", "Menu des objets (mode dieu)"),
+					GameAction.EmoteWheel => Localization.GetOrDefault("controls.emote_wheel", "Menu des émotes"),
+					GameAction.ArmorStandPose => Localization.GetOrDefault("controls.armor_stand_pose", "Changer la pose du porte-armure"),
+					GameAction.WagonLink => Localization.GetOrDefault("controls.wagon_link", "Lier / délier les wagons"),
+					GameAction.BoatRow => Localization.GetOrDefault("controls.boat_row", "Ramer"),
+					GameAction.CarMode => Localization.GetOrDefault("controls.car_mode", "Mode voiture"),
+					_ => action.ToString()
+				};
+			}
 
 			public static string BindingDisplayName(InputBinding binding)
 			{
@@ -10247,617 +10331,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			}
 		}
 
-		static void DrawOptionsMenu()
-		{
-			int sw = Raylib.GetScreenWidth();
-			int sh = Raylib.GetScreenHeight();
-			Vector2 mousePos = Raylib.GetMousePosition();
-			float dt = Raylib.GetFrameTime();
-
-			// ── Fond ──
-			DrawScrollingMenuBackground(sw, sh, dt);
-
-			// ── Ecran complet ──
-			int panelW = sw;
-			int panelH = sh;
-			int px = 0;
-			int py = 0;
-
-			// ── Titre ──
-			int titleFontSize = 48;
-			int tw = FontManager.MeasureText(Localization.Get("menu.options"), titleFontSize);
-			FontManager.DrawText(Localization.Get("menu.options"), px + panelW / 2 - tw / 2, py + 20, titleFontSize, new Color(230, 200, 100, 255));
-
-			// ── Onglets ──
-			int tabSpacing = 16;
-			int tabW = Math.Min(260, Math.Max(120, (sw - 100 - tabSpacing * 3) / 4));
-			int tabH = 54;
-			string[] tabNames = { Localization.Get("menu.general"), Localization.Get("menu.controls"), Localization.Get("menu.interface"), Localization.GetOrDefault("menu.voice", "VOICE") };
-			int tabsTotalW = tabNames.Length * tabW + (tabNames.Length - 1) * tabSpacing;
-			int tabStartX = px + panelW / 2 - tabsTotalW / 2;
-			int tabY = py + 96;
-			for (int i = 0; i < tabNames.Length; i++)
-			{
-				Rectangle tabRect = new Rectangle(tabStartX + i * (tabW + tabSpacing), tabY, tabW, tabH);
-				bool hovered = Raylib.CheckCollisionPointRec(mousePos, tabRect);
-				bool active = _optionsTab == i;
-				Color tint = active ? new Color(220, 190, 100, 255) : (hovered ? new Color(205, 195, 165, 255) : new Color(180, 175, 165, 220));
-				UIManager.DrawButton(tabRect, tint, hovered, true);
-				int tabFontSize = tabW < 170 ? 18 : 24;
-				int nw = FontManager.MeasureText(tabNames[i], tabFontSize);
-				Color tcol = active ? new Color(255, 235, 170, 255) : new Color(245, 240, 230, 240);
-				FontManager.DrawText(tabNames[i], (int)(tabRect.X + tabRect.Width / 2 - nw / 2), (int)(tabRect.Y + tabRect.Height / 2 - tabFontSize / 2), tabFontSize, tcol);
-				if (hovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-					_optionsTab = i;
-			}
-
-			// ── Zone de contenu ──
-			int contentY = tabY + tabH + 32;
-			int contentHeight = panelH - (contentY - py) - 90; // Réserve pour le bouton retour
-			int contentX = px + 60;
-			int contentWidth = panelW - 120;
-
-			// ── CONTENU DE L'ONGLET ──
-			if (_optionsTab == 0)
-			{
-				// ── Volume ──
-				string volLabel = string.Format(Localization.Get("options.volume"), _masterVolume);
-				FontManager.DrawText(volLabel, contentX, contentY, 28, new Color(220, 210, 190, 230));
-
-				int sliderX = contentX, sliderY = contentY + 46, sliderW = contentWidth - 20, sliderH = 20;
-				Rectangle sliderRect = new Rectangle(sliderX, sliderY, sliderW, sliderH);
-				Raylib.DrawRectangleRounded(sliderRect, 0.5f, 8, new Color(40, 38, 45, 220));
-				Raylib.DrawRectangleRoundedLines(sliderRect, 0.5f, 8, 1, new Color(100, 90, 70, 180));
-				float fillRatio = _masterVolume / 100f;
-				if (fillRatio > 0f)
-				{
-					Rectangle fillRect = new Rectangle(sliderX, sliderY, sliderW * fillRatio, sliderH);
-					Raylib.DrawRectangleRounded(fillRect, 0.5f, 8, new Color(210, 170, 90, 240));
-				}
-				float knobX = sliderX + sliderW * fillRatio;
-				Raylib.DrawCircle((int)knobX, sliderY + sliderH / 2, 15, new Color(255, 225, 150, 255));
-
-				Rectangle sliderHitbox = new Rectangle(sliderX - 10, sliderY - 10, sliderW + 20, sliderH + 20);
-				bool sliderHovered = Raylib.CheckCollisionPointRec(mousePos, sliderHitbox);
-				if (sliderHovered && (Raylib.IsMouseButtonDown(MouseButton.Left)))
-				{
-					float ratio = Math.Clamp((mousePos.X - sliderX) / sliderW, 0f, 1f);
-					_masterVolume = (int)Math.Round(ratio * 100f);
-					Raylib.SetMasterVolume(_masterVolume / 100f);
-				}
-
-				// ── Plein écran ──
-				int fsY = sliderY + 70;
-				string fsLabel = Localization.Get("options.fullscreen");
-				FontManager.DrawText(fsLabel, contentX, fsY + 10, 28, new Color(220, 210, 190, 230));
-
-				Rectangle fsToggleRect = new Rectangle(contentX + contentWidth - 190, fsY, 160, 52);
-				bool fsHovered = Raylib.CheckCollisionPointRec(mousePos, fsToggleRect);
-				Color fsBg = _fullscreen ? new Color(90, 140, 90, 220) : new Color(60, 45, 45, 220);
-				if (fsHovered) fsBg = new Color((byte)Math.Min(255, fsBg.R + 20), (byte)Math.Min(255, fsBg.G + 20), (byte)Math.Min(255, fsBg.B + 20), fsBg.A);
-				Raylib.DrawRectangleRounded(fsToggleRect, 0.3f, 8, fsBg);
-				Raylib.DrawRectangleRoundedLines(fsToggleRect, 0.3f, 8, 2, new Color(200, 190, 160, 200));
-				string fsText = _fullscreen ? Localization.Get("options.enabled") : Localization.Get("options.disabled");
-				int fsw = FontManager.MeasureText(fsText, 22);
-				FontManager.DrawText(fsText, (int)(fsToggleRect.X + fsToggleRect.Width / 2 - fsw / 2), (int)(fsToggleRect.Y + fsToggleRect.Height / 2 - 11), 22, Color.White);
-				if (fsHovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-					ApplyFullscreenToggle();
-
-				// ── Mode du micro ──
-				int voiceY = fsY + 70;
-				FontManager.DrawText(Localization.GetOrDefault("options.voice_mode", "Microphone mode"), contentX, voiceY + 10, 24, new Color(220, 210, 190, 230));
-				var voiceModes = new[]
-				{
-					("Disabled", "options.voice.disabled", "Microphone off"),
-					("PushToTalk", "options.voice.push_to_talk", "Push to talk"),
-					("AlwaysOn", "options.voice.always_on", "Always on")
-				};
-				float voiceButtonGap = 8f;
-				float voiceButtonWidth = Math.Clamp((contentWidth - 220f) / voiceModes.Length, 130f, 180f);
-				float voiceButtonStartX = contentX + contentWidth - voiceModes.Length * voiceButtonWidth - (voiceModes.Length - 1) * voiceButtonGap;
-				for (int i = 0; i < voiceModes.Length; i++)
-				{
-					var option = voiceModes[i];
-					Rectangle modeRect = new Rectangle(voiceButtonStartX + i * (voiceButtonWidth + voiceButtonGap), voiceY, voiceButtonWidth, 48);
-					bool modeHovered = Raylib.CheckCollisionPointRec(mousePos, modeRect);
-					bool modeSelected = SettingsManager.Settings.VoiceChatMode == option.Item1;
-					Color modeColor = modeSelected ? new Color(100, 80, 45, 240) : new Color(35, 35, 42, 220);
-					if (modeHovered)
-						modeColor = new Color((byte)Math.Min(255, modeColor.R + 18), (byte)Math.Min(255, modeColor.G + 18), (byte)Math.Min(255, modeColor.B + 18), modeColor.A);
-					Raylib.DrawRectangleRounded(modeRect, 0.16f, 6, modeColor);
-					Raylib.DrawRectangleRoundedLines(modeRect, 0.16f, 6, 1, modeSelected ? new Color(235, 195, 105, 240) : new Color(120, 110, 90, 180));
-					string modeLabel = Localization.GetOrDefault(option.Item2, option.Item3);
-					int modeFontSize = 16;
-					int modeLabelWidth = FontManager.MeasureText(modeLabel, modeFontSize);
-					FontManager.DrawText(modeLabel, (int)(modeRect.X + (modeRect.Width - modeLabelWidth) / 2), (int)(modeRect.Y + 16), modeFontSize, Color.White);
-					if (modeHovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-					{
-						SettingsManager.Settings.VoiceChatMode = option.Item1;
-						SettingsManager.Save();
-					}
-				}
-
-				// ── Langues ──
-				int languageY = voiceY + 82;
-				string languageLabel = Localization.Get("options.language");
-				FontManager.DrawText(languageLabel, contentX, languageY + 10, 28, new Color(220, 210, 190, 230));
-
-				int langCount = Localization.AvailableLanguages.Count;
-				float flagSize = 112f;
-				float colSpacing = 28f;
-				float rowSpacing = 28f;
-				int cols = Math.Min(5, langCount);
-				int rows = (langCount + cols - 1) / cols;
-
-				float gridX = contentX;
-				float gridY = languageY + 44;
-				float availableHeight = contentHeight - (gridY - contentY) - 20;
-				float gridHeight = rows * flagSize + (rows - 1) * rowSpacing;
-				_optionsLanguageMaxScroll = gridHeight > availableHeight ? gridHeight - availableHeight : 0f;
-				_optionsLanguageScrollOffset = Math.Clamp(_optionsLanguageScrollOffset, 0f, _optionsLanguageMaxScroll);
-
-				if (gridHeight > availableHeight)
-				{
-					Raylib.BeginScissorMode((int)gridX, (int)gridY, (int)(contentWidth), (int)availableHeight);
-				}
-
-				for (int i = 0; i < langCount; i++)
-				{
-					int row = i / cols;
-					int col = i % cols;
-					float x = gridX + col * (flagSize + colSpacing);
-					float y = gridY + row * (flagSize + rowSpacing) - _optionsLanguageScrollOffset;
-
-					var languageEntry = Localization.AvailableLanguages[i];
-					Rectangle flagRect = new Rectangle(x, y, flagSize, flagSize);
-					bool hovered = Raylib.CheckCollisionPointRec(mousePos, flagRect);
-					bool selected = i == _languageSelectionIndex;
-
-					if (_languageFlagTextures.TryGetValue(languageEntry.Code, out var flagTexture) && flagTexture.Id != 0)
-					{
-						Rectangle src = new Rectangle(0, 0, flagTexture.Width, flagTexture.Height);
-						float aspect = (float)flagTexture.Width / flagTexture.Height;
-						float drawWidth = flagSize;
-						float drawHeight = flagSize;
-						if (aspect > 1f)
-							drawHeight = flagSize / aspect;
-						else if (aspect < 1f)
-							drawWidth = flagSize * aspect;
-						float drawX = flagRect.X + (flagSize - drawWidth) / 2;
-						float drawY = flagRect.Y + (flagSize - drawHeight) / 2;
-						Rectangle dest = new Rectangle(drawX, drawY, drawWidth, drawHeight);
-						Raylib.DrawTexturePro(flagTexture, src, dest, Vector2.Zero, 0f, Color.White);
-
-						if (selected)
-						{
-							Raylib.DrawRectangleLinesEx(new Rectangle(drawX - 3, drawY - 3, drawWidth + 6, drawHeight + 6), 3, new Color(255, 255, 255, 220));
-						}
-					}
-					else
-					{
-						string fallback = languageEntry.Code.ToUpperInvariant();
-						int fallbackWidth = FontManager.MeasureText(fallback, 18);
-						FontManager.DrawText(fallback, (int)(flagRect.X + flagRect.Width / 2 - fallbackWidth / 2), (int)(flagRect.Y + flagRect.Height / 2 - 9), 18, Color.White);
-					}
-
-					if (hovered && Raylib.IsMouseButtonPressed(MouseButton.Left) && y + flagSize > gridY && y < gridY + availableHeight)
-					{
-						if (_languageSelectionIndex != i)
-						{
-							_languageSelectionIndex = i;
-							var newLanguage = Localization.AvailableLanguages[i];
-							Localization.SetLanguage(newLanguage.Code);
-						}
-					}
-				}
-
-				if (gridHeight > availableHeight)
-				{
-					Raylib.EndScissorMode();
-					float scrollbarHeight = (availableHeight / gridHeight) * availableHeight;
-					float scrollbarY = gridY + (availableHeight - scrollbarHeight) * (_optionsLanguageScrollOffset / _optionsLanguageMaxScroll);
-					Rectangle scrollbar = new Rectangle(contentX + contentWidth - 18, scrollbarY, 10, scrollbarHeight);
-					Raylib.DrawRectangleRounded(scrollbar, 0.5f, 4, new Color(200, 200, 200, 180));
-				}
-			}
-			else if (_optionsTab == 1) // Controls tab
-			{
-				// ── Contrôles avec défilement ──
-				int scrollableHeight = contentHeight - 80;
-				int controlsWidth = Math.Max(420, contentWidth / 2);
-				int totalControlsHeight = 0;
-				
-				var rebindableActions = new[]
-				{
-					GameAction.MoveUp, GameAction.MoveDown, GameAction.MoveLeft, GameAction.MoveRight,
-					GameAction.Sprint, GameAction.Interact, GameAction.Inventory, GameAction.Character,
-					GameAction.Drop, GameAction.RadialMenu, GameAction.ChatToggle, GameAction.PushToTalk, GameAction.PauseMenu
-				};
-
-				int rowH = 88;
-				int keyboardKeySize = 76;
-				int keyGap = 12;
-				int addButtonWidth = 46;
-				int totalHeight = rebindableActions.Length * rowH;
-				totalHeight += 50;
-				totalHeight += 120;
-
-				if (!_controlsScrollInitialized)
-				{
-					_controlsScrollOffset = 0f;
-					_controlsScrollInitialized = true;
-				}
-
-				Rectangle scrollArea = new Rectangle(contentX, contentY, controlsWidth, scrollableHeight);
-				if (Raylib.CheckCollisionPointRec(mousePos, scrollArea))
-				{
-					float wheel = Raylib.GetMouseWheelMove();
-					if (wheel != 0f)
-					{
-						_controlsScrollOffset -= wheel * 25f;
-						_controlsScrollOffset = Math.Clamp(_controlsScrollOffset, 0f, Math.Max(0, totalHeight - scrollableHeight));
-					}
-				}
-
-				if (totalHeight > scrollableHeight)
-				{
-					float scrollRatio = Math.Clamp(_controlsScrollOffset / Math.Max(1, totalHeight - scrollableHeight), 0f, 1f);
-					float scrollbarHeight = (scrollableHeight / totalHeight) * scrollableHeight;
-					float scrollbarY = contentY + (scrollableHeight - scrollbarHeight) * scrollRatio;
-					Rectangle scrollbar = new Rectangle(contentX + controlsWidth - 18, scrollbarY, 10, scrollbarHeight);
-					Raylib.DrawRectangleRounded(scrollbar, 0.5f, 4, new Color(200, 200, 200, 180));
-					Raylib.BeginScissorMode((int)contentX, (int)contentY, controlsWidth - 20, (int)scrollableHeight);
-				}
-				else
-				{
-					Raylib.BeginScissorMode((int)contentX, (int)contentY, controlsWidth, (int)scrollableHeight);
-				}
-
-				int lineY = contentY - (int)_controlsScrollOffset;
-
-				foreach (var action in rebindableActions)
-				{
-					Rectangle rowRect = new Rectangle(contentX + 4, lineY + 2, controlsWidth - 30, rowH - 5);
-					bool rowHovered = Raylib.CheckCollisionPointRec(mousePos, rowRect);
-					Raylib.DrawRectangleRounded(rowRect, 0.12f, 6, rowHovered ? new Color(35, 34, 42, 210) : new Color(22, 22, 30, 165));
-					Raylib.DrawRectangleRoundedLines(rowRect, 0.12f, 6, 1, rowHovered ? new Color(125, 105, 70, 170) : new Color(65, 62, 58, 130));
-
-					FontManager.DrawText(KeyBindings.DisplayName(action), contentX + 16, lineY + 30, 26, new Color(225, 215, 195, 235));
-					var bindings = KeyBindings.GetBindings(action);
-					int bindingsWidth = bindings.Count * (keyboardKeySize + keyGap) - keyGap;
-					int bindingStartX = contentX + controlsWidth - (bindingsWidth + addButtonWidth + 18);
-					int bindingX = bindingStartX;
-					for (int bindingIndex = 0; bindingIndex < bindings.Count; bindingIndex++)
-					{
-						var binding = bindings[bindingIndex];
-						bool isKeyboardBinding = binding.Type == InputType.Keyboard;
-						int currentKeyWidth = keyboardKeySize;
-						int currentKeyHeight = keyboardKeySize;
-						Rectangle keyRect = new Rectangle(bindingX, lineY + (rowH - currentKeyHeight) / 2, currentKeyWidth, currentKeyHeight);
-						bool isRebinding = _rebindingAction?.action == action && _rebindingAction?.index == bindingIndex;
-						bool keyHovered = Raylib.CheckCollisionPointRec(mousePos, keyRect);
-						Texture2D buttonTex = binding.Type == InputType.Keyboard ? World.GetInputButtonTexture() : binding.Type == InputType.GamepadButton ? GetGamepadButtonTexture((GamepadButton)binding.Code) : binding.Type == InputType.GamepadAxis ? GetGamepadJoystickTexture((GamepadAxisDirection)binding.Code) : binding.Type == InputType.Mouse ? (MouseButton)binding.Code switch
-						{
-							MouseButton.Left => _lmouseButtonTex,
-							MouseButton.Right => _rmouseButtonTex,
-							MouseButton.Middle => _wmouseButtonTex,
-							_ => new Texture2D()
-						} : new Texture2D();
-
-						Color keyColor = isRebinding ? new Color(255, 225, 150, 255) : keyHovered ? new Color(255, 235, 190, 255) : Color.White;
-						if (buttonTex.Id != 0 && buttonTex.Width > 0 && buttonTex.Height > 0)
-						{
-							Raylib.DrawTexturePro(buttonTex, new Rectangle(0, 0, buttonTex.Width, buttonTex.Height),
-								keyRect, Vector2.Zero, 0, keyColor);
-						}
-						string label = isKeyboardBinding ? ((KeyboardKey)binding.Code switch
-						{
-							KeyboardKey.LeftShift or KeyboardKey.RightShift => "MAJ",
-							KeyboardKey.LeftControl or KeyboardKey.RightControl => "CTRL",
-							KeyboardKey.Space => "ESPACE",
-							KeyboardKey.Escape => "ECHAP",
-							KeyboardKey.Enter => "ENTREE",
-							KeyboardKey.Tab => "TAB",
-							_ => ((KeyboardKey)binding.Code).ToString().ToUpperInvariant()
-						}) : binding.Type == InputType.GamepadAxis ? KeyBindings.BindingDisplayName(binding) : string.Empty;
-						if (isKeyboardBinding)
-						{
-							int labelFontSize = label.Length > 5 ? 15 : 22;
-							int labelWidth = FontManager.MeasureText(label, labelFontSize);
-							int labelY = (int)(keyRect.Y + (keyRect.Height - labelFontSize) / 2f);
-							FontManager.DrawText(label, (int)(keyRect.X + (keyRect.Width - labelWidth) / 2), labelY, labelFontSize, Color.White);
-						}
-
-						if (bindingIndex > 0)
-						{
-							Rectangle removeRect = new Rectangle(keyRect.X + keyRect.Width - 7, keyRect.Y - 7, 16, 16);
-							bool removeHovered = Raylib.CheckCollisionPointRec(mousePos, removeRect);
-							Raylib.DrawCircle((int)(removeRect.X + 8), (int)(removeRect.Y + 8), 8, removeHovered ? new Color(235, 95, 75, 255) : new Color(150, 65, 55, 245));
-							FontManager.DrawText("x", (int)removeRect.X + 4, (int)removeRect.Y + 1, 11, Color.White);
-							if (removeHovered && Raylib.IsMouseButtonPressed(MouseButton.Left) && _rebindingAction == null)
-								KeyBindings.RemoveBinding(action, bindingIndex);
-						}
-
-						if (keyHovered && Raylib.IsMouseButtonPressed(MouseButton.Left) && _rebindingAction == null)
-							_rebindingAction = (action, bindingIndex);
-
-						bindingX += currentKeyWidth + keyGap;
-					}
-
-					Rectangle addRect = new Rectangle(bindingX, lineY + 21, addButtonWidth, 46);
-					bool addHovered = Raylib.CheckCollisionPointRec(mousePos, addRect);
-					Raylib.DrawRectangleRounded(addRect, 0.18f, 6, addHovered ? new Color(80, 120, 70, 245) : new Color(42, 72, 48, 230));
-					Raylib.DrawRectangleRoundedLines(addRect, 0.18f, 6, 1, new Color(135, 170, 115, 190));
-					FontManager.DrawText("+", (int)addRect.X + 13, (int)addRect.Y + 9, 24, new Color(215, 245, 195, 255));
-					if (addHovered && Raylib.IsMouseButtonPressed(MouseButton.Left) && _rebindingAction == null)
-						_rebindingAction = (action, KeyBindings.AddBinding(action));
-
-					lineY += rowH;
-				}
-
-				Raylib.EndScissorMode();
-
-				// ── Message d'indication lors du rebind ──
-				if (_rebindingAction != null)
-				{
-					string hint = "Appuyez sur une touche, un bouton ou une direction de manette (Echap pour annuler)";
-					int hintW = FontManager.MeasureText(hint, 22);
-					FontManager.DrawText(hint, contentX + controlsWidth / 2 - hintW / 2, contentY + scrollableHeight + 6, 22, new Color(255, 220, 120, 220));
-				}
-
-				// ── Bouton Réinitialiser ──
-				int resetY = contentY + scrollableHeight + 38;
-				Rectangle resetRect = new Rectangle(contentX + 10, resetY, 250, 44);
-				bool resetHovered = Raylib.CheckCollisionPointRec(mousePos, resetRect);
-				Raylib.DrawRectangleRounded(resetRect, 0.3f, 6, resetHovered ? new Color(70, 45, 40, 220) : new Color(35, 33, 40, 200));
-				Raylib.DrawRectangleRoundedLines(resetRect, 0.3f, 6, 1, new Color(100, 90, 70, 160));
-				string resetLabel = "Réinitialiser les touches";
-				int rlw = FontManager.MeasureText(resetLabel, 18);
-				FontManager.DrawText(resetLabel, (int)(resetRect.X + resetRect.Width / 2 - rlw / 2), (int)(resetRect.Y + resetRect.Height / 2 - 10), 18, new Color(220, 200, 190, 220));
-				if (resetHovered && Raylib.IsMouseButtonPressed(MouseButton.Left) && _rebindingAction == null)
-					KeyBindings.ResetToDefaults();
-
-				// ── Informations sur les touches non réassignables ──
-				int infoY = resetY + 50;
-				var fixedControls = new (string action, string touche)[]
-				{
-					("Hotbar (1-0)", "1 - 0"),
-					("Molette (zoom)", "Molette + MAJ"),
-					("Menu principal (F5)", "F5"),
-					("Debug (F3)", "F3"),
-				};
-
-				foreach (var (action, touche) in fixedControls)
-				{
-					FontManager.DrawText(action, contentX + 10, infoY, 17, new Color(190, 185, 170, 190));
-					int kw = FontManager.MeasureText(touche, 17);
-					FontManager.DrawText(touche, contentX + contentWidth - 20 - kw, infoY, 17, new Color(190, 165, 110, 200));
-					infoY += 32;
-				}
-			}
-			else if (_optionsTab == 2)
-			{
-				int y = contentY;
-				FontManager.DrawText("Affichage de l'équipement :", contentX, y, 24, new Color(220, 210, 190, 230));
-				y += 44;
-
-				var equipmentStyles = new[]
-				{
-					("Personnage", "character"),
-					("Personnage + cases", "character_with_slots"),
-					("Équipements seuls", "equipment_only")
-				};
-				int equipmentStyleGap = 16;
-				int equipmentStyleWidth = (contentWidth - equipmentStyleGap * 2) / equipmentStyles.Length;
-				for (int styleIndex = 0; styleIndex < equipmentStyles.Length; styleIndex++)
-				{
-					var style = equipmentStyles[styleIndex];
-					Rectangle styleRect = new Rectangle(contentX + styleIndex * (equipmentStyleWidth + equipmentStyleGap), y, equipmentStyleWidth, 46);
-					bool hovered = Raylib.CheckCollisionPointRec(mousePos, styleRect);
-					bool selected = SettingsManager.Settings.InventoryEquipmentStyle == style.Item2;
-					Color styleColor = selected ? new Color(100, 80, 45, 240) : new Color(35, 35, 42, 220);
-					if (hovered) styleColor = new Color((byte)Math.Min(255, styleColor.R + 18), (byte)Math.Min(255, styleColor.G + 18), (byte)Math.Min(255, styleColor.B + 18), styleColor.A);
-					Raylib.DrawRectangleRounded(styleRect, 0.16f, 6, styleColor);
-					Raylib.DrawRectangleRoundedLines(styleRect, 0.16f, 6, 1, selected ? new Color(235, 195, 105, 240) : new Color(120, 110, 90, 180));
-					int styleWidth = FontManager.MeasureText(style.Item1, 20);
-					FontManager.DrawText(style.Item1, (int)(styleRect.X + (styleRect.Width - styleWidth) / 2), (int)(styleRect.Y + 12), 20, Color.White);
-					if (hovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-					{
-						SettingsManager.Settings.InventoryEquipmentStyle = style.Item2;
-						SettingsManager.Save();
-					}
-				}
-				y += 66;
-
-				FontManager.DrawText("Style de la hotbar :", contentX, y, 24, new Color(220, 210, 190, 230));
-				y += 44;
-
-				var hotbarStyles = new[] { ("Circulaire", "radial"), ("Classique", "classic") };
-				for (int styleIndex = 0; styleIndex < hotbarStyles.Length; styleIndex++)
-				{
-					var style = hotbarStyles[styleIndex];
-					Rectangle styleRect = new Rectangle(contentX + styleIndex * 220, y, 200, 46);
-					bool hovered = Raylib.CheckCollisionPointRec(mousePos, styleRect);
-					bool selected = SettingsManager.Settings.HotbarStyle == style.Item2;
-					Color styleColor = selected ? new Color(100, 80, 45, 240) : new Color(35, 35, 42, 220);
-					if (hovered) styleColor = new Color((byte)Math.Min(255, styleColor.R + 18), (byte)Math.Min(255, styleColor.G + 18), (byte)Math.Min(255, styleColor.B + 18), styleColor.A);
-					Raylib.DrawRectangleRounded(styleRect, 0.16f, 6, styleColor);
-					Raylib.DrawRectangleRoundedLines(styleRect, 0.16f, 6, 1, selected ? new Color(235, 195, 105, 240) : new Color(120, 110, 90, 180));
-					int styleWidth = FontManager.MeasureText(style.Item1, 20);
-					FontManager.DrawText(style.Item1, (int)(styleRect.X + (styleRect.Width - styleWidth) / 2), (int)(styleRect.Y + 12), 20, Color.White);
-					if (hovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-					{
-						SettingsManager.Settings.HotbarStyle = style.Item2;
-						SettingsManager.Save();
-					}
-				}
-				y += 66;
-				FontManager.DrawText("Afficher les boutons d'interface rapide :", contentX, y, 24, new Color(220, 210, 190, 230));
-				y += 52;
-
-				var uiOptions = new (string label, bool current, Action<bool> setter)[]
-				{
-					("Inventaire", SettingsManager.Settings.ShowInventoryButton, v => SettingsManager.Settings.ShowInventoryButton = v),
-					("Artisanat", SettingsManager.Settings.ShowCraftButton, v => SettingsManager.Settings.ShowCraftButton = v),
-					("Guilde", SettingsManager.Settings.ShowGuildButton, v => SettingsManager.Settings.ShowGuildButton = v),
-					("Journal de quêtes", SettingsManager.Settings.ShowQuestButton, v => SettingsManager.Settings.ShowQuestButton = v),
-					("Carte", SettingsManager.Settings.ShowMapButton, v => SettingsManager.Settings.ShowMapButton = v),
-					("Bestiaire", SettingsManager.Settings.ShowBestiaryButton, v => SettingsManager.Settings.ShowBestiaryButton = v),
-					("Items (godmode)", SettingsManager.Settings.ShowItemsButton, v => SettingsManager.Settings.ShowItemsButton = v),
-				};
-
-				foreach (var opt in uiOptions)
-				{
-					bool isChecked = opt.current;
-					Rectangle toggleRect = new Rectangle(contentX + 20, y, 34, 34);
-					bool hovered = Raylib.CheckCollisionPointRec(mousePos, toggleRect);
-					// Dessiner la case à cocher
-					Raylib.DrawRectangleRounded(toggleRect, 0.15f, 6, hovered ? new Color(60, 50, 40, 220) : new Color(30, 30, 40, 200));
-					Raylib.DrawRectangleRoundedLines(toggleRect, 0.15f, 6, 1, new Color(120, 110, 90, 200));
-					string checkTextureName = isChecked ? "check_yes" : "check_no";
-					string[] candidatePaths = { $"assets/gui/{checkTextureName}.png", $"assets/gui/{checkTextureName}.jpg" };
-					Texture2D checkTexture = new Texture2D();
-					foreach (var path in candidatePaths)
-					{
-						if (File.Exists(path))
-						{
-							checkTexture = Raylib.LoadTexture(path);
-							Raylib.SetTextureFilter(checkTexture, TextureFilter.Point);
-							break;
-						}
-					}
-					if (checkTexture.Id != 0)
-					{
-						float texW = checkTexture.Width;
-						float texH = checkTexture.Height;
-						float scale = Math.Min(toggleRect.Width / texW, toggleRect.Height / texH);
-						float drawW = texW * scale;
-						float drawH = texH * scale;
-						float drawX = toggleRect.X + (toggleRect.Width - drawW) / 2f;
-						float drawY = toggleRect.Y + (toggleRect.Height - drawH) / 2f;
-						Raylib.DrawTexturePro(checkTexture, new Rectangle(0, 0, texW, texH), new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, Color.White);
-					}
-					FontManager.DrawText(opt.label, (int)toggleRect.X + 48, y + 6, 20, Color.White);
-					if (hovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-					{
-						opt.setter(!isChecked);
-						SettingsManager.Save();
-					}
-					y += 44;
-				}
-			}
-			else if (_optionsTab == 3)
-			{
-				void DrawVoiceVolumeSlider(string labelKey, string fallback, int currentValue, Action<int> setValue, int y)
-				{
-					int value = Math.Clamp(currentValue, 0, 300);
-					string label = string.Format(Localization.GetOrDefault(labelKey, fallback), value);
-					FontManager.DrawText(label, contentX, y, 24, new Color(220, 210, 190, 230));
-
-					int sliderX = contentX;
-					int sliderY = y + 42;
-					int sliderW = contentWidth - 20;
-					const int sliderH = 20;
-					Rectangle sliderRect = new Rectangle(sliderX, sliderY, sliderW, sliderH);
-					Raylib.DrawRectangleRounded(sliderRect, 0.5f, 8, new Color(40, 38, 45, 220));
-					Raylib.DrawRectangleRoundedLines(sliderRect, 0.5f, 8, 1, new Color(100, 90, 70, 180));
-					float fillRatio = value / 300f;
-					if (fillRatio > 0f)
-					{
-						Rectangle fillRect = new Rectangle(sliderX, sliderY, sliderW * fillRatio, sliderH);
-						Raylib.DrawRectangleRounded(fillRect, 0.5f, 8, new Color(210, 170, 90, 240));
-					}
-					float knobX = sliderX + sliderW * fillRatio;
-					Raylib.DrawCircle((int)knobX, sliderY + sliderH / 2, 15, new Color(255, 225, 150, 255));
-
-					Rectangle hitbox = new Rectangle(sliderX - 10, sliderY - 10, sliderW + 20, sliderH + 20);
-					if (Raylib.CheckCollisionPointRec(mousePos, hitbox) && Raylib.IsMouseButtonDown(MouseButton.Left))
-					{
-						int updatedValue = (int)Math.Round(Math.Clamp((mousePos.X - sliderX) / sliderW, 0f, 1f) * 300f);
-						if (updatedValue != value)
-						{
-							setValue(updatedValue);
-							_voiceVolumeSliderChanged = true;
-						}
-					}
-				}
-
-				DrawVoiceVolumeSlider(
-					"options.voice.input_volume",
-					"Microphone input: {0}%",
-					SettingsManager.Settings.VoiceInputVolume,
-					value => SettingsManager.Settings.VoiceInputVolume = value,
-					contentY);
-				DrawVoiceVolumeSlider(
-					"options.voice.output_volume",
-					"Voice output: {0}%",
-					SettingsManager.Settings.VoiceOutputVolume,
-					value => SettingsManager.Settings.VoiceOutputVolume = value,
-					contentY + 120);
-			}
-
-			if (_voiceVolumeSliderChanged && Raylib.IsMouseButtonReleased(MouseButton.Left))
-			{
-				SettingsManager.Save();
-				_voiceVolumeSliderChanged = false;
-			}
-
-			// ── ACTIONS DU MENU ──
-			int backY = py + panelH - 80;
-			int actionGap = 16;
-			int actionWidth = 260;
-			int actionsWidth = actionWidth * 2 + actionGap;
-			Rectangle backRect = new Rectangle(px + panelW / 2 - actionsWidth / 2, backY, actionWidth, 60);
-			Rectangle acceptRect = new Rectangle(backRect.X + actionWidth + actionGap, backY, actionWidth, 60);
-			bool backHovered = Raylib.CheckCollisionPointRec(mousePos, backRect);
-			bool acceptHovered = Raylib.CheckCollisionPointRec(mousePos, acceptRect);
-			UIManager.DrawButton(backRect, new Color(185, 75, 65, 255), backHovered, true);
-			UIManager.DrawButton(acceptRect, new Color(75, 165, 90, 255), acceptHovered, true);
-			string backText = Localization.Get("options.back");
-			string acceptText = "VALIDER";
-			int btw = FontManager.MeasureText(backText, 25);
-			int atw = FontManager.MeasureText(acceptText, 25);
-			FontManager.DrawText(backText, (int)(backRect.X + backRect.Width / 2 - btw / 2), (int)(backRect.Y + backRect.Height / 2 - 13), 25, Color.White);
-			FontManager.DrawText(acceptText, (int)(acceptRect.X + acceptRect.Width / 2 - atw / 2), (int)(acceptRect.Y + acceptRect.Height / 2 - 13), 25, Color.White);
-			if (backHovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-			{
-				RequestOptionsBack();
-			}
-			if (acceptHovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
-			{
-				AcceptOptionsChanges();
-			}
-
-			if (_showOptionsDiscardConfirmation)
-			{
-				Raylib.DrawRectangle(0, 0, sw, sh, new Color(0, 0, 0, 150));
-				int dialogW = Math.Min(560, sw - 40);
-				int dialogH = 190;
-				Rectangle dialogRect = new Rectangle(sw / 2 - dialogW / 2, sh / 2 - dialogH / 2, dialogW, dialogH);
-				Raylib.DrawRectangleRounded(dialogRect, 0.08f, 8, new Color(24, 22, 28, 250));
-				Raylib.DrawRectangleRoundedLines(dialogRect, 0.08f, 8, 2, new Color(190, 75, 65, 240));
-				string warning = "Des modifications n'ont pas ete validees.";
-				string question = "Quitter sans les enregistrer ?";
-				int warningW = FontManager.MeasureText(warning, 18);
-				int questionW = FontManager.MeasureText(question, 16);
-				FontManager.DrawText(warning, sw / 2 - warningW / 2, (int)dialogRect.Y + 28, 18, new Color(255, 220, 150, 255));
-				FontManager.DrawText(question, sw / 2 - questionW / 2, (int)dialogRect.Y + 58, 16, Color.White);
-				Rectangle cancelRect = new Rectangle(dialogRect.X + 30, dialogRect.Y + 112, dialogW / 2 - 45, 42);
-				Rectangle discardRect = new Rectangle(dialogRect.X + dialogW / 2 + 15, dialogRect.Y + 112, dialogW / 2 - 45, 42);
-				bool cancelHovered = Raylib.CheckCollisionPointRec(mousePos, cancelRect);
-				bool discardHovered = Raylib.CheckCollisionPointRec(mousePos, discardRect);
-				UIManager.DrawButton(cancelRect, new Color(75, 165, 90, 255), cancelHovered, true);
-				UIManager.DrawButton(discardRect, new Color(185, 75, 65, 255), discardHovered, true);
-				string cancelText = "ANNULER";
-				string discardText = "QUITTER";
-				int cancelW = FontManager.MeasureText(cancelText, 16);
-				int discardW = FontManager.MeasureText(discardText, 16);
-				FontManager.DrawText(cancelText, (int)(cancelRect.X + cancelRect.Width / 2 - cancelW / 2), (int)cancelRect.Y + 12, 16, Color.White);
-				FontManager.DrawText(discardText, (int)(discardRect.X + discardRect.Width / 2 - discardW / 2), (int)discardRect.Y + 12, 16, Color.White);
-				if (cancelHovered && Raylib.IsMouseButtonPressed(MouseButton.Left)) _showOptionsDiscardConfirmation = false;
-				if (discardHovered && Raylib.IsMouseButtonPressed(MouseButton.Left)) DiscardOptionsChanges();
-			}
-		}
+		// DrawOptionsMenu() a été déplacé dans Program.OptionsMenu.cs
 
 		private static void DrawUIBar()
 		{
@@ -10876,14 +10350,12 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					if (CraftingUI.IsOpen) UIManager.PopUI();
 					else CraftingUI.Open("", 0);
 				}),
-				("guild", settings.ShowGuildButton, () => GuildUI.IsOpen, () =>
+				("guild", settings.ShowGuildButton && (Program.PlayerGuild != null || GuildUI.IsOpen), () => GuildUI.IsOpen, () =>
 				{
 					if (GuildUI.IsOpen)
 						GuildUI.Close();
 					else if (Program.PlayerGuild != null)
 						GuildUI.Open();
-					else
-						AddNotification(new Notification("Vous devez créer une guilde avec la charte avant d'accéder au menu.", Color.Red, 2f));
 				}),
 				("quest", settings.ShowQuestButton, () => QuestJournalUI.IsOpen, () => QuestJournalUI.Toggle()),
 				("map", settings.ShowMapButton, () => _gameState == GameState.Map, () =>
@@ -10909,6 +10381,20 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 						UIManager.PopUI();
 					else
 						ItemMenuUI.Open();
+				}));
+			}
+
+			Item? heldItem = equipment.MainHand;
+			bool hasMagicWand = heldItem != null
+				&& GetItemId(heldItem.Name) == GameData.GetItemId("magic_wand");
+			if (hasMagicWand || SpellCraftingUI.IsOpen)
+			{
+				uiItems.Add(("magic", true, () => SpellCraftingUI.IsOpen, () =>
+				{
+					if (SpellCraftingUI.IsOpen)
+						UIManager.PopUI();
+					else
+						SpellCraftingUI.Open();
 				}));
 			}
 
@@ -12358,7 +11844,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				PlayTileSound(tileDataObj, true);
 
 				//  Un arbre abattu perd une grosse quantité de feuilles d'un coup
-				if (World.IsLeafBearingTree(tileId))
+				if (World.IsLeafBearingTree(tileId) && !World.IsMatureTree(tileId))
 					World.SpawnLeafBurst(bestTileX, bestTileY, _particles, Random.Shared.Next(14, 22));
 
 				if (World.HasTileMeta(bestTileX, bestTileY, "beehive"))
@@ -12369,7 +11855,10 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					World.RemoveTileMeta(bestTileX, bestTileY, "beehive");
 				}
 
-				World.RemovePlacedObject(bestTileX, bestTileY);
+				if (World.IsMatureTree(tileId))
+					World.FellTree(bestTileX, bestTileY, World.GetTreeHitSwayDirection(bestTileX, bestTileY));
+				else
+					World.RemovePlacedObject(bestTileX, bestTileY);
 				if (tileId == 8 || tileId == 84)
 				{
 					World.UpdateRoofsAt(bestTileX, bestTileY);

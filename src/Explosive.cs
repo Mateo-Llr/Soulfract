@@ -141,12 +141,11 @@ namespace Soulfract
 			IsAlive = false;
 			
 			int explosionRadius = 3; // Rayon en tuiles
-			int centerTileX = (int)(Position.X / Program.TileSize);
-			int centerTileY = (int)(Position.Y / Program.TileSize);
+            int tileSize = Program.TileSize;
 			
 			// ========== NOUVEAU : DÉGÂTS AUX ANIMAUX ==========
 			float explosionDamage = 25f; // Dégâts de base de l'explosion
-			float damageRadius = explosionRadius * Program.TileSize; // Rayon en pixels
+            float damageRadius = explosionRadius * tileSize; // Rayon en pixels
 			Program.ApplyScreenShake(12f, 0.3f);
 			
 			// Récupérer toutes les entités dans le rayon
@@ -157,7 +156,8 @@ namespace Soulfract
 				if (entity.Species == "human") continue; // Ne pas blesser le joueur (optionnel)
 				
 				// Calculer la distance entre l'explosion et l'entité
-				float distance = Vector2.Distance(Position, entity.WorldPos);
+                Vector2 entityGroundPosition = World.GetEntityGroundPosition(entity.VisualWorldPos);
+                float distance = Vector2.Distance(Position, entityGroundPosition);
 				if (distance <= damageRadius)
 				{
 					// Dégâts décroissants avec la distance (plus on est proche, plus on prend cher)
@@ -170,7 +170,7 @@ namespace Soulfract
 					entity.OnHit(Position);
 
 					// Appliquer un knockback (repousser l'entité loin de l'explosion)
-					Vector2 knockbackDir = entity.WorldPos - Position;
+                    Vector2 knockbackDir = entityGroundPosition - Position;
 					if (knockbackDir.Length() > 0.01f)
 						knockbackDir = Vector2.Normalize(knockbackDir);
 					else
@@ -186,7 +186,7 @@ namespace Soulfract
 					{
 						foreach (var (id, qty, _) in GameData.GetAnimalDrops(entity.Species))
 						{
-							Program.GiveItemToPlayer(id, qty, Position);
+                            Program.GiveItemToPlayer(id, qty, entity.WorldPos);
 						}
 					}
 				}
@@ -195,18 +195,23 @@ namespace Soulfract
 			
 			// Destruction des tuiles (code existant)
 			var destroyedTiles = new List<(int x, int y, int objectId)>();
+            int minTileX = (int)MathF.Floor((Position.X - damageRadius) / tileSize);
+            int maxTileX = (int)MathF.Floor((Position.X + damageRadius) / tileSize);
+            int maxHeightOffset = World.MAX_HEIGHT_LEVELS * tileSize / 4;
+            int minTileY = (int)MathF.Floor((Position.Y - damageRadius) / tileSize) - 1;
+            int maxTileY = (int)MathF.Floor((Position.Y + damageRadius + maxHeightOffset) / tileSize) + 1;
 
-			for (int dx = -explosionRadius; dx <= explosionRadius; dx++)
+            for (int tileX = minTileX; tileX <= maxTileX; tileX++)
 			{
-				for (int dy = -explosionRadius; dy <= explosionRadius; dy++)
+                for (int tileY = minTileY; tileY <= maxTileY; tileY++)
 				{
-					int tileX = centerTileX + dx;
-					int tileY = centerTileY + dy;
-					float dist = MathF.Sqrt(dx * dx + dy * dy);
-					if (dist > explosionRadius) continue;
-					
 					int objectId = World.GetObjectIdAt(tileX, tileY);
 					if (objectId == 0) continue;
+                    Vector2 tileCenter = new Vector2(
+                        tileX * tileSize + tileSize / 2f,
+                        tileY * tileSize + tileSize / 2f);
+                    Vector2 tileGroundPosition = World.GetEntityGroundPosition(tileCenter);
+                    if (Vector2.Distance(Position, tileGroundPosition) > damageRadius) continue;
 					
 					var tileData = WorldTileRegistry.GetTile(objectId);
 					if (tileData == null) continue;
@@ -221,6 +226,10 @@ namespace Soulfract
 			// Récupérer les drops et détruire les tuiles
 			foreach (var (tileX, tileY, objectId) in destroyedTiles)
 			{
+                Vector2 tileDropPosition = new Vector2(
+                    tileX * tileSize + tileSize / 2f,
+                    tileY * tileSize + tileSize / 2f);
+
 				//  AJOUT : Récupérer l'overlay de minerai avant destruction
 				int mineralOverlayId = World.GetOverlayAt(tileX, tileY);
 				if (mineralOverlayId != 0 && mineralOverlayId != 82)
@@ -229,7 +238,7 @@ namespace Soulfract
 					if (mineralItemId != 0)
 					{
 						int qty = Random.Shared.Next(1, 3);
-                        Program.GiveItemToPlayer(mineralItemId, qty, Position, pickupCooldown: 0f);
+                        Program.GiveItemToPlayer(mineralItemId, qty, tileDropPosition, pickupCooldown: 0f);
 						// Optionnel : notification
 						if (GameData.ItemDatabase.TryGetValue(mineralItemId, out var mineralData))
 							Program.AddItemNotification(mineralData.Name, qty, mineralData.Color);
@@ -246,7 +255,7 @@ namespace Soulfract
 				var drops = WorldTileRegistry.GetDrops(objectId);
 				foreach (var (dropId, qty) in drops)
 				{
-                    Program.GiveItemToPlayer(dropId, qty, Position, pickupCooldown: 0f);
+                    Program.GiveItemToPlayer(dropId, qty, tileDropPosition, pickupCooldown: 0f);
 				}
 				World.RemovePlacedObject(tileX, tileY);
 				

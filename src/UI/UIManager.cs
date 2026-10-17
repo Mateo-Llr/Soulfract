@@ -38,6 +38,7 @@ namespace Soulfract
         public static NineSliceTexture? BackpackPanelTexture { get; private set; }
         // Nine-slice "parchemin" utilisé par le menu pause
         public static NineSliceTexture? ScrollPanelTexture { get; private set; }
+        public static HorizontalThreeSliceTexture? ScrollBorderTexture { get; private set; }
         // Nine-slice pour bulle de dialogue
         public static NineSliceTexture? TalkBubblePanelTexture { get; private set; }
         // Nine-slice pour la case du prénom dans la bulle de dialogue (skin healthbar)
@@ -55,6 +56,7 @@ namespace Soulfract
         // Gestionnaire de pile UI (fenêtres modales)
         private static Stack<Action> _uiCloseStack = new Stack<Action>();
         private static Stack<Func<bool>> _uiIsOpenStack = new Stack<Func<bool>>();
+        private static Stack<Func<Vector2, bool>?> _uiHitTestStack = new Stack<Func<Vector2, bool>?>();
         
         public static void Initialize(float scale = 4f)
         {
@@ -80,6 +82,7 @@ namespace Soulfract
             BeltPanelTexture = new NineSliceTexture("assets/gui/belt", UIScale);
             BackpackPanelTexture = new NineSliceTexture("assets/gui/backpack", UIScale);
             ScrollPanelTexture = new NineSliceTexture("assets/gui/scroll", UIScale);
+            ScrollBorderTexture = new HorizontalThreeSliceTexture("assets/gui/scroll_border", UIScale);
             TalkBubblePanelTexture = new NineSliceTexture("assets/gui/talkbubble", UIScale);
             HealthBarPanelTexture = new NineSliceTexture("assets/gui/healthbar", UIScale);
             
@@ -127,6 +130,7 @@ namespace Soulfract
             if (BeltPanelTexture != null) BeltPanelTexture.Scale = UIScale;
             if (BackpackPanelTexture != null) BackpackPanelTexture.Scale = UIScale;
             if (ScrollPanelTexture != null) ScrollPanelTexture.Scale = UIScale;
+            if (ScrollBorderTexture != null) ScrollBorderTexture.Scale = UIScale;
             if (TalkBubblePanelTexture != null) TalkBubblePanelTexture.Scale = UIScale;
             if (HealthBarPanelTexture != null) HealthBarPanelTexture.Scale = UIScale;
         }
@@ -158,6 +162,7 @@ namespace Soulfract
             if (BeltPanelTexture != null) BeltPanelTexture.Unload();
             if (BackpackPanelTexture != null) BackpackPanelTexture.Unload();
             if (ScrollPanelTexture != null) ScrollPanelTexture.Unload();
+            if (ScrollBorderTexture != null) ScrollBorderTexture.Unload();
             if (TalkBubblePanelTexture != null) TalkBubblePanelTexture.Unload();
             if (HealthBarPanelTexture != null) HealthBarPanelTexture.Unload();
             _initialized = false;
@@ -264,11 +269,12 @@ namespace Soulfract
         /// </summary>
         /// <param name="closeAction">Action à appeler pour fermer l'UI</param>
         /// <param name="isOpenCheck">Fonction retournant true si l'UI est encore ouverte</param>
-        public static void PushUI(Action closeAction, Func<bool> isOpenCheck)
+        public static void PushUI(Action closeAction, Func<bool> isOpenCheck, Func<Vector2, bool>? hitTest = null)
         {
             CleanupDeadUIs();
             _uiCloseStack.Push(closeAction);
             _uiIsOpenStack.Push(isOpenCheck);
+            _uiHitTestStack.Push(hitTest);
         }
         
         /// <summary>
@@ -283,6 +289,7 @@ namespace Soulfract
             {
                 Action closeAction = _uiCloseStack.Pop();
                 _uiIsOpenStack.Pop();
+                _uiHitTestStack.Pop();
                 closeAction?.Invoke();
                 return true;
             }
@@ -301,6 +308,7 @@ namespace Soulfract
                     _uiCloseStack.Peek()?.Invoke();
                 _uiCloseStack.Pop();
                 _uiIsOpenStack.Pop();
+                _uiHitTestStack.Pop();
             }
             
             _uiCloseStack.Clear();
@@ -330,6 +338,21 @@ namespace Soulfract
             CleanupDeadUIs();
             return _uiCloseStack.Count;
         }
+
+        public static bool IsPointOverRegisteredUI(Vector2 position)
+        {
+            CleanupDeadUIs();
+
+            using var hitTests = _uiHitTestStack.GetEnumerator();
+            using var openChecks = _uiIsOpenStack.GetEnumerator();
+            while (hitTests.MoveNext() && openChecks.MoveNext())
+            {
+                if (openChecks.Current() && hitTests.Current?.Invoke(position) == true)
+                    return true;
+            }
+
+            return false;
+        }
         
         /// <summary>
         /// Réinitialise la pile (au chargement de partie par exemple)
@@ -338,6 +361,7 @@ namespace Soulfract
         {
             _uiCloseStack.Clear();
             _uiIsOpenStack.Clear();
+            _uiHitTestStack.Clear();
             Console.WriteLine(" Pile UI réinitialisée");
         }
         
@@ -350,6 +374,7 @@ namespace Soulfract
             {
                 _uiCloseStack.Pop();
                 _uiIsOpenStack.Pop();
+                _uiHitTestStack.Pop();
             }
         }
         

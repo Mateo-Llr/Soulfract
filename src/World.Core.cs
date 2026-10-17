@@ -3908,9 +3908,9 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 									if (isTree)
 										windAngle += GetTreeHitSwayAngle(capturedX, capturedY, currentTime);
 
-									if (capturedObjectId == 4 || capturedObjectId == 45)
+									if (IsMatureTree(capturedObjectId))
 									{
-										string treeTexturePrefix = capturedObjectId == 45 ? "spruce_tree" : "oak_tree";
+										string treeTexturePrefix = GetMatureTreeTexturePrefix(capturedObjectId);
 										Texture2D trunkTex = WorldTileRegistry.GetTextureByName($"{treeTexturePrefix}_trunk");
 										Texture2D bushTex = WorldTileRegistry.GetTextureByName($"{treeTexturePrefix}_bush");
 										Color treeTint = GetTreeLeafTintForObjectId(capturedObjectId, capturedX, capturedY);
@@ -3922,6 +3922,12 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 												windDestRect,
 												windOrigin, windAngle, Color.White);
 										}
+										else if (tex.Id != 0)
+										{
+											Raylib.DrawTexturePro(tex,
+												new Rectangle(0, 0, tex.Width, tex.Height),
+												windDestRect, windOrigin, windAngle, Color.White);
+										}
 
 										if (bushTex.Id != 0)
 										{
@@ -3930,12 +3936,42 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 												windDestRect,
 												windOrigin, windAngle, treeTint);
 										}
-										else if (tex.Id != 0)
+									}
+									else if (IsTreeStump(capturedObjectId))
+									{
+										if (tex.Id != 0)
 										{
 											Raylib.DrawTexturePro(tex,
 												new Rectangle(0, 0, tex.Width, tex.Height),
-												windDestRect,
-												windOrigin, windAngle, treeTint);
+												new Rectangle(drawX, drawY, drawW, drawH),
+												Vector2.Zero, 0, tint);
+										}
+
+										if (TryGetTreeFallVisual(capturedX, capturedY, out string treeTexturePrefix, out int fallenTreeId, out float fallAngle, out float fallAlpha))
+										{
+											Texture2D cutTex = WorldTileRegistry.GetTextureByName($"{treeTexturePrefix}_cut");
+											if (cutTex.Id == 0)
+												cutTex = GetTileTexture(capturedX, capturedY, fallenTreeId, currentTime);
+											Texture2D leavesTex = WorldTileRegistry.GetTextureByName($"{treeTexturePrefix}_bush");
+											Vector2 fallOrigin = new(drawW / 2f, drawH - TREE_JOINT_HEIGHT);
+											Rectangle fallDest = new(drawX + fallOrigin.X, drawY + fallOrigin.Y, drawW, drawH);
+											Color trunkTint = new((byte)255, (byte)255, (byte)255, (byte)(255 * fallAlpha));
+
+											if (cutTex.Id != 0)
+											{
+												Raylib.DrawTexturePro(cutTex,
+													new Rectangle(0, 0, cutTex.Width, cutTex.Height),
+													fallDest, fallOrigin, fallAngle, trunkTint);
+											}
+
+											if (leavesTex.Id != 0)
+											{
+												Color leavesTint = GetTreeLeafTintForObjectId(fallenTreeId, capturedX, capturedY);
+												leavesTint = new Color(leavesTint.R, leavesTint.G, leavesTint.B, (byte)(leavesTint.A * fallAlpha));
+												Raylib.DrawTexturePro(leavesTex,
+													new Rectangle(0, 0, leavesTex.Width, leavesTex.Height),
+													fallDest, fallOrigin, fallAngle, leavesTint);
+											}
 										}
 									}
 									else if (capturedTileData.IsSapling &&
@@ -5174,7 +5210,7 @@ underwearTexture: capturedExtraUnderwear,
 							isBow: isBow,
 							underwearTexture: underwearTex, // ← texture adaptée
 							beardStyle: Program.PlayerBeardStyle,
-							forceBlinking: materializing,
+							forceBlinking: materializing || Program.IsBlinking,
 							randomFeatureVariant: Program.PlayerMorphFeatureVariants,
 							randomFeatureColor: Program.PlayerMorphFeatureColors,
 							drawCarriedEntity: isCarryingCreature && !materializing ? () =>

@@ -578,13 +578,11 @@ namespace Soulfract
 
             if (!DraggedItem.IsDragging)
             {
-                for (int k = 1; k <= 9; k++)
+                for (int slot = 0; slot < 10; slot++)
                 {
-                    if (Raylib.IsKeyPressed(KeyboardKey.One + (k - 1)))
-                        TrySwapHoveredSlotWithHotbar(k - 1);
+                    if (Program.KeyBindings.IsHotbarSlotPressed(slot))
+                        TrySwapHoveredSlotWithHotbar(slot);
                 }
-                if (Raylib.IsKeyPressed(KeyboardKey.Zero))
-                    TrySwapHoveredSlotWithHotbar(9);
             }
 
             if (DraggedItem.IsDragging && Raylib.IsMouseButtonPressed(MouseButton.Right))
@@ -990,24 +988,28 @@ namespace Soulfract
 
             // Calculer le regard vers la souris pour l'aperçu du menu
             var gaze = Program.ComputeGazeOffsetsFor(previewPos, Raylib.GetMousePosition(), 1f);
+            string previewSpecies = string.IsNullOrWhiteSpace(Program.PlayerMorphSpecies)
+                ? "human"
+                : Program.PlayerMorphSpecies;
+            bool isHuman = string.Equals(previewSpecies, "human", StringComparison.OrdinalIgnoreCase);
 
             if (showCharacter)
                 EntityRenderer.DrawEntity(
-                speciesName: "human",
+                speciesName: previewSpecies,
                 anim: PREVIEW_ANIM,
                 frame: 0,
                 prog: 0f,
                 facing: 1f,
                 pos: previewPos,
-                tint: Program.SkinColor,
-                hBase: Program.hairBaseTextures.Count > 0 ? Program.hairBaseTextures[Math.Clamp(Program.PlayerHairStyle, 0, Program.hairBaseTextures.Count - 1)] : new Texture2D(),
-                hOverlay: Program.hairOverlayTextures.Count > 0 ? Program.hairOverlayTextures[Math.Clamp(Program.PlayerHairStyle, 0, Program.hairOverlayTextures.Count - 1)] : new Texture2D(),
-                hColor: Program.HairColor,
+                tint: isHuman ? Program.SkinColor : Program.PlayerMorphTint,
+                hBase: isHuman && Program.hairBaseTextures.Count > 0 ? Program.hairBaseTextures[Math.Clamp(Program.PlayerHairStyle, 0, Program.hairBaseTextures.Count - 1)] : new Texture2D(),
+                hOverlay: isHuman && Program.hairOverlayTextures.Count > 0 ? Program.hairOverlayTextures[Math.Clamp(Program.PlayerHairStyle, 0, Program.hairOverlayTextures.Count - 1)] : new Texture2D(),
+                hColor: isHuman ? Program.HairColor : Color.Black,
                 skeletons: SpeciesData.Skeletons,
-                eyes: Program.EyesTexture,
-                mouth: Program.MouthTexture,
+                eyes: isHuman ? Program.EyesTexture : EntityRenderer.GetEyesTextureForSpecies(previewSpecies),
+                mouth: isHuman ? Program.MouthTexture : default,
                 customScale: customScale,
-                equipment: equipment,
+                equipment: SpeciesData.IsHumanoid(previewSpecies) ? equipment : null,
                 isCarrying: false,
                 inWater: false,
                 attackSwingProgress: 0f,
@@ -1015,8 +1017,11 @@ namespace Soulfract
                 headAngle: 0f,
                 keepItemHorizontal: false,
                 isBow: false,
-                underwearTexture: Program.LeafUnderpantsTexture,
-                beardStyle: Program.PlayerBeardStyle,
+                underwearTexture: isHuman ? Program.LeafUnderpantsTexture : default,
+                beardStyle: isHuman ? Program.PlayerBeardStyle : 0,
+                forceBlinking: Program.IsBlinking,
+                randomFeatureVariant: Program.PlayerMorphFeatureVariants,
+                randomFeatureColor: Program.PlayerMorphFeatureColors,
                 pupilLeftOffset: gaze.pupilLeft,
                 pupilRightOffset: gaze.pupilRight,
                 eyebrowLeftOffset: gaze.browLeft,

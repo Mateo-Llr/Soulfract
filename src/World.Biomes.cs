@@ -131,16 +131,47 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
         /// </summary>
         private static (float temperature, float humidity, float elevation) GetClimateAt(int x, int y)
         {
+            EnsureTerrainCachesMatchSeed();
+
             if (_climateCache.TryGetValue((x, y), out var cached))
                 return cached;
 
-            float temperature = WorldGeneration.GetTemperature(x, y);
+            // L'élévation est le bruit le plus coûteux (warp + 3 FBM + rivières) : on la calcule
+            // UNE fois et on la passe à GetTemperature. Avant, GetTemperature(x, y) la recalculait
+            // en interne, puis GetElevation(x, y) la recalculait encore juste après (2 fois / tuile).
             float elevation = WorldGeneration.GetElevation(x, y);
+            float temperature = WorldGeneration.GetTemperature(x, y, elevation);
             float humidity = WorldGeneration.GetHumidity(x, y, temperature, elevation);
+
+            // Borne mémoire : ces caches n'étaient jamais purgés et grossissaient à chaque tuile
+            // explorée (plusieurs centaines de Mo en longue partie). Les valeurs sont déterministes
+            // (même seed => même résultat) : vider le cache ne coûte qu'un recalcul.
+            if (_climateCache.Count >= MAX_TERRAIN_CACHE_ENTRIES)
+                _climateCache.Clear();
 
             var result = (temperature, humidity, elevation);
             _climateCache[(x, y)] = result;
             return result;
+        }
+
+        private const int MAX_TERRAIN_CACHE_ENTRIES = 1_000_000;
+        private static int _terrainCacheSeed = int.MinValue;
+
+        /// <summary>
+        /// Les caches climat/hauteur ne dépendent que de la seed du bruit. Si elle change
+        /// (nouveau monde, chargement d'une sauvegarde, retour au menu qui remet la seed à 0...),
+        /// ils doivent être vidés : sinon les tuiles déjà visitées gardaient le terrain de
+        /// l'ANCIEN monde et se mélangeaient aux nouvelles.
+        /// </summary>
+        private static void EnsureTerrainCachesMatchSeed()
+        {
+            int seed = PerlinNoise.Seed;
+            if (seed == _terrainCacheSeed)
+                return;
+
+            _climateCache.Clear();
+            _heightCache.Clear();
+            _terrainCacheSeed = seed;
         }
 
 		public static int GetHeightAt(int tileX, int tileY)
@@ -161,12 +192,16 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
 				if (chunk.Heights.TryGetValue((tileX, tileY), out int h))
 					return h;
 			
+			EnsureTerrainCachesMatchSeed();
+
 			if (!_heightCache.TryGetValue((tileX, tileY), out int height))
 			{
 				var climate = GetClimateAt(tileX, tileY);
 				// Étage des hauteurs (0-59)
 				height = (int)(climate.elevation * MAX_HEIGHT_LEVELS);
 				if (height > MAX_HEIGHT_LEVELS - 1) height = MAX_HEIGHT_LEVELS - 1;
+				if (_heightCache.Count >= MAX_TERRAIN_CACHE_ENTRIES)
+					_heightCache.Clear();
 				_heightCache[(tileX, tileY)] = height;
 			}
 			return height;
