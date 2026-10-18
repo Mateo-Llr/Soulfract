@@ -15,8 +15,41 @@ namespace Soulfract
         //  CARACTÈRES ALÉATOIRES : [speciesKey][featureName][partName] -> variantes disponibles
         public static Dictionary<string, Dictionary<string, Dictionary<string, List<Texture2D>>>> FeatureTextures
             = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<uint, Texture2D> _uncoloredOverlayTextures = new();
 
         private static HashSet<(string speciesKey, string featureName, string partName)> _sharedFeatureTextureParts = new();
+
+        public static Texture2D LoadTextureWithUncoloredOverlay(string path)
+        {
+            Texture2D texture = Raylib.LoadTexture(path);
+            if (texture.Id == 0) return texture;
+
+            Raylib.SetTextureFilter(texture, TextureFilter.Point);
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            if (fileName.EndsWith("_", StringComparison.Ordinal)) return texture;
+
+            string overlayPath = Path.Combine(
+                Path.GetDirectoryName(path) ?? string.Empty,
+                $"{fileName}_.png");
+            if (File.Exists(overlayPath))
+            {
+                Texture2D overlay = Raylib.LoadTexture(overlayPath);
+                if (overlay.Id != 0)
+                {
+                    Raylib.SetTextureFilter(overlay, TextureFilter.Point);
+                    _uncoloredOverlayTextures[texture.Id] = overlay;
+                }
+            }
+
+            return texture;
+        }
+
+        public static Texture2D GetUncoloredOverlayTexture(Texture2D texture)
+        {
+            return _uncoloredOverlayTextures.TryGetValue(texture.Id, out var overlay)
+                ? overlay
+                : default;
+        }
         
         public static void LoadFromFile()
         {
@@ -87,6 +120,7 @@ namespace Soulfract
 						Tintable = sp.tintable,
 						EyeColorMin = ToColor(sp.eyeColorMin),
 						EyeColorMax = ToColor(sp.eyeColorMax),
+						EyeColors = (sp.eyeColors ?? new()).Select(ToColor).Where(c => c.HasValue).Select(c => c!.Value).ToList(),
 						Portable = sp.portable,
 						PresetChance = Math.Clamp(sp.presetChance, 0f, 1f),
 						ColorPresets = (sp.colorPresets ?? new()).Select(ConvertPreset).ToList()
@@ -142,12 +176,12 @@ namespace Soulfract
                             
                             string texPath = $"assets/animals/{folderName}/{folderName}{part.name}.png";
                             if (File.Exists(texPath))
-                                bodyPart.Texture = Raylib.LoadTexture(texPath);
+                                bodyPart.Texture = LoadTextureWithUncoloredOverlay(texPath);
                             else
                             {
                                 string fallbackPath = $"assets/animals/{folderName}/{part.name}.png";
                                 if (File.Exists(fallbackPath))
-                                    bodyPart.Texture = Raylib.LoadTexture(fallbackPath);
+                                    bodyPart.Texture = LoadTextureWithUncoloredOverlay(fallbackPath);
                             }
                             
                             skeleton.Add(bodyPart);
@@ -299,6 +333,7 @@ namespace Soulfract
                         string variantPrefix = partPrefix;
                         var files = availableFiles
                             .Where(f => Path.GetFileNameWithoutExtension(f).StartsWith(partPrefix, StringComparison.OrdinalIgnoreCase))
+                            .Where(f => !Path.GetFileNameWithoutExtension(f).EndsWith("_", StringComparison.Ordinal))
                             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
                             .ToList();
 
@@ -310,13 +345,14 @@ namespace Soulfract
                             variantPrefix = featurePrefix;
                             files = availableFiles
                                 .Where(f => Path.GetFileNameWithoutExtension(f).StartsWith(featurePrefix, StringComparison.OrdinalIgnoreCase))
+                                .Where(f => !Path.GetFileNameWithoutExtension(f).EndsWith("_", StringComparison.Ordinal))
                                 .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
                                 .ToList();
                         }
 
                         foreach (var file in files)
                         {
-                            var tex = Raylib.LoadTexture(file);
+                            var tex = LoadTextureWithUncoloredOverlay(file);
                             if (tex.Id != 0)
                             {
                                 Raylib.SetTextureFilter(tex, TextureFilter.Point);
@@ -738,6 +774,7 @@ namespace Soulfract
             //  Couleur d'yeux aléatoire par défaut pour l'espèce (null = pas de teinte, yeux tels quels)
             public Color? EyeColorMin { get; set; }
             public Color? EyeColorMax { get; set; }
+            public List<Color> EyeColors { get; set; } = new();
 
             //  Si vrai, cette créature peut être portée (comme un meuble) via la touche F, puis reposée
             public bool Portable { get; set; } = false;
@@ -831,6 +868,7 @@ namespace Soulfract
             //  Couleur d'yeux aléatoire par défaut (plage min/max) pour l'espèce
             public int[]? eyeColorMin { get; set; }
             public int[]? eyeColorMax { get; set; }
+            public List<int[]> eyeColors { get; set; } = new();
             //  Si vrai, cette créature peut être portée (comme un meuble)
             public bool portable { get; set; } = false;
             //  Présets d'apparence figés + probabilité de piocher dedans plutôt qu'être 100% aléatoire

@@ -1925,23 +1925,145 @@ namespace Soulfract
         }
 
 		private const float MaxEntityPushAcceleration = 1200f;
+		private const float EntityPushGridCellSize = 128f;
+		private static readonly Dictionary<(int x, int y), List<int>> _entityPushGrid = new();
+		private static readonly Stack<List<int>> _entityPushGridBucketPool = new();
+		private static readonly PriorityQueue<int, int> _entityPushCandidates = new();
+		private static Rectangle[] _entityPushHitboxes = Array.Empty<Rectangle>();
+		private static (int x, int y)[] _entityPushCells = Array.Empty<(int x, int y)>();
+		private static int[] _entityPushCandidateMarks = Array.Empty<int>();
 
 		public static void ResolveEntityPushes(float dt)
 		{
 			if (NetworkManager.IsClient) return;
 
 			List<Entity> entities = Program.GetEntities();
+			if (_entityPushHitboxes.Length < entities.Count)
+				Array.Resize(ref _entityPushHitboxes, entities.Count);
+			if (_entityPushCells.Length < entities.Count)
+				Array.Resize(ref _entityPushCells, entities.Count);
+			if (_entityPushCandidateMarks.Length < entities.Count)
+				Array.Resize(ref _entityPushCandidateMarks, entities.Count);
+			Array.Clear(_entityPushCandidateMarks, 0, entities.Count);
+
+			foreach (var bucket in _entityPushGrid.Values)
+			{
+				bucket.Clear();
+				_entityPushGridBucketPool.Push(bucket);
+			}
+			_entityPushGrid.Clear();
+
+			Rectangle[] pushHitboxes = _entityPushHitboxes;
+			(int x, int y)[] pushCells = _entityPushCells;
+			float maxHalfWidth = 0f;
+			float maxHalfHeight = 0f;
+
+			static (int x, int y) GetPushGridCell(Rectangle hitbox)
+			{
+				float centerX = hitbox.X + hitbox.Width * 0.5f;
+				float centerY = hitbox.Y + hitbox.Height * 0.5f;
+				return ((int)MathF.Floor(centerX / EntityPushGridCellSize), (int)MathF.Floor(centerY / EntityPushGridCellSize));
+			}
+
+			void AddToPushGrid(int entityIndex)
+			{
+				var cell = pushCells[entityIndex];
+				if (!_entityPushGrid.TryGetValue(cell, out var indices))
+				{
+					indices = _entityPushGridBucketPool.Count > 0
+						? _entityPushGridBucketPool.Pop()
+						: new List<int>();
+					_entityPushGrid[cell] = indices;
+				}
+				indices.Add(entityIndex);
+			}
+
+			void RemoveFromPushGrid(int entityIndex)
+			{
+				var cell = pushCells[entityIndex];
+				if (!_entityPushGrid.TryGetValue(cell, out var indices)) return;
+				indices.Remove(entityIndex);
+				if (indices.Count == 0)
+				{
+					_entityPushGrid.Remove(cell);
+					_entityPushGridBucketPool.Push(indices);
+				}
+			}
+
+			int candidateStamp = 0;
+			void AddPotentialPairs(int entityIndex, int firstUnprocessedIndex)
+			{
+				Rectangle hitbox = pushHitboxes[entityIndex];
+				int minCellX = (int)MathF.Floor((hitbox.X - maxHalfWidth) / EntityPushGridCellSize);
+				int maxCellX = (int)MathF.Floor((hitbox.X + hitbox.Width + maxHalfWidth) / EntityPushGridCellSize);
+				int minCellY = (int)MathF.Floor((hitbox.Y - maxHalfHeight) / EntityPushGridCellSize);
+				int maxCellY = (int)MathF.Floor((hitbox.Y + hitbox.Height + maxHalfHeight) / EntityPushGridCellSize);
+
+				for (int cellX = minCellX; cellX <= maxCellX; cellX++)
+				{
+					for (int cellY = minCellY; cellY <= maxCellY; cellY++)
+					{
+						if (!_entityPushGrid.TryGetValue((cellX, cellY), out var indices)) continue;
+						foreach (int candidateIndex in indices)
+						{
+							if (candidateIndex > firstUnprocessedIndex
+								&& _entityPushCandidateMarks[candidateIndex] != candidateStamp)
+							{
+								_entityPushCandidateMarks[candidateIndex] = candidateStamp;
+								_entityPushCandidates.Enqueue(candidateIndex, candidateIndex);
+							}
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < entities.Count; i++)
+			{
+				pushHitboxes[i] = GetPushHitbox(entities[i]);
+				pushCells[i] = GetPushGridCell(pushHitboxes[i]);
+				maxHalfWidth = MathF.Max(maxHalfWidth, pushHitboxes[i].Width * 0.5f);
+				maxHalfHeight = MathF.Max(maxHalfHeight, pushHitboxes[i].Height * 0.5f);
+				AddToPushGrid(i);
+			}
+
 			for (int i = 0; i < entities.Count - 1; i++)
 			{
 				Entity first = entities[i];
 				if (!first.IsAlive || first.CarriedByConnectionId != -1) continue;
 
-				for (int j = i + 1; j < entities.Count; j++)
+				_entityPushCandidates.Clear();
+				candidateStamp = i + 1;
+				AddPotentialPairs(i, i);
+				int lastProcessedIndex = i;
+				while (_entityPushCandidates.TryDequeue(out int j, out _))
 				{
+					lastProcessedIndex = j;
 					Entity second = entities[j];
 					if (!second.IsAlive || second.CarriedByConnectionId != -1) continue;
 					if (first.Rider == second || second.Rider == first) continue;
-					ResolveEntityPush(first, second, dt);
+					if (!ResolveEntityPush(first, second, dt, pushHitboxes[i], pushHitboxes[j]))
+						continue;
+
+					Rectangle firstHitbox = GetPushHitbox(first);
+					var firstCell = GetPushGridCell(firstHitbox);
+					if (firstCell != pushCells[i])
+					{
+						RemoveFromPushGrid(i);
+						pushCells[i] = firstCell;
+						AddToPushGrid(i);
+					}
+					pushHitboxes[i] = firstHitbox;
+
+					Rectangle secondHitbox = GetPushHitbox(second);
+					var secondCell = GetPushGridCell(secondHitbox);
+					if (secondCell != pushCells[j])
+					{
+						RemoveFromPushGrid(j);
+						pushCells[j] = secondCell;
+						AddToPushGrid(j);
+					}
+					pushHitboxes[j] = secondHitbox;
+					AddPotentialPairs(i, lastProcessedIndex);
 				}
 			}
 
@@ -1950,11 +2072,15 @@ namespace Soulfract
 			Entity player = Program.GetPlayerEntity();
 			if (player == null) return;
 			player.WorldPos = Program.GetPlayerPosition();
-			foreach (Entity entity in entities)
+			Rectangle playerHitbox = GetPushHitbox(player);
+			for (int i = 0; i < entities.Count; i++)
 			{
+				Entity entity = entities[i];
 				if (!entity.IsAlive || entity.CarriedByConnectionId != -1) continue;
 				if (player.Rider == entity || entity.Rider == player) continue;
-				ResolveEntityPush(player, entity, dt);
+				Rectangle entityHitbox = GetPushHitbox(entity);
+				if (ResolveEntityPush(player, entity, dt, playerHitbox, entityHitbox))
+					playerHitbox = GetPushHitbox(player);
 			}
 		}
 
@@ -1998,21 +2124,19 @@ namespace Soulfract
 			}
 		}
 
-		private static void ResolveEntityPush(Entity first, Entity second, float dt)
+		private static bool ResolveEntityPush(Entity first, Entity second, float dt, Rectangle firstBox, Rectangle secondBox)
 		{
 			bool firstSleeping = first.IsSleeping;
 			bool secondSleeping = second.IsSleeping;
-			if (firstSleeping && secondSleeping) return;
+			if (firstSleeping && secondSleeping) return false;
 
-			Rectangle firstBox = GetPushHitbox(first);
-			Rectangle secondBox = GetPushHitbox(second);
-			if (!Raylib.CheckCollisionRecs(firstBox, secondBox)) return;
+			if (!Raylib.CheckCollisionRecs(firstBox, secondBox)) return false;
 
 			float overlapX = MathF.Min(firstBox.X + firstBox.Width, secondBox.X + secondBox.Width)
 				- MathF.Max(firstBox.X, secondBox.X);
 			float overlapY = MathF.Min(firstBox.Y + firstBox.Height, secondBox.Y + secondBox.Height)
 				- MathF.Max(firstBox.Y, secondBox.Y);
-			if (overlapX <= 0f || overlapY <= 0f) return;
+			if (overlapX <= 0f || overlapY <= 0f) return false;
 
 			Vector2 firstCenter = new(firstBox.X + firstBox.Width / 2f, firstBox.Y + firstBox.Height / 2f);
 			Vector2 secondCenter = new(secondBox.X + secondBox.Width / 2f, secondBox.Y + secondBox.Height / 2f);
@@ -2051,6 +2175,7 @@ namespace Soulfract
 					second.ApplyPushImpulse(-push);
 				second.IsKnockedBack = true;
 			}
+			return true;
 		}
 
 		private static Rectangle GetPushHitbox(Entity entity)
@@ -2239,14 +2364,13 @@ namespace Soulfract
 		private static int GetAnimationFrameForTile(int x, int y, int frameCount, float currentTime)
         {
             var key = (x, y);
-            if (!_tileAnimationStartCache.ContainsKey(key))
+            if (!_tileAnimationStartCache.TryGetValue(key, out int cachedStartFrame))
             {
                 int hash = (x * 73856093) ^ (y * 19349663);
-                int startAnimFrame = Math.Abs(hash) % frameCount;
-                _tileAnimationStartCache[key] = startAnimFrame;
+                cachedStartFrame = Math.Abs(hash) % frameCount;
+                _tileAnimationStartCache[key] = cachedStartFrame;
             }
             float speed = 0.15f;
-            int cachedStartFrame = _tileAnimationStartCache[key];
             int currentFrame = (cachedStartFrame + (int)(currentTime / speed)) % frameCount;
             return currentFrame;
         }
@@ -2254,12 +2378,12 @@ namespace Soulfract
 		// ─────────────────────────────────────────────────────────────────────────
         //  DESSIN DES FALAISES
         // ─────────────────────────────────────────────────────────────────────────
-        private static void DrawCliffDown(int x, int y, int heightDiff, int ts, Texture2D cliffDownTex)
+        private static void DrawCliffDown(int x, int y, int heightDiff, int ts, Texture2D cliffDownTex, int? knownHeight = null)
         {
             if (heightDiff <= 0) return;
             if (cliffDownTex.Id == 0) return;
             int baseX = x * ts;
-            int baseY = y * ts - (GetHeightAt(x, y) * ts / 4);
+            int baseY = y * ts - ((knownHeight ?? GetHeightAt(x, y)) * ts / 4);
             int cliffHeight = heightDiff * (ts / 4);
             Rectangle src = new Rectangle(0, 0, cliffDownTex.Width, cliffDownTex.Height);
             Rectangle dest = new Rectangle(baseX, baseY + ts, ts, cliffHeight);
@@ -2306,7 +2430,8 @@ namespace Soulfract
 			Vector2 dim = GetEntityDimensions(species) * Math.Clamp(scale, 0.25f, 4f);
 			Vector2 damageDim = new Vector2(dim.X * 2f, dim.Y * 5.5f);
 		    float entityBaseY = GetEntityGroundPosition(worldPos).Y + Program.FeetOffsetY;
-			float entityCenterY = entityBaseY - dim.Y / 2f;
+			// The damage box follows the visible body, not the feet-anchored collision box.
+			float entityCenterY = entityBaseY - dim.Y * 3f;
 		    return new Rectangle(
 		        worldPos.X - damageDim.X / 2f,
 		        entityCenterY - damageDim.Y / 2f,

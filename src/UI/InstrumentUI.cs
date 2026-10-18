@@ -21,7 +21,8 @@ namespace Soulfract
         private static int ITEM_HEIGHT => UIManager.ScaleInt(30);
         private const int LIST_VISIBLE_ROWS = 12;
 
-        private static string _currentPlayingMusic = "";
+        // Nom du morceau en cours, lu directement dans le MusicPlayer : "" si arrêté ou terminé.
+        private static string _currentPlayingMusic => MusicPlayer.CurrentMusicName;
         private static float _doubleClickTimer = 0f;
         private static int _doubleClickIndex = -1;
         private const float DOUBLE_CLICK_DELAY = 0.3f;
@@ -71,6 +72,12 @@ namespace Soulfract
 
         // Variables du visualiseur
         private static List<NoteDisplayInfo> _displayNotes = new();
+        private static int _notesVersion = -1;
+        private static int _noteMinPitch = 60;
+        private static int _noteMaxPitch = 60;
+        private static float _noteMaxDuration = 0f;
+        private static bool _displayHasBand = false;
+        private static bool _draggingVolume = false;
         private static float _visibleDuration = 8.0f; // secondes visibles
         private static float _pixelsPerSecond = 0f;
         private static float _timeAxisX = 0f; // position x du temps actuel
@@ -78,6 +85,9 @@ namespace Soulfract
         private static int _minPitch = 36;
         private static int _maxPitch = 84;
         private static float _pixelsPerPitch = 0f;
+        private static int _keyboardOctave = 4;
+        private const int KEYBOARD_NOTE_COUNT = 12;
+        private const float LIVE_NOTE_DURATION = 0.35f;
 
         private static void LoadNoteTextures()
         {
@@ -142,8 +152,23 @@ namespace Soulfract
             _selectedIndex = -1;
             _scrollOffset = 0;
             _isDragging = false;
-            _displayNotes.Clear();
+            _notesVersion = -1;
+            RefreshDisplayNotes();
             UIManager.PushUI(Close, () => _isOpen);
+        }
+
+        public static Item? GetEquippedInstrument()
+        {
+            Item? mainHand = Program.equipment.MainHand;
+            if (IsInstrumentItem(mainHand))
+                return mainHand;
+
+            Item? instrumentSlot = Program.equipment.GetItemInSlot(EquipmentSlot.Instrument);
+            if (IsInstrumentItem(instrumentSlot))
+                return instrumentSlot;
+
+            Item? offHand = Program.equipment.OffHand;
+            return IsInstrumentItem(offHand) ? offHand : null;
         }
 
         public static void Close()
@@ -250,8 +275,7 @@ namespace Soulfract
 
             if (Raylib.CheckCollisionPointRec(mousePos, stopBtn) && Raylib.IsMouseButtonPressed(MouseButton.Left))
             {
-                MusicPlayer.Stop();
-                _currentPlayingMusic = "";
+                NetworkManager.ControlBandMusic("stop");
             }
 
             if (Raylib.CheckCollisionPointRec(mousePos, refreshBtn) && Raylib.IsMouseButtonPressed(MouseButton.Left))
@@ -275,9 +299,11 @@ namespace Soulfract
                 }
             }
 
-            // Fermeture si l'instrument n'est plus en main
-            Item? held = Program.equipment.MainHand;
-            if (held == null || !IsInstrumentItem(held))
+            RefreshDisplayNotes();
+            UpdateVolumeSlider(mousePos, vizX, vizY, vizW, vizH);
+            UpdateInstrumentKeyboard(mousePos, vizX, vizY, vizW, vizH);
+
+            if (GetEquippedInstrument() == null)
             {
                 Close();
                 UIManager.PopUI();
@@ -288,20 +314,89 @@ namespace Soulfract
         {
             if (index < 0 || index >= _musicNames.Count) return;
             string name = _musicNames[index];
-            string path = $"assets/musics/{name}.mid";
-            if (!File.Exists(path)) path = $"assets/musics/{name}.midi";
-            if (MusicPlayer.LoadMusic(path))
-            {
-                MusicPlayer.Play();
-                _currentPlayingMusic = name;
-                // Récupérer les notes pour le visualiseur
-                _displayNotes = MusicPlayer.GetNotesForDisplay();
-                Program.AddNotification(new Notification($" Lecture : {name}", new Color(100, 200, 255, 255), 2f));
-            }
-            else
-            {
+            int instrumentId = Program.GetItemId(GetEquippedInstrument()?.Name);
+            if (!NetworkManager.StartBandMusic(name, instrumentId))
                 Program.AddNotification(new Notification($" Impossible de charger {name}", Color.Red, 2f));
+        }
+
+        public static void OnBandMusicStarted(string musicName)
+        {
+            RefreshDisplayNotes();
+            Program.AddNotification(new Notification($"Lecture du groupe : {musicName}", new Color(100, 200, 255, 255), 2f));
+        }
+
+        public static void OnBandMusicStopped()
+        {
+            // Rien à faire : l'état affiché est lu dans MusicPlayer (arrêt manuel ou fin naturelle).
+        }
+
+        // Recharge les notes quand le morceau ou l'affectation des musiciens a changé, et
+        // calcule une fois pour toutes ce qui était recalculé à chaque frame (bornes de hauteur...).
+        private static void RefreshDisplayNotes()
+        {
+            int version = MusicPlayer.NotesVersion;
+            if (version == _notesVersion) return;
+            _notesVersion = version;
+            _displayNotes = MusicPlayer.GetNotesForDisplay();
+
+            _noteMinPitch = 60;
+            _noteMaxPitch = 60;
+            _noteMaxDuration = 0f;
+            _displayHasBand = false;
+            if (_displayNotes.Count == 0) return;
+
+            _noteMinPitch = int.MaxValue;
+            _noteMaxPitch = int.MinValue;
+            foreach (var note in _displayNotes)
+            {
+                if (note.Pitch < _noteMinPitch) _noteMinPitch = note.Pitch;
+                if (note.Pitch > _noteMaxPitch) _noteMaxPitch = note.Pitch;
+                if (note.Duration > _noteMaxDuration) _noteMaxDuration = note.Duration;
+                if (note.PerformerIndex >= 0) _displayHasBand = true;
             }
+        }
+
+        // Premier index dont StartTime >= time (les notes sont triées par StartTime).
+        private static int LowerBoundByStart(float time)
+        {
+            int lo = 0, hi = _displayNotes.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (_displayNotes[mid].StartTime < time) lo = mid + 1; else hi = mid;
+            }
+            return lo;
+        }
+
+        private static Rectangle GetVolumeSliderRect(int vizX, int vizY, int vizW, int vizH)
+        {
+            int octaveButtonY = vizY + vizH - 48 - 25;
+            return new Rectangle(vizX + vizW - 66 - 130, octaveButtonY + 6, 100, 8);
+        }
+
+        private static void UpdateVolumeSlider(Vector2 mousePos, int vizX, int vizY, int vizW, int vizH)
+        {
+            Rectangle slider = GetVolumeSliderRect(vizX, vizY, vizW, vizH);
+            Rectangle hit = new Rectangle(slider.X - 4, slider.Y - 8, slider.Width + 8, slider.Height + 16);
+            if (Raylib.IsMouseButtonPressed(MouseButton.Left) && Raylib.CheckCollisionPointRec(mousePos, hit))
+                _draggingVolume = true;
+            if (_draggingVolume)
+            {
+                if (Raylib.IsMouseButtonDown(MouseButton.Left))
+                    MusicPlayer.MusicVolume = Math.Clamp((mousePos.X - slider.X) / slider.Width, 0f, 1f);
+                else
+                    _draggingVolume = false;
+            }
+        }
+
+        private static void DrawVolumeSlider(int vizX, int vizY, int vizW, int vizH)
+        {
+            Rectangle slider = GetVolumeSliderRect(vizX, vizY, vizW, vizH);
+            float volume = MusicPlayer.MusicVolume;
+            FontManager.DrawText("Vol", (int)slider.X - 28, (int)slider.Y - 3, 11, new Color(210, 210, 200, 220));
+            Raylib.DrawRectangleRounded(slider, 0.5f, 4, new Color(65, 68, 75, 255));
+            Raylib.DrawRectangleRounded(new Rectangle(slider.X, slider.Y, Math.Max(2f, slider.Width * volume), slider.Height), 0.5f, 4, COLOR_ACCENT);
+            Raylib.DrawCircleV(new Vector2(slider.X + slider.Width * volume, slider.Y + slider.Height / 2f), 6f, Color.White);
         }
 
         private static bool IsInstrumentItem(Item item)
@@ -309,6 +404,46 @@ namespace Soulfract
             if (item == null) return false;
             int itemId = Program.GetItemId(item.Name);
             return GameData.ItemDatabase.TryGetValue(itemId, out var data) && data.IsInstrument;
+        }
+
+        private static void UpdateInstrumentKeyboard(Vector2 mousePos, int vizX, int vizY, int vizW, int vizH)
+        {
+            Item? instrument = GetEquippedInstrument();
+            if (instrument == null || !Raylib.IsMouseButtonPressed(MouseButton.Left))
+                return;
+
+            int keyboardY = vizY + vizH - 48;
+            int keyboardX = vizX + 10;
+            int keyboardWidth = vizW - 20;
+            float keyWidth = keyboardWidth / (float)KEYBOARD_NOTE_COUNT;
+            int octaveButtonY = keyboardY - 25;
+
+            Rectangle lowerOctave = new Rectangle(vizX + vizW - 66, octaveButtonY, 24, 20);
+            Rectangle raiseOctave = new Rectangle(vizX + vizW - 36, octaveButtonY, 24, 20);
+            if (Raylib.CheckCollisionPointRec(mousePos, lowerOctave))
+            {
+                _keyboardOctave = Math.Max(2, _keyboardOctave - 1);
+                return;
+            }
+            if (Raylib.CheckCollisionPointRec(mousePos, raiseOctave))
+            {
+                _keyboardOctave = Math.Min(5, _keyboardOctave + 1);
+                return;
+            }
+
+            for (int semitone = 0; semitone < KEYBOARD_NOTE_COUNT; semitone++)
+            {
+                int keyX = keyboardX + (int)(semitone * keyWidth);
+                int right = keyboardX + (int)((semitone + 1) * keyWidth);
+                Rectangle key = new Rectangle(keyX, keyboardY, right - keyX, 36);
+                if (!Raylib.CheckCollisionPointRec(mousePos, key))
+                    continue;
+
+                int itemId = Program.GetItemId(instrument.Name);
+                int pitch = (_keyboardOctave + 1) * 12 + semitone;
+                NetworkManager.PlayInstrumentNote(itemId, pitch, 90, LIVE_NOTE_DURATION);
+                return;
+            }
         }
 
         public static void Draw()
@@ -462,17 +597,16 @@ namespace Soulfract
             // Calculs de conversion
             float margin = 10f;
             float vizInnerW = vizW - 2 * margin;
-            float vizInnerH = vizH - 2 * margin - 20; // on réserve de la place pour les infos en haut
+            float vizInnerH = vizH - 2 * margin - 84;
             float vizInnerY = vizY + margin + 20;
 
             Raylib.BeginScissorMode(vizX, vizY, vizW, vizH);
-            if (_displayNotes.Count > 0)
+            RefreshDisplayNotes();
+            if (_displayNotes.Count > 0 && _currentPlayingMusic != "")
             {
                 // Déterminer la plage de hauteur effective (min/max) ou utiliser la plage fixe
-                int minPitch = _displayNotes.Min(n => n.Pitch);
-                int maxPitch = _displayNotes.Max(n => n.Pitch);
-                minPitch = Math.Min(minPitch, _minPitch);
-                maxPitch = Math.Max(maxPitch, _maxPitch);
+                int minPitch = Math.Min(_noteMinPitch, _minPitch);
+                int maxPitch = Math.Max(_noteMaxPitch, _maxPitch);
                 // Ajouter une marge
                 minPitch = Math.Max(21, minPitch - 2);
                 maxPitch = Math.Min(108, maxPitch + 2);
@@ -490,9 +624,14 @@ namespace Soulfract
                 // Dessiner les notes
                 float currentTime = MusicPlayer.CurrentPlayTime;
 
-                // Trier les notes par temps (elles le sont déjà)
-                foreach (var note in _displayNotes)
+                // Les notes sont triées par temps : on part de la première qui peut être visible
+                // (en tenant compte de la plus longue durée) et on s'arrête dès qu'on a dépassé la fenêtre.
+                float timeLeft = currentTime - TIME_AXIS_RATIO * _visibleDuration - 0.5f;
+                float timeRight = currentTime + (1f - TIME_AXIS_RATIO) * _visibleDuration + 0.5f;
+                for (int noteIndex = LowerBoundByStart(timeLeft - _noteMaxDuration); noteIndex < _displayNotes.Count; noteIndex++)
                 {
+                    var note = _displayNotes[noteIndex];
+                    if (note.StartTime > timeRight) break;
                     // Calcul de la position X relative au temps actuel
                     float dx = (note.StartTime - currentTime) * _pixelsPerSecond;
                     float xNote = _timeAxisX + dx;
@@ -507,8 +646,18 @@ namespace Soulfract
                     if (hNote < 2) hNote = 2;
 
                     // Couleur par instrument
-                    int idx = note.InstrumentIndex % _instrumentColors.Length;
-                    Color baseColor = _instrumentColors[idx];
+                    // Couleur par musicien du groupe ; les notes qu'aucun musicien ne joue sont grisées.
+                    bool unplayed = false;
+                    Color baseColor;
+                    if (_displayHasBand && note.PerformerIndex >= 0)
+                        baseColor = _instrumentColors[note.PerformerIndex % _instrumentColors.Length];
+                    else if (_displayHasBand)
+                    {
+                        baseColor = new Color(130, 130, 130, 255);
+                        unplayed = true;
+                    }
+                    else
+                        baseColor = _instrumentColors[note.InstrumentIndex % _instrumentColors.Length];
                     // Opacité selon si la note est passée ou future
                     float alpha = 0.5f;
                     if (note.StartTime <= currentTime && currentTime < note.StartTime + note.Duration)
@@ -518,6 +667,7 @@ namespace Soulfract
                     else
                         alpha = 0.3f; // passée
 
+                    if (unplayed) alpha *= 0.4f;
                     Color color = new Color(baseColor.R, baseColor.G, baseColor.B, (byte)(alpha * 255));
 
                     DrawNoteWithTextures(xNote, yNote, wNote, hNote, color);
@@ -534,7 +684,9 @@ namespace Soulfract
 
                 // Graduations de temps (tous les 2 secondes)
                 float step = 2.0f;
-                for (float t = 0; t <= MusicPlayer.TotalDuration + 2; t += step)
+                float tickStart = MathF.Max(0f, MathF.Floor((currentTime - TIME_AXIS_RATIO * _visibleDuration) / step) * step);
+                float tickEnd = MathF.Min(MusicPlayer.TotalDuration + 2, currentTime + _visibleDuration);
+                for (float t = tickStart; t <= tickEnd; t += step)
                 {
                     float dx = (t - currentTime) * _pixelsPerSecond;
                     float xTick = _timeAxisX + dx;
@@ -564,8 +716,11 @@ namespace Soulfract
                 FontManager.DrawText(msg, vizX + (vizW - msgW) / 2, vizY + (vizH / 2) - 8, 16, new Color(150, 150, 150, 150));
             }
 
+            DrawInstrumentKeyboard(vizX, vizY, vizW, vizH);
+            DrawVolumeSlider(vizX, vizY, vizW, vizH);
+
             // Raccourci en bas de la fenêtre
-            string hint = "Double-clic pour jouer | Molette sur visualiseur pour zoom | ESC: Fermer";
+            string hint = "Cliquer une note | Double-clic : morceau | Molette : zoom";
             int hintW = FontManager.MeasureText(hint, 11);
             FontManager.DrawText(hint, x + (WINDOW_WIDTH - hintW) / 2, y + WINDOW_HEIGHT - 5, 11, new Color(120, 110, 90, 180));
             Raylib.EndScissorMode();
@@ -577,6 +732,47 @@ namespace Soulfract
             int octave = (midiPitch / 12) - 1;
             int noteIndex = midiPitch % 12;
             return $"{names[noteIndex]}{octave}";
+        }
+
+        private static void DrawInstrumentKeyboard(int vizX, int vizY, int vizW, int vizH)
+        {
+            int keyboardY = vizY + vizH - 48;
+            int keyboardX = vizX + 10;
+            int keyboardWidth = vizW - 20;
+            float keyWidth = keyboardWidth / (float)KEYBOARD_NOTE_COUNT;
+            int octaveButtonY = keyboardY - 25;
+
+            FontManager.DrawText(
+                $"Jouer : {_keyboardOctave}e octave",
+                keyboardX,
+                octaveButtonY + 3,
+                11,
+                new Color(210, 210, 200, 220));
+
+            Rectangle lowerOctave = new Rectangle(vizX + vizW - 66, octaveButtonY, 24, 20);
+            Rectangle raiseOctave = new Rectangle(vizX + vizW - 36, octaveButtonY, 24, 20);
+            Raylib.DrawRectangleRounded(lowerOctave, 0.2f, 4, new Color(65, 68, 75, 255));
+            Raylib.DrawRectangleRounded(raiseOctave, 0.2f, 4, new Color(65, 68, 75, 255));
+            FontManager.DrawText("-", (int)lowerOctave.X + 8, (int)lowerOctave.Y + 2, 14, Color.White);
+            FontManager.DrawText("+", (int)raiseOctave.X + 6, (int)raiseOctave.Y + 2, 14, Color.White);
+
+            for (int semitone = 0; semitone < KEYBOARD_NOTE_COUNT; semitone++)
+            {
+                int keyX = keyboardX + (int)(semitone * keyWidth);
+                int right = keyboardX + (int)((semitone + 1) * keyWidth);
+                Rectangle key = new Rectangle(keyX, keyboardY, right - keyX, 36);
+                bool isSharp = semitone is 1 or 3 or 6 or 8 or 10;
+                Color keyColor = isSharp
+                    ? new Color(45, 48, 55, 255)
+                    : new Color(205, 205, 195, 255);
+                Raylib.DrawRectangleRec(key, keyColor);
+                Raylib.DrawRectangleLinesEx(key, 1, COLOR_BORDER);
+
+                string noteName = GetNoteName((_keyboardOctave + 1) * 12 + semitone);
+                int textWidth = FontManager.MeasureText(noteName, 10);
+                FontManager.DrawText(noteName, keyX + Math.Max(1, ((int)key.Width - textWidth) / 2), keyboardY + 12, 10,
+                    isSharp ? Color.White : new Color(25, 28, 35, 255));
+            }
         }
     }
 }

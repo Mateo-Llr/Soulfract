@@ -687,12 +687,14 @@ namespace Soulfract
 		public static void UpdateCampfires(float dt)
 		{
 			if (dt <= 0f) return;
-			foreach (var (_, _, chunk) in GetAllChunks())
+			foreach (var chunk in GetChunksDict().Values)
 			{
-				foreach (var entry in chunk.Objects.ToList())
+				foreach (var entry in chunk.Containers)
 				{
-					if (entry.Value != 18 && entry.Value != 32) continue;
-					if (!chunk.Containers.TryGetValue(entry.Key, out var fire)) continue;
+					if (!chunk.Objects.TryGetValue(entry.Key, out int objectId)
+						|| (objectId != 18 && objectId != 32))
+						continue;
+					var fire = entry.Value;
 
 					foreach (var slot in fire.Slots)
 					{

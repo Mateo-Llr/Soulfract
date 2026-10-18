@@ -93,6 +93,7 @@ namespace Soulfract
     {
         public string NetId { get; set; } = "";
         public string Species { get; set; } = "";
+        public string OwnerNpcId { get; set; } = "";
         public float PosX { get; set; }
         public float PosY { get; set; }
         public float Facing { get; set; } = 1f;
@@ -157,6 +158,7 @@ namespace Soulfract
     {
         public string NetId { get; set; } = "";
         public int Damage { get; set; }
+        public bool IsPlayerWeapon { get; set; }
     }
 
     // Dégâts infligés par une entité (IA) à un joueur client spécifique - envoyé par le host
@@ -214,6 +216,7 @@ namespace Soulfract
     public class EntityDeathMsg
     {
         public string NetId { get; set; } = "";
+        public bool WasKilledByPlayerWeapon { get; set; }
     }
 
     // Synchronisation du temps de jeu (cycle jour/nuit)
@@ -399,6 +402,59 @@ namespace Soulfract
     {
         public string Name { get; set; } = "";
         public string Text { get; set; } = "";
+    }
+
+    public class InstrumentNoteMsg
+    {
+        public int PlayerId { get; set; }
+        public int InstrumentId { get; set; }
+        public int Pitch { get; set; }
+        public int Velocity { get; set; }
+        public float Duration { get; set; }
+    }
+
+    public class InstrumentExchangeRequestMsg
+    {
+        public string NetId { get; set; } = "";
+        public int InstrumentId { get; set; }
+        public ItemGrantMsg? OfferedItem { get; set; }
+    }
+
+    public class InstrumentExchangeResultMsg
+    {
+        public string NetId { get; set; } = "";
+        public bool Success { get; set; }
+        public int OfferedInstrumentId { get; set; }
+        public string Message { get; set; } = "";
+    }
+
+    public class BandMusicRequestMsg
+    {
+        public string MusicName { get; set; } = "";
+        public int InstrumentId { get; set; }
+    }
+
+    public class BandMusicStartedMsg
+    {
+        public string MusicName { get; set; } = "";
+        public List<MusicPerformer> Performers { get; set; } = new();
+        // Position (secondes) de l'hôte dans le morceau au moment de l'envoi : permet aux clients
+        // de démarrer au bon endroit, de se recaler et de rejoindre un morceau en cours.
+        public float Position { get; set; } = 0f;
+        // true : message de resynchronisation périodique plutôt qu'un vrai démarrage.
+        public bool IsResync { get; set; } = false;
+    }
+
+    public class BandMusicControlMsg
+    {
+        public string Action { get; set; } = "";
+        // Position de l'hôte au moment de la pause/reprise (-1 : inconnue) pour recaler les clients.
+        public float Position { get; set; } = -1f;
+    }
+
+    public class BandMusicRejectedMsg
+    {
+        public string Message { get; set; } = "";
     }
 
     public class ChunkRequestMsg
@@ -631,6 +687,7 @@ namespace Soulfract
         public int MainHand { get; set; }
         public int OffHand { get; set; }
         public int Backpack { get; set; }
+        public int Instrument { get; set; }
 
         // Couleurs personnalisées pour chaque zone (listes de ColorSave)
         public List<ColorSave?> HeadColors { get; set; } = new();
@@ -649,7 +706,7 @@ namespace Soulfract
         // Méthode utilitaire pour savoir si l'équipement est vide
         public bool IsEmpty =>
             Head == 0 && Body == 0 && Legs == 0 && Back == 0 && Face == 0 && Neck == 0 && Waist == 0 && Ears == 0 && Feet == 0 &&
-            MainHand == 0 && OffHand == 0 && Backpack == 0;
+            MainHand == 0 && OffHand == 0 && Backpack == 0 && Instrument == 0;
     }
 
     // ──────────────────── FIN DES STRUCTURES ────────────────────
@@ -731,6 +788,7 @@ namespace Soulfract
         // (beaucoup plus espacé que la position : pas besoin de la fréquence temps réel).
         private const double GUEST_SAVE_INTERVAL = 8.0;
         private static double _lastGuestSaveSend = 0;
+        private static readonly Dictionary<int, double> _lastInstrumentNoteTime = new();
         private const double GROUND_ITEMS_INTERVAL = 0.5;
         private const double ENTITY_BROADCAST_INTERVAL = 1.0 / 10.0; // 10 fps
         private const double TIME_BROADCAST_INTERVAL = 5.0;
@@ -782,6 +840,7 @@ namespace Soulfract
             // Fermer la connexion et nettoyer
             if (_clients.TryRemove(connectionId, out var conn))
             {
+                _lastInstrumentNoteTime.Remove(connectionId);
                 VoiceChat.RemovePeer(connectionId);
                 try { conn.Client.Close(); } catch { }
                 string name = conn.LastTransform?.Name ?? $"Joueur {connectionId}";
@@ -1066,6 +1125,7 @@ namespace Soulfract
                 try { kv.Value.Client.Close(); } catch { }
             }
             _clients.Clear();
+            _lastInstrumentNoteTime.Clear();
 
             if (_hostConnection != null)
             {
@@ -1481,6 +1541,7 @@ namespace Soulfract
                 {
                     if (_clients.TryRemove(discId, out var conn))
                     {
+                        _lastInstrumentNoteTime.Remove(discId);
                         VoiceChat.RemovePeer(discId);
                         _remotePlayerStates.TryRemove(discId, out _);
                         //  MULTIJOUEUR : si ce client portait une créature, on la relâche sur
@@ -1520,6 +1581,14 @@ namespace Soulfract
             if (!IsOnline) return;
 
             double now = Raylib.GetTime();
+
+            // Musique de groupe : l'hôte rediffuse régulièrement sa position pour que les clients
+            // (démarrés à des instants légèrement différents) restent calés sur lui.
+            if (_isHost && MusicPlayer.IsPlaying && now - _lastBandSyncSend >= BAND_SYNC_INTERVAL)
+            {
+                _lastBandSyncSend = now;
+                BroadcastBandSync();
+            }
 
             // 3. Envoi périodique de l'état local
             if (now - _lastStateSend >= STATE_SEND_INTERVAL)
@@ -1849,6 +1918,7 @@ namespace Soulfract
             data.MainHand = GetItemId(eq.MainHand?.Name);
             data.OffHand = GetItemId(eq.OffHand?.Name);
             data.Backpack = GetItemId(eq.Backpack?.Name);
+            data.Instrument = GetItemId(eq.GetItemInSlot(EquipmentSlot.Instrument)?.Name);
 
             // Couleurs personnalisées
             data.HeadColors = ColorsToSave(eq.Head?.CustomColors);
@@ -1933,8 +2003,15 @@ namespace Soulfract
             if (feet != null) eq.EquipOnBody(feet, out _);
 
             // Slots fonctionnels
-            eq.MainHand = CreateItem(data.MainHand, data.MainHandColors);
+            var mainHand = CreateItem(data.MainHand, data.MainHandColors);
+            if (mainHand != null)
+            {
+                eq.MainHand = mainHand;
+                eq.EquippedItems[(EquipmentSlot.MainHand, 0)] = mainHand;
+            }
             eq.OffHand = CreateItem(data.OffHand, data.OffHandColors);
+            var instrument = CreateItem(data.Instrument, null);
+            if (instrument != null) eq.EquipItem(instrument, EquipmentSlot.Instrument);
             // Pour le sac à dos, on utilise EquipItem avec le slot Backpack
             var backpack = CreateItem(data.Backpack, data.BackpackColors);
             if (backpack != null) eq.EquipItem(backpack, EquipmentSlot.Backpack);
@@ -2121,6 +2198,54 @@ namespace Soulfract
                         }
                     }
                     break;
+                case "InstrumentNoteReq":
+                    if (_isHost)
+                        HandleInstrumentNoteRequest(msg.ConnectionId, Deserialize<InstrumentNoteMsg>(msg.Envelope.J));
+                    break;
+                case "InstrumentNote":
+                    if (_isClient)
+                        ApplyInstrumentNote(Deserialize<InstrumentNoteMsg>(msg.Envelope.J));
+                    break;
+                case "InstrumentExchangeReq":
+                    if (_isHost)
+                        HandleInstrumentExchangeRequest(msg.ConnectionId, Deserialize<InstrumentExchangeRequestMsg>(msg.Envelope.J));
+                    break;
+                case "InstrumentExchangeResult":
+                    if (_isClient)
+                    {
+                        var result = Deserialize<InstrumentExchangeResultMsg>(msg.Envelope.J);
+                        if (result.Success)
+                            Program.ApplyInstrumentExchangeResult(result.OfferedInstrumentId);
+                        Program.AddNotification(new Notification(result.Message, result.Success
+                            ? new Color(120, 230, 150, 255)
+                            : new Color(230, 130, 130, 255), 3f));
+                    }
+                    break;
+                case "BandMusicReq":
+                    if (_isHost)
+                        HandleBandMusicRequest(msg.ConnectionId, Deserialize<BandMusicRequestMsg>(msg.Envelope.J));
+                    break;
+                case "BandMusicStarted":
+                    if (_isClient)
+                        ApplyBandMusicStarted(Deserialize<BandMusicStartedMsg>(msg.Envelope.J));
+                    break;
+                case "BandMusicRejected":
+                    if (_isClient)
+                        Program.AddNotification(new Notification(
+                            Deserialize<BandMusicRejectedMsg>(msg.Envelope.J).Message,
+                            new Color(230, 130, 130, 255), 3f));
+                    break;
+                case "BandMusicControlReq":
+                    if (_isHost)
+                        HandleBandMusicControl(Deserialize<BandMusicControlMsg>(msg.Envelope.J));
+                    break;
+                case "BandMusicControl":
+                    if (_isClient)
+                    {
+                        var bandControl = Deserialize<BandMusicControlMsg>(msg.Envelope.J);
+                        ApplyBandMusicControl(bandControl.Action, bandControl.Position);
+                    }
+                    break;
                 case "ChunkReq":
                     if (_isHost) HandleChunkRequest(msg.ConnectionId, Deserialize<ChunkRequestMsg>(msg.Envelope.J));
                     break;
@@ -2189,7 +2314,7 @@ namespace Soulfract
                     {
                         var death = Deserialize<EntityDeathMsg>(msg.Envelope.J);
                         _remoteEntityStates.TryRemove(death.NetId, out _);
-                        Program.OnNetworkEntityDeath(death.NetId);
+                        Program.OnNetworkEntityDeath(death.NetId, death.WasKilledByPlayerWeapon);
                     }
                     break;
                 case "PlayerDamage":
@@ -2625,6 +2750,7 @@ namespace Soulfract
                 {
                     NetId = e.NetId.ToString(),
                     Species = e.Species,
+                    OwnerNpcId = e.OwnerNpcId?.ToString() ?? "",
                     PosX = e.WorldPos.X,
                     PosY = e.WorldPos.Y,
                     Facing = e.Facing,
@@ -2696,16 +2822,25 @@ namespace Soulfract
             BroadcastRaw(raw);
         }
 
-        public static void BroadcastEntityDeath(Guid netId)
+        public static void BroadcastEntityDeath(Guid netId, bool wasKilledByPlayerWeapon = false)
         {
             if (!_isHost) return;
-            Broadcast("EntityDeath", new EntityDeathMsg { NetId = netId.ToString() });
+            Broadcast("EntityDeath", new EntityDeathMsg
+            {
+                NetId = netId.ToString(),
+                WasKilledByPlayerWeapon = wasKilledByPlayerWeapon
+            });
         }
 
-        public static void RequestEntityHit(Guid netId, int damage)
+        public static void RequestEntityHit(Guid netId, int damage, bool isPlayerWeapon = false)
         {
             if (!_isClient) return;
-            SendToHost("EntityHit", new EntityHitMsg { NetId = netId.ToString(), Damage = damage });
+            SendToHost("EntityHit", new EntityHitMsg
+            {
+                NetId = netId.ToString(),
+                Damage = damage,
+                IsPlayerWeapon = isPlayerWeapon
+            });
         }
 
         public static void RequestPouilleuxInvitation(int targetConnectionId)
@@ -3075,6 +3210,7 @@ namespace Soulfract
 
             if (!e.IsAlive)
             {
+                e.WasKilledByPlayerWeapon = msg.IsPlayerWeapon;
                 //  Butin : posé au sol (et non donné directement à un inventaire) puisque c'est
                 // un client distant qui a porté le coup fatal - n'importe quel joueur pourra le
                 // ramasser, exactement comme un item lâché normalement.
@@ -3082,7 +3218,11 @@ namespace Soulfract
                 {
                     Program.SpawnAuthoritativeGroundItem(id, qty, e.WorldPos);
                 }
-                Broadcast("EntityDeath", new EntityDeathMsg { NetId = msg.NetId });
+                Broadcast("EntityDeath", new EntityDeathMsg
+                {
+                    NetId = msg.NetId,
+                    WasKilledByPlayerWeapon = e.WasKilledByPlayerWeapon
+                });
             }
         }
 
@@ -3350,6 +3490,548 @@ namespace Soulfract
             else if (_isHost) Broadcast("Chat", msg);
         }
 
+        public static void PlayInstrumentNote(int instrumentId, int pitch, int velocity, float duration)
+        {
+            if (!GameData.ItemDatabase.TryGetValue(instrumentId, out var itemData) || !itemData.IsInstrument)
+                return;
+            if (pitch < 36 || pitch > 83 || velocity < 1 || velocity > 127 || !float.IsFinite(duration))
+                return;
+
+            var note = new InstrumentNoteMsg
+            {
+                PlayerId = LocalConnectionId,
+                InstrumentId = instrumentId,
+                Pitch = pitch,
+                Velocity = velocity,
+                Duration = Math.Clamp(duration, 0.05f, 2f)
+            };
+
+            if (_isClient)
+            {
+                PlayInstrumentNoteLocally(note);
+                SendToHost("InstrumentNoteReq", note);
+                return;
+            }
+
+            PlayInstrumentNoteLocally(note);
+            if (_isHost)
+                Broadcast("InstrumentNote", note);
+        }
+
+        public static void RequestInstrumentExchange(Guid targetNetId, int instrumentId, Item offeredItem)
+        {
+            ItemGrantMsg offeredGrant = CreateItemGrant(offeredItem, instrumentId);
+            if (_isClient)
+            {
+                SendToHost("InstrumentExchangeReq", new InstrumentExchangeRequestMsg
+                {
+                    NetId = targetNetId.ToString(),
+                    InstrumentId = instrumentId,
+                    OfferedItem = offeredGrant
+                });
+                return;
+            }
+
+            HandleInstrumentExchangeRequest(LocalConnectionId, new InstrumentExchangeRequestMsg
+            {
+                NetId = targetNetId.ToString(),
+                InstrumentId = instrumentId,
+                OfferedItem = offeredGrant
+            });
+        }
+
+        private static void HandleInstrumentExchangeRequest(int connectionId, InstrumentExchangeRequestMsg request)
+        {
+            bool isRemoteClient = _isHost && connectionId != 0;
+            if (!_isHost && NetworkManager.IsOnline)
+                return;
+
+            Vector2 requesterPosition;
+            int heldItemId;
+            if (isRemoteClient)
+            {
+                if (!_clients.TryGetValue(connectionId, out var connection) || connection.LastTransform == null)
+                    return;
+                requesterPosition = new Vector2(connection.LastTransform.PosX, connection.LastTransform.PosY);
+                heldItemId = connection.LastTransform.HeldItemId;
+                if (heldItemId != request.InstrumentId)
+                {
+                    SendTo(connectionId, "InstrumentExchangeResult", new InstrumentExchangeResultMsg
+                    {
+                        NetId = request.NetId,
+                        Message = "L'instrument sélectionné n'est plus dans votre main."
+                    });
+                    return;
+                }
+            }
+            else
+            {
+                requesterPosition = Program.GetPlayerPosition();
+                heldItemId = Program.GetItemId(InventoryRenderer.GetHotbarItem(Program.hotbarSlot)?.Name);
+                if (heldItemId != request.InstrumentId)
+                    return;
+            }
+
+            if (!Guid.TryParse(request.NetId, out var netId) ||
+                !GameData.ItemDatabase.TryGetValue(request.InstrumentId, out var instrumentData) ||
+                !instrumentData.IsInstrument || request.OfferedItem == null ||
+                request.OfferedItem.ItemId != request.InstrumentId || request.OfferedItem.Count <= 0)
+                return;
+
+            var target = Program.entities.FirstOrDefault(entity => entity.NetId == netId);
+            float interactionRange = Math.Max(Program.TileSize * 5f, 160f);
+            if (target == null || !Program.IsMusicBandMember(target) ||
+                Vector2.DistanceSquared(requesterPosition, target.WorldPos) > interactionRange * interactionRange)
+            {
+                if (isRemoteClient)
+                    SendTo(connectionId, "InstrumentExchangeResult", new InstrumentExchangeResultMsg
+                    {
+                        NetId = request.NetId,
+                        Message = "Ce bipède ne peut pas rejoindre votre groupe musical."
+                    });
+                return;
+            }
+
+            Item? offeredItem = Program.CreateInstrumentFromGrant(request.OfferedItem);
+            if (offeredItem == null)
+                return;
+
+            bool exchanged = Program.TryExchangeInstrument(target, offeredItem, out var message);
+            if (!exchanged)
+            {
+                if (isRemoteClient)
+                    SendTo(connectionId, "InstrumentExchangeResult", new InstrumentExchangeResultMsg
+                    {
+                        NetId = request.NetId,
+                        Message = message
+                    });
+                else
+                    Program.AddNotification(new Notification(message, new Color(230, 130, 130, 255), 3f));
+                return;
+            }
+
+            if (isRemoteClient)
+            {
+                SendTo(connectionId, "InstrumentExchangeResult", new InstrumentExchangeResultMsg
+                {
+                    NetId = request.NetId,
+                    Success = true,
+                    OfferedInstrumentId = request.InstrumentId,
+                    Message = message
+                });
+            }
+            else
+            {
+                Program.ApplyInstrumentExchangeResult(request.InstrumentId);
+                Program.AddNotification(new Notification(message, new Color(120, 230, 150, 255), 3f));
+            }
+        }
+
+        private static ItemGrantMsg CreateItemGrant(Item item, int itemId)
+        {
+            var colors = item.CustomColors.Select(color => color.HasValue
+                ? new ColorSave { R = color.Value.R, G = color.Value.G, B = color.Value.B, A = color.Value.A }
+                : (ColorSave?)null).ToList();
+            return new ItemGrantMsg
+            {
+                ItemId = itemId,
+                Count = 1,
+                Colors = colors,
+                Metadata = item.SerializeMetadataForSave(),
+                Meta = item.Meta.Count > 0 ? new Dictionary<string, string>(item.Meta) : null,
+                PortableContainer = item.Container != null ? Program.CreatePortableContainerSaveData(item.Container) : null,
+                Backpack = item.Backpack != null ? Program.CreateBackpackSaveData(item.Backpack) : null
+            };
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  MUSIQUE DE GROUPE (démarrage asynchrone + synchronisation)
+        // ════════════════════════════════════════════════════════════════
+        private const double BAND_SYNC_INTERVAL = 4.0;   // s entre deux resynchronisations
+        private const float BAND_SYNC_TOLERANCE = 0.12f;  // s d'écart toléré avant de recaler un client
+        private static double _lastBandSyncSend;
+
+        public static bool StartBandMusic(string musicName, int instrumentId)
+        {
+            if (_isClient)
+            {
+                SendToHost("BandMusicReq", new BandMusicRequestMsg
+                {
+                    MusicName = musicName,
+                    InstrumentId = instrumentId
+                });
+                return true;
+            }
+
+            if (!TryResolveMusicPath(musicName, out string midiPath))
+                return false;
+
+            List<MusicPerformer> performers = GetBandPerformers(LocalConnectionId, instrumentId);
+            BeginHostBandPlayback(musicName, midiPath, performers, -1);
+            return true;
+        }
+
+        // Charge le MIDI hors du thread principal (plus de saccade, l'audio en cours n'est pas coupé),
+        // puis démarre localement et prévient les clients. requesterConnectionId < 0 : demande locale.
+        private static void BeginHostBandPlayback(string musicName, string midiPath, List<MusicPerformer> performers, int requesterConnectionId)
+        {
+            MusicPlayer.PlayFileAsync(midiPath, performers, 0f, success =>
+            {
+                if (!success)
+                {
+                    string error = $"Impossible de charger la musique « {musicName} ».";
+                    if (requesterConnectionId >= 0)
+                        SendTo(requesterConnectionId, "BandMusicRejected", new BandMusicRejectedMsg { Message = error });
+                    else
+                        Program.AddNotification(new Notification(error, new Color(230, 130, 130, 255), 3f));
+                    return;
+                }
+
+                InstrumentUI.OnBandMusicStarted(musicName);
+                if (_isHost)
+                {
+                    _lastBandSyncSend = Raylib.GetTime();
+                    Broadcast("BandMusicStarted", new BandMusicStartedMsg
+                    {
+                        MusicName = musicName,
+                        Performers = performers,
+                        Position = MusicPlayer.CurrentPlayTime
+                    });
+                }
+            });
+        }
+
+        private static void BroadcastBandSync()
+        {
+            string musicName = MusicPlayer.CurrentMusicName;
+            if (musicName.Length == 0)
+                return;
+
+            Broadcast("BandMusicStarted", new BandMusicStartedMsg
+            {
+                MusicName = musicName,
+                Performers = MusicPlayer.GetCurrentPerformers(),
+                Position = MusicPlayer.CurrentPlayTime,
+                IsResync = true
+            });
+        }
+
+        public static void ControlBandMusic(string action)
+        {
+            if (action is not ("stop" or "pause" or "resume"))
+                return;
+            if (_isClient)
+            {
+                SendToHost("BandMusicControlReq", new BandMusicControlMsg { Action = action });
+                return;
+            }
+
+            ApplyBandMusicControl(action, -1f);
+            if (_isHost)
+                Broadcast("BandMusicControl", new BandMusicControlMsg
+                {
+                    Action = action,
+                    Position = MusicPlayer.CurrentPlayTime
+                });
+        }
+
+        private static void HandleBandMusicControl(BandMusicControlMsg message)
+        {
+            if (message.Action is not ("stop" or "pause" or "resume"))
+                return;
+            ApplyBandMusicControl(message.Action, -1f);
+            Broadcast("BandMusicControl", new BandMusicControlMsg
+            {
+                Action = message.Action,
+                Position = MusicPlayer.CurrentPlayTime
+            });
+        }
+
+        private static void ApplyBandMusicControl(string action, float position)
+        {
+            switch (action)
+            {
+                case "stop":
+                    MusicPlayer.Stop();
+                    InstrumentUI.OnBandMusicStopped();
+                    break;
+                case "pause":
+                    MusicPlayer.Pause();
+                    // Tout le monde se fige exactement au même endroit.
+                    if (position >= 0f)
+                        MusicPlayer.SeekTo(position);
+                    break;
+                case "resume":
+                    if (position >= 0f)
+                        MusicPlayer.SeekTo(position);
+                    MusicPlayer.Resume();
+                    break;
+            }
+        }
+
+        private static void HandleBandMusicRequest(int connectionId, BandMusicRequestMsg request)
+        {
+            if (!_clients.TryGetValue(connectionId, out var connection) || connection.LastTransform == null)
+                return;
+
+            var transform = connection.LastTransform;
+            bool hasRequestedInstrument = request.InstrumentId == 0 ||
+                (transform.HeldItemId == request.InstrumentId ||
+                 transform.Equip.MainHand == request.InstrumentId ||
+                 transform.Equip.Instrument == request.InstrumentId ||
+                 transform.Equip.OffHand == request.InstrumentId) &&
+                GameData.ItemDatabase.TryGetValue(request.InstrumentId, out var itemData) &&
+                itemData.IsInstrument;
+            if (!hasRequestedInstrument)
+            {
+                SendTo(connectionId, "BandMusicRejected", new BandMusicRejectedMsg
+                {
+                    Message = "L'instrument sélectionné n'est pas disponible."
+                });
+                return;
+            }
+
+            if (!TryResolveMusicPath(request.MusicName, out string midiPath))
+            {
+                SendTo(connectionId, "BandMusicRejected", new BandMusicRejectedMsg
+                {
+                    Message = $"La musique « {request.MusicName} » est introuvable sur l'hôte."
+                });
+                return;
+            }
+
+            List<MusicPerformer> performers = GetBandPerformers(connectionId, request.InstrumentId);
+            BeginHostBandPlayback(request.MusicName, midiPath, performers, connectionId);
+        }
+
+        private static void ApplyBandMusicStarted(BandMusicStartedMsg message)
+        {
+            if (message.Performers.Count > 15 ||
+                message.Performers.Any(performer => performer.Program < 0 || performer.Program > 127 ||
+                    (performer.PlayerId < 0 && !Guid.TryParse(performer.EntityNetId, out _))) ||
+                !float.IsFinite(message.Position))
+                return;
+
+            if (message.IsResync)
+            {
+                // Déjà en train de jouer (ou de charger) ce morceau : on se contente de se recaler.
+                if (MusicPlayer.IsHandling(message.MusicName))
+                {
+                    if (MusicPlayer.IsPlaying &&
+                        MathF.Abs(MusicPlayer.CurrentPlayTime - message.Position) > BAND_SYNC_TOLERANCE)
+                        MusicPlayer.SeekTo(message.Position);
+                    return;
+                }
+                // Morceau tout juste terminé chez nous : ne pas le relancer à cause d'un message en retard.
+                if (MusicPlayer.RecentlyEnded(message.MusicName, 6.0))
+                    return;
+                // Sinon : on rejoint un morceau déjà en cours, directement au bon endroit.
+            }
+
+            if (!TryResolveMusicPath(message.MusicName, out string midiPath))
+            {
+                Program.AddNotification(new Notification(
+                    $"La musique « {message.MusicName} » est introuvable sur cet ordinateur (assets/musics).",
+                    new Color(230, 130, 130, 255), 3f));
+                return;
+            }
+
+            string musicName = message.MusicName;
+            MusicPlayer.PlayFileAsync(midiPath, message.Performers, message.Position, success =>
+            {
+                if (success)
+                    InstrumentUI.OnBandMusicStarted(musicName);
+                else
+                    Program.AddNotification(new Notification(
+                        $"Impossible de charger la musique « {musicName} ».",
+                        new Color(230, 130, 130, 255), 3f));
+            });
+        }
+
+        // Valide le nom reçu (pas de chemin, doit exister dans assets/musics) et renvoie le fichier.
+        private static bool TryResolveMusicPath(string musicName, out string midiPath)
+        {
+            midiPath = "";
+            if (string.IsNullOrWhiteSpace(musicName) ||
+                !string.Equals(Path.GetFileName(musicName), musicName, StringComparison.Ordinal) ||
+                !MusicPlayer.GetAvailableMusicNames().Contains(musicName, StringComparer.OrdinalIgnoreCase))
+                return false;
+
+            string candidate = Path.Combine("assets", "musics", $"{musicName}.mid");
+            if (!File.Exists(candidate))
+                candidate = Path.Combine("assets", "musics", $"{musicName}.midi");
+            if (!File.Exists(candidate))
+                return false;
+
+            midiPath = candidate;
+            return true;
+        }
+
+        private static List<MusicPerformer> GetBandPerformers(int requestingPlayerId, int requestedInstrumentId)
+        {
+            var performers = Program.GetMusicBandPerformers(requestingPlayerId, requestedInstrumentId);
+            if (_isHost)
+            {
+                foreach (var entry in _clients)
+                {
+                    if (entry.Key == requestingPlayerId || performers.Any(performer => performer.PlayerId == entry.Key))
+                        continue;
+                    var connection = entry.Value;
+                    var transform = connection.LastTransform;
+                    if (transform == null)
+                        continue;
+                    int instrumentId = new[]
+                    {
+                        transform.HeldItemId,
+                        transform.Equip.MainHand,
+                        transform.Equip.Instrument,
+                        transform.Equip.OffHand
+                    }.FirstOrDefault(id => GameData.ItemDatabase.TryGetValue(id, out var item) && item.IsInstrument);
+                    if (instrumentId > 0 &&
+                        GameData.ItemDatabase.TryGetValue(instrumentId, out var instrumentData))
+                        performers.Add(new MusicPerformer
+                        {
+                            Program = MusicPlayer.GetInstrumentProgram(instrumentData.Name),
+                            PlayerId = entry.Key,
+                            IsPercussion = MusicPlayer.IsPercussionInstrument(instrumentData.Name)
+                        });
+                }
+            }
+            return performers.Take(15).ToList();
+        }
+
+        public static bool TryGetMusicPlayerPosition(int playerId, out Vector2 position)
+        {
+            if (!_isClient && playerId == LocalConnectionId)
+            {
+                position = Program.GetPlayerVisualPosition(Program.GetPlayerPosition());
+                return true;
+            }
+
+            // Client : le joueur local n'apparaît pas dans la liste des joueurs distants.
+            if (_isClient && playerId == _myId)
+            {
+                position = Program.GetPlayerVisualPosition(Program.GetPlayerPosition());
+                return true;
+            }
+
+            if (_isHost && TryGetConnectionPos(playerId, out position))
+            {
+                position = Program.GetPlayerVisualPosition(position);
+                return true;
+            }
+
+            foreach (var remotePlayer in GetRemotePlayersAsLocalPlayers())
+            {
+                if (remotePlayer.Id == 1000 + playerId)
+                {
+                    position = Program.GetPlayerVisualPosition(remotePlayer.Position);
+                    return true;
+                }
+            }
+
+            position = Vector2.Zero;
+            return false;
+        }
+
+        public static bool TryGetMusicEntityPosition(Guid entityNetId, out Vector2 position)
+        {
+            if (_isClient)
+            {
+                var dto = _remoteEntitiesInterpolated.FirstOrDefault(entity =>
+                    Guid.TryParse(entity.NetId, out var parsedId) && parsedId == entityNetId);
+                if (dto != null)
+                {
+                    int tileX = (int)(dto.PosX / Program.TileSize);
+                    int tileY = (int)(dto.PosY / Program.TileSize);
+                    position = new Vector2(dto.PosX, dto.PosY - World.GetHeightAt(tileX, tileY) * Program.TileSize / 4f);
+                    return true;
+                }
+            }
+
+            var entity = Program.entities.FirstOrDefault(candidate => candidate.NetId == entityNetId && candidate.IsAlive);
+            if (entity != null)
+            {
+                Vector2 entityVisualPos = entity.VisualWorldPos;
+                int tileX = (int)(entityVisualPos.X / Program.TileSize);
+                int tileY = (int)(entityVisualPos.Y / Program.TileSize);
+                position = new Vector2(entityVisualPos.X, entityVisualPos.Y - World.GetHeightAt(tileX, tileY) * Program.TileSize / 4f);
+                return true;
+            }
+
+            position = Vector2.Zero;
+            return false;
+        }
+
+        private static void HandleInstrumentNoteRequest(int connectionId, InstrumentNoteMsg request)
+        {
+            if (!_isHost || !_clients.TryGetValue(connectionId, out var connection) ||
+                connection.LastTransform == null)
+                return;
+
+            var transform = connection.LastTransform;
+            var equipment = transform.Equip;
+            bool hasInstrumentEquipped =
+                transform.HeldItemId == request.InstrumentId ||
+                equipment != null && (
+                    equipment.MainHand == request.InstrumentId ||
+                    equipment.OffHand == request.InstrumentId ||
+                    equipment.Instrument == request.InstrumentId);
+            if (!hasInstrumentEquipped ||
+                !GameData.ItemDatabase.TryGetValue(request.InstrumentId, out var itemData) ||
+                !itemData.IsInstrument ||
+                request.Pitch < 36 || request.Pitch > 83 ||
+                request.Velocity < 1 || request.Velocity > 127 ||
+                !float.IsFinite(request.Duration) || request.Duration < 0.05f || request.Duration > 2f)
+                return;
+
+            double now = Raylib.GetTime();
+            if (_lastInstrumentNoteTime.TryGetValue(connectionId, out double lastTime) && now - lastTime < 0.025)
+                return;
+            _lastInstrumentNoteTime[connectionId] = now;
+
+            request.PlayerId = connectionId;
+            PlayInstrumentNoteLocally(request);
+            Broadcast("InstrumentNote", request);
+        }
+
+        private static void ApplyInstrumentNote(InstrumentNoteMsg note)
+        {
+            if (note.PlayerId == _myId ||
+                !GameData.ItemDatabase.TryGetValue(note.InstrumentId, out var itemData) ||
+                !itemData.IsInstrument ||
+                note.Pitch < 36 || note.Pitch > 83 ||
+                note.Velocity < 1 || note.Velocity > 127 ||
+                !float.IsFinite(note.Duration) || note.Duration < 0.05f || note.Duration > 2f)
+                return;
+
+            PlayInstrumentNoteLocally(note);
+        }
+
+        private static void PlayInstrumentNoteLocally(InstrumentNoteMsg note)
+        {
+            if (!GameData.ItemDatabase.TryGetValue(note.InstrumentId, out var itemData))
+                return;
+
+            int channel = MusicPlayer.GetLiveInstrumentChannel(note.PlayerId);
+
+            // Les notes des autres joueurs sont atténuées et panoramiquées selon leur position.
+            float gain = 1f, pan = 0f;
+            if (note.PlayerId != LocalConnectionId &&
+                TryGetMusicPlayerPosition(note.PlayerId, out Vector2 sourcePosition))
+                MusicPlayer.ComputeSpatial(sourcePosition, out gain, out pan);
+
+            MusicPlayer.PlayInstrumentNote(
+                MusicPlayer.GetInstrumentProgram(itemData.Name),
+                note.Pitch,
+                note.Velocity,
+                note.Duration,
+                channel,
+                MusicPlayer.IsPercussionInstrument(itemData.Name),
+                gain,
+                pan);
+        }
+
         // ════════════════════════════════════════════════════════════════
         //  API PUBLIQUE POUR LE RENDU (avec interpolation)
         // ════════════════════════════════════════════════════════════════
@@ -3403,6 +4085,30 @@ namespace Soulfract
                 };
 
                 result.Add(local);
+            }
+            return result;
+        }
+
+        public static List<Entity> GetMusicBipedProxies()
+        {
+            var result = new List<Entity>();
+            foreach (var dto in _remoteEntitiesInterpolated)
+            {
+                if (SpeciesData.GetSpeciesInfo(dto.Species)?.Type != "biped" ||
+                    !Guid.TryParse(dto.NetId, out var netId))
+                    continue;
+
+                var proxy = new Entity(new Vector2(dto.PosX, dto.PosY), dto.Species)
+                {
+                    NetId = netId,
+                    IsTamed = dto.IsTamed,
+                    IsHostilePet = dto.IsHostilePet,
+                    IsGuildMember = dto.IsGuildMember,
+                    OwnerNpcId = Guid.TryParse(dto.OwnerNpcId, out var ownerNpcId) ? ownerNpcId : null,
+                    Equipment = BuildEquipmentFromData(dto.Equip)
+                };
+                proxy.SetHealthSilently(dto.HP, dto.MaxHP);
+                result.Add(proxy);
             }
             return result;
         }

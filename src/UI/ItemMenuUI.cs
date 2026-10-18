@@ -23,6 +23,19 @@ namespace Soulfract
         private static float _selectedRuneValue = 1f;
         private static string _selectedCoatSleeves = "short";
         private static string _selectedCoatOpening = "closed";
+        private static bool _colorPickerOpen;
+        private static int _selectedColorLayer;
+        private static string _colorHexText = "FFFFFF";
+        private static readonly Dictionary<int, List<Color>> _selectedItemColors = new();
+        private static readonly Color[] _colorPalette =
+        {
+            new Color(255, 255, 255, 255), new Color(190, 190, 190, 255), new Color(90, 90, 90, 255),
+            new Color(20, 20, 20, 255), new Color(150, 45, 45, 255), new Color(230, 70, 60, 255),
+            new Color(235, 130, 45, 255), new Color(245, 205, 65, 255), new Color(125, 185, 65, 255),
+            new Color(45, 135, 65, 255), new Color(55, 185, 175, 255), new Color(75, 155, 220, 255),
+            new Color(45, 80, 180, 255), new Color(65, 55, 125, 255), new Color(145, 75, 185, 255),
+            new Color(220, 100, 175, 255), new Color(140, 90, 55, 255), new Color(215, 175, 130, 255)
+        };
         private static List<ItemData> _items = new();
         private static string _searchFilter = "";
         private static string _selectedCategory = "Tout";
@@ -71,7 +84,7 @@ namespace Soulfract
 
         public static bool IsOpen => _isOpen;
 
-        public static bool IsTextInputFocused => _isSearching || TextInput.IsFocused("item-quantity");
+        public static bool IsTextInputFocused => _isSearching || TextInput.IsFocused("item-quantity") || TextInput.IsFocused("item-color-hex");
 
         public static void Open()
         {
@@ -90,6 +103,10 @@ namespace Soulfract
             _selectedRuneValue = 1f;
             _selectedCoatSleeves = "short";
             _selectedCoatOpening = "closed";
+            _colorPickerOpen = false;
+            _selectedColorLayer = 0;
+            _colorHexText = "FFFFFF";
+            _selectedItemColors.Clear();
             _searchFilter = "";
             _selectedCategory = "Tout";
             _isSearching = false;
@@ -105,6 +122,8 @@ namespace Soulfract
             _isDragging = false;
             _isSearching = false;
             _isDraggingScrollbar = false;
+            _colorPickerOpen = false;
+            TextInput.Reset("item-color-hex");
             _hoveredItemIndex = -1;
             _tooltipHoverTimer = 0f;
         }
@@ -209,6 +228,10 @@ namespace Soulfract
 				{
 					clickOnInteractive = true;
 				}
+                if (IsColorable(_items[_selectedIndex]) && Raylib.IsMouseButtonPressed(MouseButton.Left) &&
+                    (Raylib.CheckCollisionPointRec(mousePos, GetColorPickerButtonRect(detailX, detailY, detailW, detailH)) ||
+                     (_colorPickerOpen && Raylib.CheckCollisionPointRec(mousePos, GetColorPickerPopupRect(detailX, detailY, detailW, detailH)))))
+                    clickOnInteractive = true;
 			}
 
 			// Détection du début du drag de la barre de défilement avant le drag de la fenêtre
@@ -378,6 +401,9 @@ namespace Soulfract
 							{
 								_selectedIndex = _items.IndexOf(filteredItems[index]);
 							}
+                            _colorPickerOpen = false;
+                            _selectedColorLayer = 0;
+                            TextInput.Reset("item-color-hex");
 							found = true;
 							break;
 						}
@@ -436,11 +462,18 @@ namespace Soulfract
 				}
 
                 UpdateMetadataOptions(_items[_selectedIndex], mousePos, detailX, detailY, detailW, detailH, ref clickOnInteractive);
+                UpdateColorPicker(_items[_selectedIndex], mousePos, detailX, detailY, detailW, detailH);
 			}
 
             if (Raylib.IsKeyPressed(KeyboardKey.Escape))
             {
                 if (TextInput.IsFocused("item-quantity")) TextInput.Reset("item-quantity");
+                else if (TextInput.IsFocused("item-color-hex")) TextInput.Reset("item-color-hex");
+                else if (_colorPickerOpen)
+                {
+                    _colorPickerOpen = false;
+                    TextInput.Reset("item-color-hex");
+                }
                 else Close();
             }
 		}
@@ -465,6 +498,12 @@ namespace Soulfract
             {
                 item.SetMetadataValue("sleeves", _selectedCoatSleeves);
                 item.SetMetadataValue("opening", _selectedCoatOpening);
+            }
+            if (IsColorable(itemData))
+            {
+                var colors = GetSelectedColors(itemData);
+                for (int layer = 0; layer < colors.Count; layer++)
+                    item.SetLayerColor(layer, colors[layer]);
             }
             return item;
         }
@@ -725,6 +764,8 @@ namespace Soulfract
                 }
 
                 DrawMetadataOptions(selected, detailX, detailY, detailW, detailH, mousePos);
+                if (IsColorable(selected))
+                    DrawColorPickerButton(detailX, detailY, detailW, detailH, mousePos);
 
                 // Sélecteur de quantité
                 int qtyY = detailY + detailH - 80;
@@ -748,6 +789,9 @@ namespace Soulfract
                 Raylib.DrawRectangleRounded(takeBtn, 0.2f, 6, hoverTake ? COLOR_BUTTON_HOVER : COLOR_BUTTON);
                 Raylib.DrawRectangleRoundedLines(takeBtn, 0.2f, 6, 1, new Color(100, 200, 100, 150));
                 FontManager.DrawText("PRENDRE", (int)takeBtn.X + 20, (int)takeBtn.Y + 12, 16, new Color(173, 119, 87, 255));
+
+                if (IsColorable(selected) && _colorPickerOpen)
+                    DrawColorPickerPopup(selected, detailX, detailY, detailW, detailH, mousePos);
 
                 // La vérification du clic se fait dans Update(), pas ici.
             }
@@ -1032,6 +1076,196 @@ namespace Soulfract
 
         private static bool IsCoat(ItemData item)
             => string.Equals(item.Key, "coat", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsColorable(ItemData item)
+            => item.IsDyeable && item.DyeLayers > 0;
+
+        private static List<Color> GetSelectedColors(ItemData item)
+        {
+            int layerCount = Math.Max(1, item.DyeLayers);
+            if (!_selectedItemColors.TryGetValue(item.ID, out var colors) || colors.Count != layerCount)
+            {
+                colors = Enumerable.Repeat(Color.White, layerCount).ToList();
+                _selectedItemColors[item.ID] = colors;
+            }
+            return colors;
+        }
+
+        private static void SetSelectedLayerColor(ItemData item, Color color)
+        {
+            var colors = GetSelectedColors(item);
+            colors[_selectedColorLayer] = color;
+            _colorHexText = FormatColorHex(color);
+        }
+
+        private static Rectangle GetColorPickerButtonRect(int detailX, int detailY, int detailW, int detailH)
+        {
+            int optionsY = detailY + detailH - 150;
+            return new Rectangle(detailX + detailW - 125, optionsY - 2, 105, 20);
+        }
+
+        private static Rectangle GetColorPickerPopupRect(int detailX, int detailY, int detailW, int detailH)
+            => new Rectangle(detailX + 8, detailY + detailH - 340, detailW - 16, 170);
+
+        private static void UpdateColorPicker(ItemData item, Vector2 mousePos, int detailX, int detailY, int detailW, int detailH)
+        {
+            if (!IsColorable(item)) return;
+
+            Rectangle buttonRect = GetColorPickerButtonRect(detailX, detailY, detailW, detailH);
+            Rectangle popupRect = GetColorPickerPopupRect(detailX, detailY, detailW, detailH);
+            if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+            {
+                if (Raylib.CheckCollisionPointRec(mousePos, buttonRect))
+                {
+                    _colorPickerOpen = !_colorPickerOpen;
+                    if (_colorPickerOpen)
+                        _colorHexText = FormatColorHex(GetSelectedColors(item)[_selectedColorLayer]);
+                    else
+                        TextInput.Reset("item-color-hex");
+                }
+                else if (_colorPickerOpen && !Raylib.CheckCollisionPointRec(mousePos, popupRect))
+                {
+                    _colorPickerOpen = false;
+                    TextInput.Reset("item-color-hex");
+                }
+            }
+
+            if (!_colorPickerOpen) return;
+
+            int layerCount = Math.Max(1, item.DyeLayers);
+            int layerWidth = Math.Min(52, (int)(popupRect.Width - 24 - (layerCount - 1) * 4) / layerCount);
+            int layerY = (int)popupRect.Y + 26;
+            for (int layer = 0; layer < layerCount; layer++)
+            {
+                Rectangle layerRect = new Rectangle(
+                    popupRect.X + 12 + layer * (layerWidth + 4), layerY, layerWidth, 21);
+                if (Raylib.IsMouseButtonPressed(MouseButton.Left) &&
+                    Raylib.CheckCollisionPointRec(mousePos, layerRect))
+                {
+                    _selectedColorLayer = layer;
+                    _colorHexText = FormatColorHex(GetSelectedColors(item)[layer]);
+                }
+            }
+
+            const int columns = 6;
+            const int swatchWidth = 45;
+            const int swatchHeight = 22;
+            const int swatchGapX = 6;
+            const int swatchGapY = 4;
+            int swatchStartX = (int)popupRect.X + 12;
+            int swatchStartY = (int)popupRect.Y + 53;
+            for (int i = 0; i < _colorPalette.Length; i++)
+            {
+                int col = i % columns;
+                int row = i / columns;
+                Rectangle swatchRect = new Rectangle(
+                    swatchStartX + col * (swatchWidth + swatchGapX),
+                    swatchStartY + row * (swatchHeight + swatchGapY),
+                    swatchWidth, swatchHeight);
+                if (Raylib.IsMouseButtonPressed(MouseButton.Left) &&
+                    Raylib.CheckCollisionPointRec(mousePos, swatchRect))
+                    SetSelectedLayerColor(item, _colorPalette[i]);
+            }
+
+            Rectangle hexRect = GetColorHexInputRect(popupRect);
+            TextInput.Update(ref _colorHexText, "item-color-hex", hexRect, 6, IsHexDigit);
+            _colorHexText = _colorHexText.ToUpperInvariant();
+            if (_colorHexText.Length == 6 && TryParseColorHex(_colorHexText, out Color parsedColor))
+                SetSelectedLayerColor(item, parsedColor);
+        }
+
+        private static void DrawColorPickerButton(int detailX, int detailY, int detailW, int detailH, Vector2 mousePos)
+        {
+            Rectangle buttonRect = GetColorPickerButtonRect(detailX, detailY, detailW, detailH);
+            bool hovered = Raylib.CheckCollisionPointRec(mousePos, buttonRect);
+            Color color = hovered ? COLOR_ITEM_HOVER : COLOR_ITEM_NORMAL;
+            Raylib.DrawRectangleRounded(buttonRect, 0.15f, 4, color);
+            Raylib.DrawRectangleRoundedLines(buttonRect, 0.15f, 4, 1, COLOR_BORDER);
+            FontManager.DrawText(_colorPickerOpen ? "Masquer couleurs" : "Couleurs", (int)buttonRect.X + 6, (int)buttonRect.Y + 3, 12, Color.White);
+        }
+
+        private static void DrawColorPickerPopup(ItemData item, int detailX, int detailY, int detailW, int detailH, Vector2 mousePos)
+        {
+            Rectangle popupRect = GetColorPickerPopupRect(detailX, detailY, detailW, detailH);
+            Raylib.DrawRectangleRounded(popupRect, 0.08f, 8, new Color(30, 33, 40, 250));
+            Raylib.DrawRectangleRoundedLines(popupRect, 0.08f, 8, 2, COLOR_ACCENT);
+            FontManager.DrawText("Couleur par couche", (int)popupRect.X + 12, (int)popupRect.Y + 7, 12, Color.White);
+
+            int layerCount = Math.Max(1, item.DyeLayers);
+            int layerWidth = Math.Min(52, (int)(popupRect.Width - 24 - (layerCount - 1) * 4) / layerCount);
+            int layerY = (int)popupRect.Y + 26;
+            var selectedColors = GetSelectedColors(item);
+            for (int layer = 0; layer < layerCount; layer++)
+            {
+                Rectangle layerRect = new Rectangle(
+                    popupRect.X + 12 + layer * (layerWidth + 4), layerY, layerWidth, 21);
+                bool hovered = Raylib.CheckCollisionPointRec(mousePos, layerRect);
+                Color bgColor = layer == _selectedColorLayer
+                    ? new Color(140, 120, 70, 255)
+                    : hovered ? COLOR_ITEM_HOVER : COLOR_ITEM_NORMAL;
+                Raylib.DrawRectangleRounded(layerRect, 0.15f, 4, bgColor);
+                Raylib.DrawRectangleRoundedLines(layerRect, 0.15f, 4, 1, COLOR_BORDER);
+                FontManager.DrawText($"L{layer + 1}", (int)layerRect.X + 5, (int)layerRect.Y + 3, 12, Color.White);
+                Rectangle colorMark = new Rectangle(layerRect.X + layerRect.Width - 17, layerRect.Y + 4, 12, 12);
+                Raylib.DrawRectangleRec(colorMark, selectedColors[layer]);
+            }
+
+            const int columns = 6;
+            const int swatchWidth = 45;
+            const int swatchHeight = 22;
+            const int swatchGapX = 6;
+            const int swatchGapY = 4;
+            int swatchStartX = (int)popupRect.X + 12;
+            int swatchStartY = (int)popupRect.Y + 53;
+            Color selectedColor = selectedColors[_selectedColorLayer];
+            for (int i = 0; i < _colorPalette.Length; i++)
+            {
+                int col = i % columns;
+                int row = i / columns;
+                Rectangle swatchRect = new Rectangle(
+                    swatchStartX + col * (swatchWidth + swatchGapX),
+                    swatchStartY + row * (swatchHeight + swatchGapY),
+                    swatchWidth, swatchHeight);
+                Raylib.DrawRectangleRounded(swatchRect, 0.15f, 4, _colorPalette[i]);
+                bool isSelected = _colorPalette[i].R == selectedColor.R &&
+                    _colorPalette[i].G == selectedColor.G &&
+                    _colorPalette[i].B == selectedColor.B;
+                Raylib.DrawRectangleRoundedLines(swatchRect, 0.15f, 4, isSelected ? 2 : 1,
+                    isSelected ? COLOR_ACCENT : new Color(210, 210, 210, 180));
+            }
+
+            FontManager.DrawText("HEX", (int)popupRect.X + 12, (int)popupRect.Y + 143, 12, new Color(173, 119, 87, 255));
+            Rectangle hexRect = GetColorHexInputRect(popupRect);
+            Raylib.DrawRectangleRounded(hexRect, 0.15f, 4, new Color(40, 43, 50, 255));
+            Raylib.DrawRectangleRoundedLines(hexRect, 0.15f, 4, 1, COLOR_BORDER);
+            TextInput.DrawSingleLine(_colorHexText, "item-color-hex", hexRect, 12, Color.White,
+                new Color(90, 110, 150, 220), COLOR_ACCENT, 5, placeholder: "RRGGBB");
+            Raylib.DrawRectangleRec(new Rectangle(hexRect.X + hexRect.Width + 10, hexRect.Y + 2, 18, 18), selectedColor);
+        }
+
+        private static Rectangle GetColorHexInputRect(Rectangle popupRect)
+            => new Rectangle(popupRect.X + 48, popupRect.Y + 139, 82, 23);
+
+        private static string FormatColorHex(Color color)
+            => $"{color.R:X2}{color.G:X2}{color.B:X2}";
+
+        private static bool IsHexDigit(char value)
+            => (value >= '0' && value <= '9') || (value >= 'A' && value <= 'F') || (value >= 'a' && value <= 'f');
+
+        private static bool TryParseColorHex(string value, out Color color)
+        {
+            if (value.Length == 6 &&
+                byte.TryParse(value.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out byte red) &&
+                byte.TryParse(value.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out byte green) &&
+                byte.TryParse(value.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out byte blue))
+            {
+                color = new Color((int)red, (int)green, (int)blue, 255);
+                return true;
+            }
+
+            color = Color.White;
+            return false;
+        }
 
         private static void UpdateMetadataOptions(ItemData item, Vector2 mousePos, int detailX, int detailY, int detailW, int detailH, ref bool clickOnInteractive)
         {

@@ -621,6 +621,10 @@ void main()
 		}
 
 		private static void DrawWaterTileShader(int worldX, int worldY, int drawY, int ts, byte alpha, byte shoreNear, byte shoreFar)
+			=> DrawWaterTileShader(worldX, worldY, drawY, ts, alpha, shoreNear, shoreFar, GetClimateAt(worldX, worldY).elevation);
+
+		//  PERF : version prenant l'élévation déjà lue (évite un 2e lookup climat par tuile d'eau et par frame).
+		private static void DrawWaterTileShader(int worldX, int worldY, int drawY, int ts, byte alpha, byte shoreNear, byte shoreFar, float elevation)
 		{
 			EnsureWaterShaderLoaded();
 
@@ -632,7 +636,6 @@ void main()
 
 			EnsureWaterWhitePixelLoaded();
 
-			float elevation = GetClimateAt(worldX, worldY).elevation;
 			float depthFactor = (WaterShallowElevation - elevation) / (WaterShallowElevation - WaterDeepElevation);
 			depthFactor = Math.Clamp(depthFactor, 0f, 1f);
 			byte depthByte = (byte)(depthFactor * 255f);

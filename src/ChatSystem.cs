@@ -10,6 +10,10 @@ namespace Soulfract
         private static float _panelOpacity = 0f;
         private const float PANEL_FADE_SPEED = 5f;
         private static string _inputText = "";
+        private static readonly List<string> _commandHistory = new();
+        private const int MAX_COMMAND_HISTORY = 100;
+        private static int _commandHistoryIndex;
+        private static string _commandHistoryDraft = "";
         private static List<ChatMessage> _messages = new List<ChatMessage>();
         private static int _maxMessages = 200; // limite de l'historique
 
@@ -19,10 +23,9 @@ namespace Soulfract
         private const int TITLE_HEIGHT = 30;
         private const int INPUT_HEIGHT = 32;
         private const int PADDING = 10;
-        private const int LINE_HEIGHT = 20;
+        private const int LINE_HEIGHT = 19;
         private const int FONT_SIZE = 15;
         private const int SCROLLBAR_WIDTH = 6;
-        private const int MESSAGE_GAP = 5;
 
         // Défilement
         private static int _scrollOffset = 0;
@@ -69,7 +72,11 @@ namespace Soulfract
 		{
 			_isOpen = !_isOpen;
             if (_isOpen)
+            {
                 _panelOpacity = 1f;
+                _commandHistoryIndex = 0;
+                _commandHistoryDraft = "";
+            }
 			if (!_isOpen)
 			{
 				_inputText = "";
@@ -100,7 +107,26 @@ namespace Soulfract
                 while (Raylib.GetCharPressed() != 0) { }
                 _ignoreNextChar = false;
             }
+
+            if (Raylib.IsKeyPressed(KeyboardKey.Up) && _commandHistory.Count > 0)
+            {
+                if (_commandHistoryIndex == 0)
+                    _commandHistoryDraft = _inputText;
+                _commandHistoryIndex = Math.Min(_commandHistoryIndex + 1, _commandHistory.Count);
+                SetCommandHistoryInput(_commandHistory[^_commandHistoryIndex]);
+            }
+            else if (Raylib.IsKeyPressed(KeyboardKey.Down) && _commandHistoryIndex > 0)
+            {
+                _commandHistoryIndex--;
+                SetCommandHistoryInput(_commandHistoryIndex > 0
+                    ? _commandHistory[^_commandHistoryIndex]
+                    : _commandHistoryDraft);
+            }
+
+            string inputBeforeUpdate = _inputText;
             TextInput.Update(ref _inputText, "chat", inputRect, 100);
+            if (_inputText != inputBeforeUpdate)
+                _commandHistoryIndex = 0;
 
             if (Raylib.IsKeyPressed(KeyboardKey.Enter))
             {
@@ -146,6 +172,12 @@ namespace Soulfract
         {
             if (string.IsNullOrWhiteSpace(_inputText)) return;
             string command = _inputText.Trim();
+            _commandHistory.Add(command);
+            if (_commandHistory.Count > MAX_COMMAND_HISTORY)
+                _commandHistory.RemoveAt(0);
+            _commandHistoryIndex = 0;
+            _commandHistoryDraft = "";
+
             if (command.StartsWith("/"))
             {
                 ExecuteCommand(command);
@@ -162,6 +194,12 @@ namespace Soulfract
             }
             _isScrolledToBottom = true;
             _scrollOffset = _maxScroll;
+        }
+
+        private static void SetCommandHistoryInput(string text)
+        {
+            _inputText = text;
+            TextInput.Focus("chat", _inputText.Length);
         }
 
         private static void ExecuteCommand(string command)
@@ -279,11 +317,11 @@ namespace Soulfract
                         return;
                     }
                     string musicName = parts[1];
-                    string musicPath = $"assets/musics/{musicName}.json";
-                    if (MusicPlayer.LoadMusic(musicPath))
+                    Item? instrument = InstrumentUI.GetEquippedInstrument();
+                    int instrumentId = instrument != null ? Program.GetItemId(instrument.Name) : 0;
+                    if (NetworkManager.StartBandMusic(musicName, instrumentId))
                     {
-                        MusicPlayer.Play();
-                        AddMessage(new ChatMessage($" Lecture : {musicName}", COLOR_MESSAGE_SUCCESS, true));
+                        AddMessage(new ChatMessage($" Démarrage du groupe : {musicName}", COLOR_MESSAGE_SUCCESS, true));
                     }
                     else
                     {
@@ -291,15 +329,15 @@ namespace Soulfract
                     }
                     break;
                 case "/stopmusic":
-                    MusicPlayer.Stop();
+                    NetworkManager.ControlBandMusic("stop");
                     AddMessage(new ChatMessage("⏹ Musique arrêtée", COLOR_MESSAGE_COMMAND, true));
                     break;
                 case "/pausemusic":
-                    MusicPlayer.Pause();
+                    NetworkManager.ControlBandMusic("pause");
                     AddMessage(new ChatMessage("⏸ Musique en pause", COLOR_MESSAGE_COMMAND, true));
                     break;
                 case "/resumemusic":
-                    MusicPlayer.Resume();
+                    NetworkManager.ControlBandMusic("resume");
                     AddMessage(new ChatMessage("▶ Musique reprise", COLOR_MESSAGE_COMMAND, true));
                     break;
                 default:
@@ -981,7 +1019,7 @@ namespace Soulfract
         {
             int visibleHeight = PANEL_HEIGHT - TITLE_HEIGHT - INPUT_HEIGHT - PADDING * 2;
             RebuildDisplayLines(visibleHeight);
-            int totalHeight = Math.Max(0, _displayLines.Count * LINE_HEIGHT + MESSAGE_GAP);
+            int totalHeight = _displayLines.Count * LINE_HEIGHT;
             _maxScroll = Math.Max(0, totalHeight - visibleHeight);
             if (_isScrolledToBottom)
             {
@@ -1007,7 +1045,6 @@ namespace Soulfract
                 var lines = WrapMessage(message.Text, width);
                 for (int index = 0; index < lines.Count; index++)
                     _displayLines.Add(new ChatDisplayLine(lines[index], message.Color, index == 0));
-                _displayLines.Add(new ChatDisplayLine(string.Empty, COLOR_MESSAGE_META, false));
             }
         }
 

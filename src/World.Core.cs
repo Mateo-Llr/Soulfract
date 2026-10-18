@@ -787,6 +787,16 @@ namespace Soulfract
 					if (selectedObject.Id == 4 || selectedObject.Id == 45 ||
 						selectedObject.Id == 48 || selectedObject.Id == 49)
 					{
+						string[] nestingBirds = { "Sparrow", "Pigeon", "Crow" };
+						var availableNestingBirds = nestingBirds
+							.Where(name => SpeciesData.Species.ContainsKey(name.ToLowerInvariant()))
+							.ToArray();
+						if (!_isUnderground && availableNestingBirds.Length > 0 && chunkRandom.NextDouble() < 0.10)
+						{
+							string nestingBird = availableNestingBirds[chunkRandom.Next(availableNestingBirds.Length)];
+							chunkData.SetTileMeta(worldX, worldY, "tree_birds", nestingBird);
+						}
+
 						if (chunkRandom.NextDouble() < 0.10)
 						{
 							//  Ruche : donnée occasionnelle sur la tuile-arbre, via le système
@@ -834,6 +844,9 @@ namespace Soulfract
 							//    population le demande, au lieu d'être plafonné à ~22 tuiles
 							//    de rayon comme avant.
 							int targetVillagerCount = villageRand.Next(10, 51); // 10 à 50 habitants
+							var villageEntityNetIds = Program.GetEntities()
+								.Select(entity => entity.NetId)
+								.ToHashSet();
 							int villagersHoused = 0;
 							int placed = 0;
 							int attempts = 0;
@@ -1038,7 +1051,7 @@ Vector2 assignedSpot = house.InteriorPosition;
 														villager.AddPet(cat);
 														targetChunk.Entities.Add(cat);
 														var villageEntities = Program.GetEntities();
-														if (!villageEntities.Any(e => e.NetId == cat.NetId))
+														if (villageEntityNetIds.Add(cat.NetId))
 															villageEntities.Add(cat);
 													}
 									// Les villageois doivent apparaître à l'intérieur, jamais au seuil de la porte.
@@ -1058,7 +1071,7 @@ Vector2 assignedSpot = house.InteriorPosition;
 												targetChunk.Entities.Add(villager);
 
 												var globalEntities = Program.GetEntities();
-												if (!globalEntities.Any(e => e.NetId == villager.NetId))
+												if (villageEntityNetIds.Add(villager.NetId))
 													globalEntities.Add(villager);
 
 												villagersHoused++;
@@ -2160,6 +2173,21 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 				}
 			}
 
+			// Retirer les demandes devenues hors champ avant de consommer le budget de
+			// chargement : après un déplacement rapide, une longue file de chunks périmés
+			// pouvait retarder pendant plusieurs frames ceux qui sont réellement visibles.
+			int queuedLoadCount = _pendingActiveChunkLoads.Count;
+			_pendingActiveChunkLoadKeys.Clear();
+			for (int i = 0; i < queuedLoadCount; i++)
+			{
+				var chunkKey = _pendingActiveChunkLoads.Dequeue();
+				if (shouldBeLoaded.Contains(chunkKey) && !chunksDict.ContainsKey(chunkKey)
+					&& _pendingActiveChunkLoadKeys.Add(chunkKey))
+				{
+					_pendingActiveChunkLoads.Enqueue(chunkKey);
+				}
+			}
+
 			for (int i = 0; i < ACTIVE_CHUNKS_PER_FRAME && _pendingActiveChunkLoads.Count > 0; i++)
 			{
 				var chunkKey = _pendingActiveChunkLoads.Dequeue();
@@ -2177,6 +2205,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			if (_isInDungeon)
 				return;
 
+			PerfStats.StartSection(PerfStats.Section.ChunkUnloadWork);
 			var toUnload = new List<(int x, int y)>();
 			foreach (var chunk in chunksDict)
 			{
@@ -2234,6 +2263,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			{
 				chunksDict.Remove((key.x, key.y));
 			}
+			PerfStats.EndSection(PerfStats.Section.ChunkUnloadWork);
 		}
 
 		// ─────────────────────────────────────────────────────────────────────────
@@ -2268,6 +2298,62 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 		private static int[,] _renderWallCoveringIds = new int[0, 0];
 		private static bool[,] _renderIsWallToHide = new bool[0, 0];
 
+		//  PERF : cache des clés "x_y" utilisées par destroyed/objectHP. Avant : une string allouée par
+		// objet visible et par frame (milliers en dézoom forestier => pression GC).
+		private static readonly Dictionary<(int, int), string> _tileKeyCache = new();
+		private static string GetTileKeyString(int x, int y)
+		{
+			if (_tileKeyCache.TryGetValue((x, y), out var k)) return k;
+			if (_tileKeyCache.Count > 60000) _tileKeyCache.Clear();
+			k = $"{x}_{y}";
+			_tileKeyCache[(x, y)] = k;
+			return k;
+		}
+
+		//  PERF : noms "<prefix>_trunk" / "<prefix>_bush" mis en cache (interpolation par arbre et par frame).
+		private static readonly Dictionary<string, (string trunk, string bush)> _treeLayerNames = new();
+		private static (string trunk, string bush) GetTreeLayerNames(string prefix)
+		{
+			if (_treeLayerNames.TryGetValue(prefix, out var n)) return n;
+			n = ($"{prefix}_trunk", $"{prefix}_bush");
+			_treeLayerNames[prefix] = n;
+			return n;
+		}
+
+		//  PERF : cache des sols statiques simples, qui partagent leur texture sur toutes les tuiles.
+		private static readonly Dictionary<int, Texture2D> _plainGroundTexCache = new();
+		private static Dictionary<int, Texture2D>? _plainGroundTexOwner;
+
+		private static Texture2D GetGroundTileTextureFast(int x, int y, int tileId, float currentTime)
+		{
+			if (tileId == 123) return GetTileTexture(x, y, tileId, currentTime);
+			if (!ReferenceEquals(_plainGroundTexOwner, _tileTextures))
+			{
+				_plainGroundTexCache.Clear();
+				_plainGroundTexOwner = _tileTextures;
+			}
+			if (_plainGroundTexCache.TryGetValue(tileId, out var cached)) return cached;
+
+			var tileData = WorldTileRegistry.GetTile(tileId);
+			if (tileData != null && !tileData.HasGrowthStages && !WorldTileRegistry.IsAnimated(tileId))
+			{
+				var variations = WorldTileRegistry.GetVariations(tileId);
+				if ((variations == null || variations.Count <= 1) && _tileTextures.TryGetValue(tileId, out var plain))
+				{
+					_plainGroundTexCache[tileId] = plain;
+					return plain;
+				}
+			}
+			return GetTileTexture(x, y, tileId, currentTime);
+		}
+
+		/// <summary>À appeler si les textures de tuiles sont rechargées/changées (pack de textures...).</summary>
+		public static void ResetTerrainTextureCaches()
+		{
+			_plainGroundTexCache.Clear();
+			_plainGroundTexOwner = null;
+		}
+
 		private static void EnsureRenderTileBuffers(int width, int height)
 		{
 			if (_renderHeights.GetLength(0) >= width && _renderHeights.GetLength(1) >= height)
@@ -2284,28 +2370,42 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			_renderIsWallToHide = new bool[width, height];
 		}
 
-		private static void AddHouseResidentDoorIcons(List<RenderItem> renderItems, List<Entity> entities)
+		private static readonly List<Entity> _doorIconResidentScratch = new();
+		private static readonly List<(string actionKey, string actionType, Texture2D icon)> _interactionPromptScratch = new();
+
+		private static void AddHouseResidentDoorIcons(List<RenderItem> renderItems, List<Entity> entities, Rectangle viewBounds)
 		{
 			foreach (var house in Houses.Values)
 			{
 				if (house.BuildingId <= 0) continue;
-				var residents = entities
-					.Where(e => e.IsAlive && e.IsVillager && e.HomeBuildingId == house.BuildingId)
-					.OrderBy(e => e.NetId)
-					.ToList();
+				//  PERF : avant, TOUTES les maisons du monde passaient ici chaque frame (LINQ sur toutes
+				// les entités + DrawEntity de leurs résidents), même très hors écran.
+				Vector2 doorPosCull = house.DoorWorldPos;
+				if (doorPosCull.X < viewBounds.X || doorPosCull.X > viewBounds.X + viewBounds.Width ||
+					doorPosCull.Y < viewBounds.Y || doorPosCull.Y > viewBounds.Y + viewBounds.Height)
+					continue;
+				var residents = _doorIconResidentScratch;
+				residents.Clear();
+				for (int ei = 0; ei < entities.Count; ei++)
+				{
+					var cand = entities[ei];
+					if (cand.IsAlive && cand.IsVillager && cand.HomeBuildingId == house.BuildingId)
+						residents.Add(cand);
+				}
 				if (residents.Count == 0) continue;
+				if (residents.Count > 1) residents.Sort(static (a, b) => a.NetId.CompareTo(b.NetId));
 
 				int extraCount = Math.Max(0, residents.Count - 3);
-				var visibleResidents = residents.Take(Math.Min(3, residents.Count)).ToList();
+				int visibleCount = Math.Min(3, residents.Count);
 				float iconSize = 22f;
 				float gap = 18f;
-				float totalWidth = Math.Max(0f, (visibleResidents.Count - 1) * gap);
+				float totalWidth = Math.Max(0f, (visibleCount - 1) * gap);
 				Vector2 basePos = house.DoorWorldPos + new Vector2(0f, -28f);
 				float startX = basePos.X - totalWidth / 2f;
 
-				for (int i = 0; i < visibleResidents.Count; i++)
+				for (int i = 0; i < visibleCount; i++)
 				{
-					var resident = visibleResidents[i];
+					var resident = residents[i];
 					var hairBaseTex = (resident.Species == "human" && Program.hairBaseTextures.Count > 0)
 						? Program.hairBaseTextures[Math.Clamp(resident.HairStyle, 0, Program.hairBaseTextures.Count - 1)]
 						: new Texture2D();
@@ -2366,7 +2466,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 
 				if (extraCount > 0)
 				{
-					Vector2 extraPos = basePos + new Vector2((visibleResidents.Count > 0 ? (visibleResidents.Count - 1) * gap : 0f) / 2f + 12f, 6f);
+					Vector2 extraPos = basePos + new Vector2((visibleCount > 0 ? (visibleCount - 1) * gap : 0f) / 2f + 12f, 6f);
 					renderItems.Add(new RenderItem
 					{
 						Y = float.MaxValue - 999f,
@@ -2423,6 +2523,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			bool drawPlayer = true)
 		{
 			_tileTextures = tileTextures;
+			PerfStats.StartSection(PerfStats.Section.WorldDrawSetup);
 			int sw = Raylib.GetScreenWidth();
 			int sh = Raylib.GetScreenHeight();
 			int ts = Program.TileSize;
@@ -2458,7 +2559,10 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 
 			int startX = (int)Math.Floor(topLeft.X / ts) - 1 - TALL_FEATURE_MARGIN_X;
 			int endX = (int)Math.Ceiling(bottomRight.X / ts) + 1 + TALL_FEATURE_MARGIN_X;
-			int startY = (int)Math.Floor(topLeft.Y / ts) - 1 - TALL_FEATURE_MARGIN_Y;
+			// L'altitude ne peut que remonter le dessin : une tuile ancrée très au-dessus
+			// de l'écran ne peut donc pas redevenir visible. La grande marge ne sert qu'en bas,
+			// pour les tuiles hautes dont l'ancre est sous le bord inférieur.
+			int startY = (int)Math.Floor(topLeft.Y / ts) - 1;
 			int endY = (int)Math.Ceiling(bottomRight.Y / ts) + 1 + TALL_FEATURE_MARGIN_Y;
 
 			float entityCullMargin = ts * 2f;
@@ -2482,6 +2586,12 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					MathF.Min(start.X, end.X) <= bottomRight.X + entityCullMargin &&
 					MathF.Max(start.Y, end.Y) >= topLeft.Y - entityCullMargin &&
 					MathF.Min(start.Y, end.Y) <= bottomRight.Y + entityCullMargin;
+			}
+
+			bool IsWorldRectVisible(float x, float y, float rectWidth, float rectHeight)
+			{
+				return x + rectWidth > topLeft.X && x < bottomRight.X
+					&& y + rectHeight > topLeft.Y && y < bottomRight.Y;
 			}
 
 			int renderWidth = endX - startX;
@@ -2555,8 +2665,13 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			// pour les tuiles qui n'ont pas encore d'entrée explicite dans le chunk (génération
 			// procédurale / cache climat), ce qui reste correct au sous-sol/en extérieur du
 			// chunk chargé.
+			PerfStats.EndSection(PerfStats.Section.WorldDrawSetup);
 			PerfStats.StartSection(PerfStats.Section.TileGridFill);
 			int visibleObjectCount = 0;
+			//  PERF : on ne redemande le chunk que quand on change de chunk (la boucle parcourt y en interne,
+			// donc ~15 tuiles sur 16 réutilisent le chunk précédent) au lieu d'un GetChunkAt par tuile.
+			ChunkData? fillChunk = null;
+			int fillChunkX = int.MinValue, fillChunkY = int.MinValue;
 			for (int x = startX; x <= endX; x++)
 			{
 				int ix = Math.Clamp(x - startX, 0, width - 1);
@@ -2579,14 +2694,26 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					
 					try
 					{
-						var chunk = GetChunkAt(x, y); // UN SEUL lookup de chunk pour toute la tuile
+						int fillCx = x / CHUNK_SIZE;
+						int fillCy = y / CHUNK_SIZE;
+						if (x < 0) fillCx = (x - CHUNK_SIZE + 1) / CHUNK_SIZE;
+						if (y < 0) fillCy = (y - CHUNK_SIZE + 1) / CHUNK_SIZE;
+						if (fillCx != fillChunkX || fillCy != fillChunkY)
+						{
+							fillChunk = GetChunkAt(x, y);
+							fillChunkX = fillCx;
+							fillChunkY = fillCy;
+						}
+						var chunk = fillChunk;
 
+						//  PERF : si pas d'override dans le chunk, on va DIRECT à la génération procédurale
+						// (GetGroundTileIdAt refaisait inutilement chunk + override, qui ne pouvaient que rater).
 						int gid = (chunk != null && chunk.GroundOverrides.TryGetValue((x, y), out int gv))
-							? gv : GetGroundTileIdAt(x, y);
+							? gv : GetProceduralGroundTileId(x, y);
 						int h = _isUnderground
 							? chunk != null && chunk.Heights.TryGetValue((x, y), out int undergroundHeight)
 								? undergroundHeight : 0
-							: GetHeightAt(x, y);
+							: (_isInDungeon ? GetHeightAt(x, y) : GetHeightAtWithChunk(x, y, chunk));
 						if (!_isUnderground && gid == 10)
 							h = (int)WorldGeneration.GetWaterSurfaceHeight();
 						heights[ix, iy] = h;
@@ -2601,15 +2728,20 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 
 						// Les buildingIds vivent dans un registre séparé (BuildingIds), pas dans
 						// ChunkData : pas de lookup redondant à éliminer ici.
-						int bid = GetBuildingIdAt(x, y);
-						buildingIds[ix, iy] = bid;
+						//  PERF : buildingIds n'est lu que en intérieur (filtre) ou en debug F3.
+						buildingIds[ix, iy] = (_isPlayerIndoors || DebugOverlaySettings.BuildingZones) ? GetBuildingIdAt(x, y) : 0;
 
-						int rh = (chunk != null && chunk.RoofHeights.TryGetValue((x, y), out int rhv))
-							? rhv : GetRoofHeight(x, y);
-						roofHeights[ix, iy] = rh;
+						//  PERF : roofHeights n'est lu que pour les tuiles ayant un overlay (toit).
+						// Avant : GetRoofHeight() appelé en repli pour CHAQUE tuile sans entrée explicite.
+						if (ovid != 0)
+							roofHeights[ix, iy] = (chunk != null && chunk.RoofHeights.TryGetValue((x, y), out int rhv))
+								? rhv : GetRoofHeight(x, y);
+						else
+							roofHeights[ix, iy] = 0;
 
-						isWallToHide[ix, iy] = IsWallToHide(oid);
-						wallCoveringIds[ix, iy] = chunk?.GetWallCoveringAt(x, y) ?? 0;
+						//  PERF : isWallToHide n'est lu qu'en intérieur ; wallCoveringIds qu'avec un objet.
+						isWallToHide[ix, iy] = _isPlayerIndoors && IsWallToHide(oid);
+						wallCoveringIds[ix, iy] = oid != 0 ? (chunk?.GetWallCoveringAt(x, y) ?? 0) : 0;
 
 						// Décoration (même chunk déjà en main, plus besoin de le redemander)
 						decorationIndex[ix, iy] = (chunk != null && chunk.Decorations.TryGetValue((x, y), out int deco))
@@ -2623,6 +2755,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 				}
 			}
 			PerfStats.EndSection(PerfStats.Section.TileGridFill);
+			PerfStats.StartSection(PerfStats.Section.TerrainDraw);
 
 			Texture2D cliffDownTex = GetCliffDownTexture(missingTex);
 			Texture2D cliffBorderTex = GetCliffBorderTexture(missingTex);
@@ -2749,8 +2882,10 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 								eyebrowRightOffset: m.EyebrowRightOffset,
 								randomFeatureVariant: m.RandomFeatureVariant,
 								randomFeatureColor: m.RandomFeatureColor,
-								beardStyle: m.BeardStyle);
-						} : null);
+								beardStyle: m.BeardStyle,
+								blendKey: m);
+						} : null,
+						blendKey: e);
 						}
 					});
 				}
@@ -2766,6 +2901,9 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						Vector2 extraDrawPos = new Vector2(extraPlayer.Position.X, extraPlayer.Position.Y + extraYOffset);
 						float extraSortY = extraDrawPos.Y + Program.FeetOffsetY;
 						var capturedExtraPlayer = extraPlayer;
+						object capturedExtraPoseBlendKey = capturedExtraPlayer.Id >= 0
+							? EntityRenderer.GetStablePoseBlendKey($"player:{capturedExtraPlayer.Id}")
+							: capturedExtraPlayer;
 						var capturedExtraDrawPos = extraDrawPos;
 						var capturedExtraSkin = extraPlayer.SkinColorOverride ?? pSkin;
 						var capturedExtraHairColor = extraPlayer.HairColorOverride ?? Program.HairColor;
@@ -2823,7 +2961,8 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 									pupilLeftOffset: capturedExtraGaze.Item1,
 									pupilRightOffset: capturedExtraGaze.Item2,
 									eyebrowLeftOffset: capturedExtraGaze.Item3,
-									eyebrowRightOffset: capturedExtraGaze.Item4);
+									eyebrowRightOffset: capturedExtraGaze.Item4,
+									blendKey: capturedExtraPoseBlendKey);
 							}
 						});
 					}
@@ -2911,8 +3050,10 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 										eyebrowRightOffset: m.EyebrowRightOffset,
 										randomFeatureVariant: m.RandomFeatureVariant,
 										randomFeatureColor: m.RandomFeatureColor,
-										beardStyle: m.BeardStyle);
-								} : null);
+										beardStyle: m.BeardStyle,
+										blendKey: m);
+								} : null,
+								blendKey: Program.PlayerPoseBlendKey);
 						}
 					});
 				}
@@ -2999,29 +3140,34 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					int drawY = worldY * ts - (height * ts / 4);
 					int groundId = groundIds[ix, iy];
 					int objectId = objectIds[ix, iy];
+					bool tileDrawVisible = IsWorldRectVisible(worldX * ts, drawY, ts, ts);
+					if (!tileDrawVisible)
+						EnsureWaterShaderInactive();
 
-					// Filtre intérieur
-					if (_isPlayerIndoors)
+					if (tileDrawVisible)
 					{
-						int tileBld = buildingIds[ix, iy];
-						if (!_currentIndoorGroupIds.Contains(tileBld)) continue;
-					}
-
-					bool hideGround = false;
-					if (isWallToHide[ix, iy] && _isPlayerIndoors)
-					{
-						int tileAboveY = worldY - 1;
-						if (tileAboveY >= startY && tileAboveY <= endY)
+						// Filtre intérieur
+						if (_isPlayerIndoors)
 						{
-							int aboveOverlay = GetOverlayAt(worldX, tileAboveY);
-							if (aboveOverlay == 82) hideGround = true;
+							int tileBld = buildingIds[ix, iy];
+							if (!_currentIndoorGroupIds.Contains(tileBld)) continue;
 						}
-					}
 
-					if (hideGround) EnsureWaterShaderInactive();
+						bool hideGround = false;
+						if (isWallToHide[ix, iy] && _isPlayerIndoors)
+						{
+							int tileAboveY = worldY - 1;
+							if (tileAboveY >= startY && tileAboveY <= endY)
+							{
+								int aboveOverlay = GetOverlayAt(worldX, tileAboveY);
+								if (aboveOverlay == 82) hideGround = true;
+							}
+						}
 
-					if (!hideGround)
-					{
+						if (hideGround) EnsureWaterShaderInactive();
+
+						if (!hideGround)
+						{
 						// Sol
 						if (groundId == 10)
 						{
@@ -3031,14 +3177,16 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 							// couches de bruit qui défilent forment les caustiques, un
 							// troisième bruit très lent les fait "flotter" doucement — plus
 							// aucune texture d'eau n'est nécessaire.
-							byte waterAlphaTile = GetWaterColor(worldX, worldY, currentTime).A;
+							//  PERF : une seule lecture de l'élévation (alpha + profondeur du shader).
+							float waterElevation = GetClimateAt(worldX, worldY).elevation;
+							byte waterAlphaTile = GetWaterColorFromElevation(waterElevation).A;
 							EnsureWaterShaderActive();
 							ComputeWaterShoreMasks(groundIds, ix, iy, width, heightTiles, out byte shoreNear, out byte shoreFar);
-							DrawWaterTileShader(worldX, worldY, drawY, ts, waterAlphaTile, shoreNear, shoreFar);
+							DrawWaterTileShader(worldX, worldY, drawY, ts, waterAlphaTile, shoreNear, shoreFar, waterElevation);
 						}
 						else
 						{
-							Texture2D tex = GetTileTexture(worldX, worldY, groundId, currentTime);
+							Texture2D tex = GetGroundTileTextureFast(worldX, worldY, groundId, currentTime);
 							if (tex.Id == 0) tex = tileTextures.GetValueOrDefault(groundId);
 
 							// On quitte le mode shader d'eau avant de dessiner une texture
@@ -3065,20 +3213,21 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						}
 
 						// Zones de maisons visibles avec le mode debug (F3).
-						if (showDebug && buildingIds[ix, iy] != 0)
+						if (DebugOverlaySettings.BuildingZones && buildingIds[ix, iy] != 0)
 							Raylib.DrawRectangle(worldX * ts, drawY, ts, ts, new Color(170, 70, 230, 85));
 
-						// Décoration
-						int decoIdx = decorationIndex[ix, iy];
-						if (decoIdx >= 0 && WorldTileRegistry.DecorationTextures.TryGetValue(groundId, out var decoTexList) && decoIdx < decoTexList.Count)
-						{
-							Texture2D decoTex = decoTexList[decoIdx];
-							if (decoTex.Id != 0)
+							// Décoration
+							int decoIdx = decorationIndex[ix, iy];
+							if (decoIdx >= 0 && WorldTileRegistry.DecorationTextures.TryGetValue(groundId, out var decoTexList) && decoIdx < decoTexList.Count)
 							{
-								Raylib.DrawTexturePro(decoTex,
-									new Rectangle(0, 0, decoTex.Width, decoTex.Height),
-									new Rectangle(worldX * ts, drawY, ts, ts),
-									Vector2.Zero, 0, Color.White);
+								Texture2D decoTex = decoTexList[decoIdx];
+								if (decoTex.Id != 0)
+								{
+									Raylib.DrawTexturePro(decoTex,
+										new Rectangle(0, 0, decoTex.Width, decoTex.Height),
+										new Rectangle(worldX * ts, drawY, ts, ts),
+										Vector2.Zero, 0, Color.White);
+								}
 							}
 						}
 					}
@@ -3093,28 +3242,44 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 							int downHeight = heights[ix, iy + 1];
 							int diff = height - downHeight;
 							if (diff > 0)
-								DrawCliffDown(worldX, worldY, diff, ts, cliffDownTex);
+							{
+								float cliffY = worldY * ts - height * ts / 4f + ts;
+								if (IsWorldRectVisible(worldX * ts, cliffY, ts, diff * (ts / 4)))
+									DrawCliffDown(worldX, worldY, diff, ts, cliffDownTex, height);
+							}
 						}
 						// Gauche
 						if (ix - 1 >= 0 && groundIds[ix - 1, iy] != 10)
 						{
 							int leftHeight = heights[ix - 1, iy];
 							if (height > leftHeight)
-								DrawCliffBorder(worldX, worldY, -1, 0, ts, cliffBorderTex);
+							{
+								float cliffY = worldY * ts - height * ts / 4f;
+								if (IsWorldRectVisible(worldX * ts, cliffY, ts / 4f, ts))
+									DrawCliffBorder(worldX, worldY, -1, 0, ts, cliffBorderTex, height);
+							}
 						}
 						// Haut
 						if (iy - 1 >= 0 && groundIds[ix, iy - 1] != 10)
 						{
 							int upHeight = heights[ix, iy - 1];
 							if (height > upHeight)
-								DrawCliffBorder(worldX, worldY, 0, -1, ts, cliffBorderTex);
+							{
+								float cliffY = worldY * ts - height * ts / 4f;
+								if (IsWorldRectVisible(worldX * ts, cliffY, ts / 4f, ts))
+									DrawCliffBorder(worldX, worldY, 0, -1, ts, cliffBorderTex, height);
+							}
 						}
 						// Droite
 						if (ix + 1 < width && groundIds[ix + 1, iy] != 10)
 						{
 							int rightHeight = heights[ix + 1, iy];
 							if (height > rightHeight)
-								DrawCliffBorder(worldX, worldY, 1, 0, ts, cliffBorderTex);
+							{
+								float cliffY = worldY * ts - height * ts / 4f;
+								if (IsWorldRectVisible(worldX * ts + ts - ts / 4f, cliffY, ts / 4f, ts))
+									DrawCliffBorder(worldX, worldY, 1, 0, ts, cliffBorderTex, height);
+							}
 						}
 					}
 				}
@@ -3274,6 +3439,8 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					float boatYOffset = -boatHeight * ts / 4;
 					float boatDrawX = boatWorldPos.X - ts/2f;
 					float boatDrawY = boatWorldPos.Y - ts/2f + boatYOffset;
+					if (!IsWorldRectVisible(boatDrawX, boatDrawY, ts, ts))
+						continue;
 					
 					Texture2D boatTex = WorldTileRegistry.GetFirstTexture(500);
 					if (boatTex.Id != 0)
@@ -3343,21 +3510,23 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			else
 				_renderItemsPoolInUse = true;
 			var renderItems = _renderItemsPool;
+			PerfStats.EndSection(PerfStats.Section.TerrainDraw);
+			PerfStats.StartSection(PerfStats.Section.WorldRenderPrepare);
 
 			// =================================================================================
 			// 4. ICÔNES DES PROPRIÉTAIRES DE MAISON SUR LES PORTES
 			// =================================================================================
-			AddHouseResidentDoorIcons(renderItems, entities);
+			AddHouseResidentDoorIcons(renderItems, entities,
+				new Rectangle(topLeft.X - 160f, topLeft.Y - 160f,
+					(bottomRight.X - topLeft.X) + 320f, (bottomRight.Y - topLeft.Y) + 320f));
 
 			// =================================================================================
 			// 5. ITEMS AU SOL
 			// =================================================================================
 			foreach (var gi in Program.GroundItems)
 			{
-				if (!IsEntityNearScreen(gi.Position))
+				if (!Program.IsTileLit((int)(gi.Position.X / ts), (int)(gi.Position.Y / ts)))
 					continue;
-					if (!Program.IsTileLit((int)(gi.Position.X / ts), (int)(gi.Position.Y / ts)))
-						continue;
 				if (!GameData.ItemDatabase.TryGetValue(gi.ItemId, out var itemData))
 					continue;
 				const float itemSize = 28f;
@@ -3372,6 +3541,11 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 				float groundLift = GetGroundItemHeightLift(gi.Position.X, gi.Position.Y);
 				float shadowY = gi.Position.Y + 5f - groundLift;
 				Vector2 drawPos = new Vector2(gi.Position.X, shadowY - gi.Height + itemSize / 2f - alphaBottom * itemSize);
+				float itemRenderWidth = MathF.Max(itemSize, shadowWidth);
+				float itemRenderTop = MathF.Min(drawPos.Y, shadowY - 4f);
+				if (!IsWorldRectVisible(gi.Position.X - itemRenderWidth / 2f, itemRenderTop,
+					itemRenderWidth, drawPos.Y + itemSize - itemRenderTop))
+					continue;
 				
 				renderItems.Add(new RenderItem
 				{
@@ -3388,8 +3562,6 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			{
 				foreach (var ngi in NetworkManager.GetRemoteGroundItems())
 				{
-					if (!IsEntityNearScreen(new Vector2(ngi.PosX, ngi.PosY)))
-						continue;
 					if (!Program.IsTileLit((int)(ngi.PosX / ts), (int)(ngi.PosY / ts)))
 						continue;
 					if (!GameData.ItemDatabase.TryGetValue(ngi.ItemId, out var netItemData)) continue;
@@ -3408,6 +3580,11 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					float netLift = GetGroundItemHeightLift(ngi.PosX, ngi.PosY);
 					float shadowY = ngi.PosY + 5f - netLift;
 					Vector2 drawPos = new Vector2(ngi.PosX, shadowY + itemSize / 2f - alphaBottom * itemSize);
+					float itemRenderWidth = MathF.Max(itemSize, shadowWidth);
+					float itemRenderTop = MathF.Min(drawPos.Y, shadowY - 4f);
+					if (!IsWorldRectVisible(ngi.PosX - itemRenderWidth / 2f, itemRenderTop,
+						itemRenderWidth, drawPos.Y + itemSize - itemRenderTop))
+						continue;
 
 					renderItems.Add(new RenderItem
 					{
@@ -3485,6 +3662,8 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						}
 						drawY = drawY - drawH + ts;
 					}
+					if (!IsWorldRectVisible(drawX + offX, drawY + offY, drawW, drawH))
+						continue;
 					
 					float sortY = tileWorldPos.Y + yOffset;
 					
@@ -3608,6 +3787,8 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 								}
 								drawY = (int)(ritualWy - drawH + ts);
 							}
+							if (!IsWorldRectVisible(drawX, drawY, drawW, drawH))
+								continue;
 							Texture2D tex = GetTileTexture(worldX, worldY, 4000, currentTime);
 							if (tex.Id != 0)
 							{
@@ -3623,7 +3804,26 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					var tileData = WorldTileRegistry.GetTile(objectId);
 					if (tileData == null) continue;
 
-					string key = $"{worldX}_{worldY}";
+					int height = heights[ix, iy];
+					float wx = worldX * ts, wy = worldY * ts - (height * ts / 4);
+
+					int objectDrawWidth = tileData.Size != null ? ts * tileData.Size.Width : ts;
+					int objectDrawHeight = tileData.Size != null ? ts * tileData.Size.Height : ts;
+					float objectDrawX = wx + (tileData.DrawOffset?.X ?? 0);
+					float objectDrawY = wy - objectDrawHeight + ts;
+					float hpBarTop = wy - ts * 2 - 10f;
+					if (objectId == 124)
+					{
+						objectDrawX -= ts;
+						objectDrawWidth += ts * 2;
+						objectDrawY -= ts;
+						objectDrawHeight += ts * 2;
+					}
+					if (!IsWorldRectVisible(objectDrawX, MathF.Min(objectDrawY, hpBarTop),
+						objectDrawWidth, MathF.Max(objectDrawY + objectDrawHeight, wy + 8f) - MathF.Min(objectDrawY, hpBarTop)))
+						continue;
+
+					string key = GetTileKeyString(worldX, worldY);
 					if (destroyed.Contains(key)) continue;
 
 					if (_isPlayerIndoors)
@@ -3632,9 +3832,8 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 						if (!_currentIndoorGroupIds.Contains(tileBld)) continue;
 					}
 
-					int height = heights[ix, iy];
-					float wx = worldX * ts, wy = worldY * ts - (height * ts / 4);
 					objectHP.TryGetValue(key, out var hp);
+
 					//  On utilise l'index LOCAL "ix" (petit, borné à la largeur de la fenêtre visible)
 					// plutôt que "worldX" (coordonnée monde potentiellement grande) pour ce micro-décalage
 					// de départage : ajouté à un "wy" de grande magnitude, un décalage basé sur worldX
@@ -3911,8 +4110,9 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 									if (IsMatureTree(capturedObjectId))
 									{
 										string treeTexturePrefix = GetMatureTreeTexturePrefix(capturedObjectId);
-										Texture2D trunkTex = WorldTileRegistry.GetTextureByName($"{treeTexturePrefix}_trunk");
-										Texture2D bushTex = WorldTileRegistry.GetTextureByName($"{treeTexturePrefix}_bush");
+										var treeLayerNames = GetTreeLayerNames(treeTexturePrefix);
+										Texture2D trunkTex = WorldTileRegistry.GetTextureByName(treeLayerNames.trunk);
+										Texture2D bushTex = WorldTileRegistry.GetTextureByName(treeLayerNames.bush);
 										Color treeTint = GetTreeLeafTintForObjectId(capturedObjectId, capturedX, capturedY);
 
 										if (trunkTex.Id != 0)
@@ -4329,6 +4529,21 @@ if (hasVisibleInteriorTile && capturedWallCovering != 0)
 						if (isVerticalZone)
 							sortY += 0.05f;
 
+						int overlayDrawWidth = overlayTileData.Size != null ? ts * overlayTileData.Size.Width : ts;
+						int overlayDrawHeight = overlayTileData.Size != null ? ts * overlayTileData.Size.Height : ts;
+						float overlayDrawX = wx + (overlayTileData.DrawOffset?.X ?? 0);
+						float overlayDrawY = (overlayId == 123 ? wy : adjustedWy) - overlayDrawHeight + ts;
+						float overlayTop = overlayDrawY;
+						if (hasSlopeInfo && slopeInfo.IsColumnAnchor && slopeInfo.WallStackCount > 0)
+						{
+							float stackTop = wy - (roofHeightTiles - slopeInfo.WallStackCount) * ts
+								- (slopeInfo.WallStackCount - 1) * ts;
+							overlayTop = MathF.Min(overlayTop, stackTop);
+						}
+						if (!IsWorldRectVisible(overlayDrawX, overlayTop, overlayDrawWidth,
+							MathF.Max(overlayDrawY + overlayDrawHeight, wy + ts) - overlayTop))
+							continue;
+
 						int capturedX = worldX, capturedY = worldY;
 						float capturedWx = wx, capturedWy = overlayId == 123 ? wy : adjustedWy;
 						float capturedWyBase = wy;
@@ -4521,19 +4736,32 @@ float stackY = baseY - (lvl - 1) * ts;
 			// ci-dessous, car côté client la liste Program.entities est toujours vide (le client ne
 			// simule aucune entité) — placé À L'INTÉRIEUR de cette boucle comme avant, ce code ne
 			// s'exécutait donc JAMAIS, ce qui rendait les entités totalement invisibles pour les clients.
+			//  PERF : avant, GetPersistedQuestsSnapshot() était rappelé pour CHAQUE PNJ visible, chaque frame.
+			var trackerQuests = NetworkManager.IsClient
+				? null
+				: QuestManager.GetPersistedQuestsSnapshot()
+					.Where(q => q.State == QuestState.Accepted || q.State == QuestState.Delivered)
+					.ToList();
 			if (NetworkManager.IsClient)
 			{
 				foreach (var dto in NetworkManager.GetRemoteEntities())
 				{
 					var dtoPos = new Vector2(dto.PosX, dto.PosY);
-					if (!Program.IsTileLit((int)(dtoPos.X / ts), (int)(dtoPos.Y / ts)))
+					int tileX = (int)(dtoPos.X / ts);
+					int tileY = (int)(dtoPos.Y / ts);
+					if (!Program.IsTileLit(tileX, tileY))
 						continue;
 					if (!ShouldRenderEntity(dtoPos))
 						continue;
-					if (!IsEntityNearScreen(dtoPos))
+					Vector2 dtoVisualPos = new(dtoPos.X, dtoPos.Y - GetHeightAt(tileX, tileY) * ts / 4f);
+					if (!IsEntityNearScreen(dtoVisualPos))
 						continue;
 
 					var capturedDto = dto;
+					var capturedDtoVisualPos = dtoVisualPos;
+					object capturedDtoPoseBlendKey = string.IsNullOrEmpty(capturedDto.NetId)
+						? capturedDto
+						: EntityRenderer.GetStablePoseBlendKey($"entity:{capturedDto.NetId}");
 					var capturedHairBase = hairBase;
 					var capturedHairOverlay = hairOverlay;
 					int hairIdx = capturedDto.HairStyle < capturedHairBase.Count ? capturedDto.HairStyle : 0;
@@ -4549,14 +4777,14 @@ float stackY = baseY - (lvl - 1) * ts;
 					}
 					renderItems.Add(new RenderItem
 					{
-						Y = capturedDto.PosY,
+						Y = capturedDtoVisualPos.Y + Program.FeetOffsetY,
 						DrawAction = () =>
 						{
 							Texture2D hBase = capturedHairBase.Count > hairIdx ? capturedHairBase[hairIdx] : new Texture2D();
 							Texture2D hOver = capturedHairOverlay.Count > hairIdx ? capturedHairOverlay[hairIdx] : new Texture2D();
 							EntityRenderer.DrawEntity(
 								capturedDto.Species, capturedDto.AnimState, capturedDto.AnimFrame, capturedDto.AnimProg,
-								capturedDto.Facing, new Vector2(capturedDto.PosX, capturedDto.PosY),
+								capturedDto.Facing, capturedDtoVisualPos,
 								dtoTint, hBase, hOver, dtoHair,
 								SpeciesData.Skeletons,
 								customScale: capturedDto.Scale,
@@ -4565,11 +4793,12 @@ float stackY = baseY - (lvl - 1) * ts;
 								flashWhite: capturedDto.DamageFlash > 0f,
 								ghostly: capturedDto.IsSpiritAnimal,
 								ghostTrailKey: capturedDto.NetId,
-								slimeStoredItem: capturedSlimeStoredItem);
+								slimeStoredItem: capturedSlimeStoredItem,
+								blendKey: capturedDtoPoseBlendKey);
 							float w = Program.TileSize * 1.2f;
 							float ratio = 1f;
 							int bx = (int)(capturedDto.PosX - w / 2f);
-							int by = (int)(capturedDto.PosY - Program.TileSize * 0.8f);
+							int by = (int)(capturedDtoVisualPos.Y - Program.TileSize * 0.8f);
 							Raylib.DrawRectangle(bx, by, (int)w, 5, new Color(60, 0, 0, 180));
 							Raylib.DrawRectangle(bx, by, (int)(w * ratio), 5, new Color(80, 200, 80, 220));
 							// Nom personnalisé
@@ -4611,7 +4840,7 @@ float stackY = baseY - (lvl - 1) * ts;
 
 						if (cActiveIcons.Count > 0)
 						{
-							Vector2 iconBasePos = new Vector2(capturedDto.PosX, capturedDto.PosY);
+							Vector2 iconBasePos = capturedDtoVisualPos;
 							renderItems.Add(new RenderItem
 							{
 								Y = float.MaxValue - 1000,
@@ -4699,6 +4928,7 @@ float stackY = baseY - (lvl - 1) * ts;
 							ghostly: e.IsSpiritAnimal,
 							ghostTrailKey: e.NetId.ToString(),
 							slimeStoredItem: e.IsSlime ? e.GetSlimeStorageSlot().Item : null,
+							blendKey: e,
 							drawMount: mount != null ? () =>
 							{
 								var m = mount;
@@ -4724,7 +4954,8 @@ float stackY = baseY - (lvl - 1) * ts;
 									eyebrowRightOffset: m.EyebrowRightOffset,
 									randomFeatureVariant: m.RandomFeatureVariant,
 									randomFeatureColor: m.RandomFeatureColor,
-									beardStyle: m.BeardStyle);
+									beardStyle: m.BeardStyle,
+									blendKey: m);
 							} : null);
 						//  Plus de bulle de dialogue au-dessus de la tête : le PNJ s'arrête,
 						// s'oriente vers son interlocuteur (Entity.Update) et "articule" via
@@ -4735,7 +4966,7 @@ float stackY = baseY - (lvl - 1) * ts;
 							Vector2 entityDrawPos = new Vector2(e.WorldPos.X, e.WorldPos.Y + yOffset - e.VisualOffsetY);
 							float topY = EntityRenderer.GetVisualTopY(
 								e.Species, e.AnimState, e.CurrentFrame, e.AnimProgress,
-								e.Facing, entityDrawPos, e.Scale);
+								e.Facing, entityDrawPos, e.Scale, blendKey: e);
 							float w = Program.TileSize * 1.35f;
 							float h = 7f;
 							float bx = e.WorldPos.X - w / 2f;
@@ -4786,7 +5017,7 @@ float stackY = baseY - (lvl - 1) * ts;
 				bool showGuildIcon = e.IsVillager && GuildRecruitManager.CanAccept(e)
 					&& Program.PlayerGuild != null && _guildJoinIcon.Id != 0;
 				bool showTrackerIcon = false;
-				foreach (var quest in QuestManager.GetPersistedQuestsSnapshot())
+				foreach (var quest in trackerQuests!)
 				{
 					if (quest.State == QuestState.Accepted && quest.TargetId == e.NetId)
 					{
@@ -4947,6 +5178,9 @@ float stackY = baseY - (lvl - 1) * ts;
 					var playerHairBaseTex = hairBase.Count > 0 ? hairBase[hairIndex] : new Texture2D();
 					var playerHairOverlayTex = hairOverlay.Count > 0 ? hairOverlay[hairIndex] : new Texture2D();
 					var capturedExtraPlayer = extraPlayer;
+					object capturedExtraPoseBlendKey = capturedExtraPlayer.Id >= 0
+						? EntityRenderer.GetStablePoseBlendKey($"player:{capturedExtraPlayer.Id}")
+						: capturedExtraPlayer;
 					var capturedExtraDrawPos = actualDrawPos;
 					var capturedExtraSkin = extraPlayer.SkinColorOverride ?? pSkin;
 					var capturedExtraTint = extraPlayer.MorphTintOverride ?? capturedExtraSkin;
@@ -5005,7 +5239,8 @@ underwearTexture: capturedExtraUnderwear,
 									eyebrowLeftOffset: capturedExtraGaze.Item3,
 									eyebrowRightOffset: capturedExtraGaze.Item4,
 									randomFeatureVariant: capturedExtraFeatureVariants,
-									randomFeatureColor: capturedExtraFeatureColors);
+									randomFeatureColor: capturedExtraFeatureColors,
+									blendKey: capturedExtraPoseBlendKey);
 
 							//  MULTIJOUEUR : pseudo + barre de vie
 							// PVP : si ce joueur a activé le PVP, on ne l'affiche pas pour ne pas
@@ -5019,7 +5254,8 @@ underwearTexture: capturedExtraUnderwear,
 									capturedExtraPlayer.AnimFrame,
 									capturedExtraPlayer.AnimProg,
 									capturedExtraPlayer.Facing,
-									capturedExtraDrawPos);
+									capturedExtraDrawPos,
+									blendKey: capturedExtraPoseBlendKey);
 
 								float barWidth = 48f;
 								float barHeight = 7f;
@@ -5213,6 +5449,7 @@ underwearTexture: capturedExtraUnderwear,
 							forceBlinking: materializing || Program.IsBlinking,
 							randomFeatureVariant: Program.PlayerMorphFeatureVariants,
 							randomFeatureColor: Program.PlayerMorphFeatureColors,
+							blendKey: Program.PlayerPoseBlendKey,
 							drawCarriedEntity: isCarryingCreature && !materializing ? () =>
 							{
 								string carriedSpeciesKey = carriedCreatureRef!.Species.ToLower();
@@ -5220,7 +5457,8 @@ underwearTexture: capturedExtraUnderwear,
 
 								Vector2 carriedPos = EntityRenderer.GetCarryAnchorWorldPos(
 													speciesToDraw, playerFacing, actualDrawPos, playerSkeletons,
-									anim: playerAnim, frame: playerFrame, prog: playerProg);
+									anim: playerAnim, frame: playerFrame, prog: playerProg,
+									blendKey: Program.PlayerPoseBlendKey);
 								// GetCarryAnchorWorldPos renvoie le PIVOT de rarmbottom (coude/poignet),
 								// pas la main. On pousse donc vers l'avant/le bas pour amener la créature
 								// à la position tenue, bien au bout du bras.
@@ -5235,7 +5473,8 @@ underwearTexture: capturedExtraUnderwear,
 									eyes: EntityRenderer.GetEyesTextureForSpecies(carriedSpeciesKey),
 									customScale: 1.0f,
 									randomFeatureVariant: carriedCreatureRef.RandomFeatureVariant,
-									randomFeatureColor: carriedCreatureRef.RandomFeatureColor
+									randomFeatureColor: carriedCreatureRef.RandomFeatureColor,
+									blendKey: carriedCreatureRef
 								);
 							} : null,
 							drawMount: mountedAnimal != null && !materializing ? () =>
@@ -5265,7 +5504,8 @@ underwearTexture: capturedExtraUnderwear,
 									eyebrowRightOffset: m.EyebrowRightOffset,
 									randomFeatureVariant: m.RandomFeatureVariant,
 									randomFeatureColor: m.RandomFeatureColor,
-									beardStyle: m.BeardStyle);
+									beardStyle: m.BeardStyle,
+									blendKey: m);
 							} : null
 						);
 						if (soulMaterializationShaderActive)
@@ -5327,6 +5567,9 @@ underwearTexture: capturedExtraUnderwear,
 			// Y égal d'une frame à l'autre, ce qui les faisait clignoter/se repasser devant l'un
 			// l'autre. Avec ce départage, l'ordre devient un ordre total déterministe : à
 			// configuration égale, deux sprites à Y égal se dessinent toujours dans le même ordre.
+			PerfStats.EndSection(PerfStats.Section.WorldRenderPrepare);
+			PerfStats.NotifyRenderItems(renderItems.Count);
+			PerfStats.StartSection(PerfStats.Section.RenderItemSort);
 			for (int ri = 0; ri < renderItems.Count; ri++)
 			{
 				var tmp = renderItems[ri];
@@ -5341,46 +5584,51 @@ underwearTexture: capturedExtraUnderwear,
 				if (c != 0) return c;
 				return a.SortIndex.CompareTo(b.SortIndex);
 			});
+			PerfStats.EndSection(PerfStats.Section.RenderItemSort);
+			PerfStats.StartSection(PerfStats.Section.RenderItemDraw);
 			foreach (var item in renderItems) item.Draw();
+			PerfStats.EndSection(PerfStats.Section.RenderItemDraw);
+			PerfStats.EndEntityRenderFrame();
 			_renderItemsPool = renderItems; // On garde la liste pour reuse
 			
 			// Hitboxes debug
+			PerfStats.StartSection(PerfStats.Section.WorldDrawTail);
+			PerfStats.StartSection(PerfStats.Section.WorldDebugOverlay);
 			if (showDebug)
 			{
-				foreach (var entity in entities)
+				if (DebugOverlaySettings.EntityHitboxes || DebugOverlaySettings.AiDiagnostics
+					|| DebugOverlaySettings.VehicleAndAttackHitboxes)
 				{
-					if (!entity.IsAlive) continue;
-					Vector2 entityDebugPos = entity.VisualWorldPos;
-					if (!ShouldRenderEntity(entity)) continue;
-					Rectangle hitboxRect = GetEntityCollisionHitbox(entityDebugPos, entity.Species, ts);
-					Rectangle damageHitboxRect = GetEntityDamageHitbox(entity, ts);
-					Raylib.DrawRectangleLinesEx(hitboxRect, 2, Color.Red);
-					Raylib.DrawRectangleLinesEx(damageHitboxRect, 2, Color.Blue);
-					string speciesName = entity.Species;
-					int textWidth = Raylib.MeasureText(speciesName, 10);
-					Raylib.DrawText(speciesName,
-						(int)(hitboxRect.X + hitboxRect.Width / 2 - textWidth / 2),
-						(int)(hitboxRect.Y - 12), 10, Color.White);
+					foreach (var entity in entities)
+					{
+						if (!entity.IsAlive) continue;
+						if (!ShouldRenderEntity(entity)) continue;
+						Vector2 entityDebugPos = entity.VisualWorldPos;
+						if (DebugOverlaySettings.VehicleAndAttackHitboxes)
+							entity.DrawAttackDebugZone();
 
-					//  Trajectoire IA (voir Entity.DrawPath) : dessinée ici, au même endroit et de
-					// la même façon que la hitbox ci-dessus (coordonnées MONDE directes, on est
-					// toujours dans le BeginMode2D de la caméra). Avant, ce dessin était fait dans
-					// Program.cs via GetWorldToScreen2D alors qu'on était déjà dans un bloc
-					// BeginMode2D : ça double-transformait les coordonnées (positions décalées et
-					// fausses dès qu'on zoomait/dézoomait). Le placer ici, après le rendu du sol/
-					// des objets, corrige aussi le fait que les lignes étaient recouvertes par le
-					// sol dessiné ensuite.
-					entity.DrawPath();
+						if (DebugOverlaySettings.EntityHitboxes)
+						{
+							Rectangle hitboxRect = GetEntityCollisionHitbox(entityDebugPos, entity.Species, ts);
+							Rectangle damageHitboxRect = GetEntityDamageHitbox(entity, ts);
+							Raylib.DrawRectangleLinesEx(hitboxRect, 2, Color.Red);
+							Raylib.DrawRectangleLinesEx(damageHitboxRect, 2, Color.Blue);
+							string speciesName = entity.Species;
+							int textWidth = Raylib.MeasureText(speciesName, 10);
+							Raylib.DrawText(speciesName,
+								(int)(hitboxRect.X + hitboxRect.Width / 2 - textWidth / 2),
+								(int)(hitboxRect.Y - 12), 10, Color.White);
+						}
 
-					//  Pile de priorités IA (du moins important en haut au plus important en
-					// bas, juste au-dessus de la tête) : permet de voir en un coup d'œil ce que
-					// le PNJ a choisi de faire et où ça se situe dans l'échelle des priorités,
-					// notamment quand il vient d'abandonner un objectif inaccessible (voir
-					// Entity.AbandonCurrentGoal).
-					entity.DrawPriorityDebugLabels();
+						if (DebugOverlaySettings.AiDiagnostics)
+						{
+							entity.DrawPath();
+							entity.DrawPriorityDebugLabels();
+						}
+					}
 				}
 
-				if (drawPlayer)
+				if (DebugOverlaySettings.EntityHitboxes && drawPlayer)
 				{
 					Rectangle playerCollision = GetEntityCollisionHitbox(playerPos, Program.GetPlayerCollisionDimensions(), ts);
 					Rectangle playerDamage = GetEntityDamageHitbox(playerPos, Program.PlayerMorphSpecies, ts);
@@ -5389,7 +5637,7 @@ underwearTexture: capturedExtraUnderwear,
 					Raylib.DrawText("joueur local", (int)playerDamage.X, (int)(playerDamage.Y - 12), 10, Color.White);
 				}
 
-				if (playersToRender != null)
+				if (DebugOverlaySettings.EntityHitboxes && playersToRender != null)
 				{
 					foreach (var remotePlayer in playersToRender)
 					{
@@ -5408,44 +5656,48 @@ underwearTexture: capturedExtraUnderwear,
 				// collisions et pour la détection de clic). Avant, seules les entités et les
 				// quelques tuiles voisines débordées par une hitbox (contour orange ci-dessous)
 				// étaient visibles en debug — l'objet lui-même n'affichait jamais sa hitbox.
-				for (int dhx = startX; dhx <= endX; dhx++)
+				if (DebugOverlaySettings.TileHitboxes)
 				{
-					for (int dhy = startY; dhy <= endY; dhy++)
+					for (int dhx = startX; dhx <= endX; dhx++)
 					{
-						int dhObjectId = GetObjectIdAt(dhx, dhy);
-						if (dhObjectId == 0) continue;
-						var dhTileData = WorldTileRegistry.GetTile(dhObjectId);
-						if (dhTileData == null) continue;
-						var (dhX, dhY, dhW, dhH) = GetCollisionRect(dhx, dhy, dhTileData, ts);
-						Raylib.DrawRectangleLinesEx(new Rectangle(dhX, dhY, dhW, dhH), 2, Color.Lime);
-					}
-				}
-
-				//  DIAGNOSTIC : contour orange sur chaque tuile visible que le pathfinding
-				// considère bloquée alors qu'elle n'a AUCUN objectId propre (donc pas détectée
-				// par le check direct "objectId != 0 && !Walkable" — uniquement via le
-				// débordement de hitbox d'un objet voisin, voir GetHitboxBlockedTiles). Sert à
-				// vérifier visuellement si une tuile sur laquelle un PNJ fonce est vue comme
-				// libre ou bloquée par le pathfinding, et par quel mécanisme.
-				if (visibleObjectCount > 0)
-				{
-					var pfBlocked = GetHitboxBlockedTiles(startX, endX, startY, endY, destroyed);
-					for (int dbx = startX; dbx <= endX; dbx++)
-					{
-						for (int dby = startY; dby <= endY; dby++)
+						for (int dhy = startY; dhy <= endY; dhy++)
 						{
-							if (!pfBlocked.Contains((dbx, dby))) continue;
-							if (GetObjectIdAt(dbx, dby) != 0) continue; // déjà visible via l'objet lui-même
-							int dbHeight = GetHeightAt(dbx, dby);
-							int dbBaseY = dby * ts - (dbHeight * ts / 4);
-							Raylib.DrawRectangleLinesEx(new Rectangle(dbx * ts, dbBaseY, ts, ts), 2, Color.Orange);
+							int dhObjectId = GetObjectIdAt(dhx, dhy);
+							if (dhObjectId == 0) continue;
+							var dhTileData = WorldTileRegistry.GetTile(dhObjectId);
+							if (dhTileData == null) continue;
+							var (dhX, dhY, dhW, dhH) = GetCollisionRect(dhx, dhy, dhTileData, ts);
+							Raylib.DrawRectangleLinesEx(new Rectangle(dhX, dhY, dhW, dhH), 2, Color.Lime);
+						}
+					}
+
+					// Tuiles sans objet directement dessus mais bloquées par la hitbox d'un objet voisin.
+					if (visibleObjectCount > 0)
+					{
+						var pfBlocked = GetHitboxBlockedTiles(startX, endX, startY, endY, destroyed);
+						for (int dbx = startX; dbx <= endX; dbx++)
+						{
+							for (int dby = startY; dby <= endY; dby++)
+							{
+								if (!pfBlocked.Contains((dbx, dby))) continue;
+								if (GetObjectIdAt(dbx, dby) != 0) continue;
+								int dbHeight = GetHeightAt(dbx, dby);
+								int dbBaseY = dby * ts - (dbHeight * ts / 4);
+								Raylib.DrawRectangleLinesEx(new Rectangle(dbx * ts, dbBaseY, ts, ts), 2, Color.Orange);
+							}
 						}
 					}
 				}
 			}
+			PerfStats.EndSection(PerfStats.Section.WorldDebugOverlay);
 
 			// Interactions UI
-			var interactionsByTile = new Dictionary<(int x, int y), List<(string actionKey, string actionType, Texture2D icon)>>();
+			PerfStats.StartSection(PerfStats.Section.InteractionPrompts);
+			//  PERF : avant, on construisait un Dictionary + une List par tuile interactive visible (portes, lits,
+			// cultures, coffres...) puis on ne dessinait QUE celle sous la souris, avec un GetScreenToWorld2D
+			// recalculé à chaque entrée. Maintenant : souris convertie une fois, et on teste la hitbox AVANT de
+			// construire la moindre liste de prompts. Rendu strictement identique.
+			Vector2 promptMouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), Program.GetCurrentCamera());
 			for (int ix = 0; ix < width; ix++)
 			{
 				int worldX = startX + ix;
@@ -5466,10 +5718,12 @@ underwearTexture: capturedExtraUnderwear,
 					bool isCrop = tileData.IsCrop;
 					if (!isCaveEntryExit && !isStation && !isContainer && !isArmorStand && !isFurniture && !isCrop
 						&& !tileData.IsSleepable && !tileData.IsSittable && !tileData.IsInteractable) continue;
-					var key = (worldX, worldY);
-					if (!interactionsByTile.ContainsKey(key))
-						interactionsByTile[key] = new List<(string actionKey, string actionType, Texture2D icon)>();
-					var prompts = interactionsByTile[key];
+					int x = worldX, y = worldY;
+					var (hitboxX, hitboxY, hitboxW, hitboxH) = GetCollisionRect(x, y, tileData, ts);
+					if (!Raylib.CheckCollisionPointRec(promptMouseWorld, new Rectangle(hitboxX, hitboxY, hitboxW, hitboxH)))
+						continue;
+					var prompts = _interactionPromptScratch;
+					prompts.Clear();
 					void AddPrompt(string actionKey, string actionType)
 					{
 						if (prompts.Any(prompt => prompt.actionKey == actionKey)) return;
@@ -5492,21 +5746,7 @@ underwearTexture: capturedExtraUnderwear,
 					}
 					if (isFurniture && !isCarrying && !NetworkManager.IsClient && Program.GetItemIdFromPlaceableId(objectId) != 0)
 						AddPrompt("F", "F");
-				}
-			}
-			foreach (var tile in interactionsByTile)
-			{
-				int x = tile.Key.x, y = tile.Key.y;
-				var interactions = tile.Value;
-				int objectId = GetObjectIdAt(x, y);
-				if (objectId == 0) continue;
-				var tileData = WorldTileRegistry.GetTile(objectId);
-				if (tileData == null) continue;
-				var (hitboxX, hitboxY, hitboxW, hitboxH) = GetCollisionRect(x, y, tileData, ts);
-				Rectangle objRect = new Rectangle(hitboxX, hitboxY, hitboxW, hitboxH);
-				Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), Program.GetCurrentCamera());
-				if (Raylib.CheckCollisionPointRec(mouseWorld, objRect))
-				{
+
 					float objectX = x * ts + (tileData.DrawOffset?.X ?? 0);
 					float objectY = y * ts - (GetHeightAt(x, y) * ts / 4) + ts;
 					float objectWidth = ts;
@@ -5524,9 +5764,9 @@ underwearTexture: capturedExtraUnderwear,
 					}
 					float centerX = objectX + objectWidth / 2f;
 					float baseIconY = objectY - ts / 2f - 10f;
-					for (int i = 0; i < interactions.Count; i++)
+					for (int i = 0; i < prompts.Count; i++)
 					{
-						var (actionKey, actionType, iconTex) = interactions[i];
+						var (actionKey, actionType, iconTex) = prompts[i];
 						Color textColor = actionType switch
 						{
 							"craft" => new Color(100, 200, 100, 255),
@@ -5576,6 +5816,8 @@ underwearTexture: capturedExtraUnderwear,
 				}
 			}
 
+			PerfStats.EndSection(PerfStats.Section.InteractionPrompts);
+
 			if (_isUnderground)
 			{
 				bool nearExit = false;
@@ -5597,6 +5839,7 @@ underwearTexture: capturedExtraUnderwear,
 				int tw = Raylib.MeasureText(caveText, 16);
 				Raylib.DrawText(caveText, (sw - tw) / 2, sh - 40, 16, new Color(200, 150, 50, 200));
 			}
+			PerfStats.EndSection(PerfStats.Section.WorldDrawTail);
 		}
     }
 }

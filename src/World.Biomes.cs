@@ -35,7 +35,13 @@ namespace Soulfract
 		private static Color GetWaterColor(int tileX, int tileY, float currentTime)
 		{
 			// Récupérer l'élévation (profondeur) - plus l'élévation est basse, plus c'est profond
-            float elevation = GetClimateAt(tileX, tileY).elevation;
+			return GetWaterColorFromElevation(GetClimateAt(tileX, tileY).elevation);
+		}
+
+		//  PERF : même calcul que GetWaterColor, mais à partir d'une élévation déjà connue (le rendu
+		// la lit une seule fois par tuile d'eau au lieu de deux lookups dans le cache climat).
+		private static Color GetWaterColorFromElevation(float elevation)
+		{
 			
 			// Facteur de profondeur (0 = très profond, 1 = très peu profond)
 			float depthFactor;
@@ -173,6 +179,29 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
             _heightCache.Clear();
             _terrainCacheSeed = seed;
         }
+
+		//  PERF : GetHeightAt() pour une tuile dont le chunk de surface est DÉJÀ en main (le rendu le
+		// récupère une fois par chunk). Évite de refaire le calcul de chunk + le lookup dans _chunks
+		// pour chaque tuile. À n'utiliser que hors sous-sol et hors donjon (là, GetHeightAt classique).
+		private static int GetHeightAtWithChunk(int tileX, int tileY, ChunkData? chunk)
+		{
+			if (chunk != null && chunk.Heights.TryGetValue((tileX, tileY), out int h))
+				return h;
+			if (tileX == int.MinValue || tileX == int.MaxValue || tileY == int.MinValue || tileY == int.MaxValue)
+				return 0;
+
+			EnsureTerrainCachesMatchSeed();
+			if (!_heightCache.TryGetValue((tileX, tileY), out int height))
+			{
+				var climate = GetClimateAt(tileX, tileY);
+				height = (int)(climate.elevation * MAX_HEIGHT_LEVELS);
+				if (height > MAX_HEIGHT_LEVELS - 1) height = MAX_HEIGHT_LEVELS - 1;
+				if (_heightCache.Count >= MAX_TERRAIN_CACHE_ENTRIES)
+					_heightCache.Clear();
+				_heightCache[(tileX, tileY)] = height;
+			}
+			return height;
+		}
 
 		public static int GetHeightAt(int tileX, int tileY)
 		{
@@ -358,22 +387,22 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
             return biome switch
             {
                 Biome.Desert => new[] { "chicken", "sheep", "hyena", "scorpio", "slime", "insect" },
-                Biome.Savanna => new[] { "pig", "sheep", "chicken", "hyena" },
-                Biome.Jungle => new[] { "pig", "wolf", "chicken", "duck" },
+                Biome.Savanna => new[] { "pig", "sheep", "chicken", "hyena", "dodo" },
+                Biome.Jungle => new[] { "pig", "wolf", "chicken", "duck", "dodo" },
                 Biome.Swamp => new[] { "pig", "chicken", "duck" },
                 Biome.Plains => new[] { "pig", "sheep", "cow", "chicken", "slime", "insect" },
-                Biome.Forest => new[] { "pig", "wolf", "bear", "chicken", "duck" },
-                Biome.DarkForest => new[] { "wolf", "bear", "spider" },
-                Biome.BirchForest => new[] { "pig", "wolf", "chicken" },
+                Biome.Forest => new[] { "pig", "wolf", "bear", "chicken", "duck", "raccoon" },
+                Biome.DarkForest => new[] { "wolf", "bear", "spider", "raccoon" },
+                Biome.BirchForest => new[] { "pig", "wolf", "chicken", "raccoon" },
                 Biome.Tundra => new[] { "penguin", "wolf", "sheep", "slime" },
                 Biome.Steppe => new[] { "horse", "sheep" },
-                Biome.Taiga => new[] { "wolf", "bear", "fox" },
+                Biome.Taiga => new[] { "wolf", "bear", "fox", "raccoon" },
                 Biome.SnowyForest => new[] { "penguin", "wolf", "bear", "slime" },
                 Biome.Snow => new[] { "penguin", "wolf", "slime" },
                 Biome.IceSpikes => new[] { "penguin", "wolf", "slime" },
                 Biome.Mountains => new[] { "goat", "wolf", "bear" },
                 Biome.Peak => new[] { "goat" },
-                Biome.Beach => new[] { "turtle", "crab", "chicken", "duck" },
+                Biome.Beach => new[] { "turtle", "crab", "chicken", "duck", "dodo" },
                 _ => new[] { "pig", "sheep", "chicken" }
             };
         }
@@ -398,11 +427,11 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
             };
         }
 
-        private static void DrawCliffBorder(int x, int y, int directionX, int directionY, int ts, Texture2D cliffBorderTex)
+        private static void DrawCliffBorder(int x, int y, int directionX, int directionY, int ts, Texture2D cliffBorderTex, int? knownHeight = null)
         {
             if (cliffBorderTex.Id == 0) return;
             int baseX = x * ts;
-            int baseY = y * ts - (GetHeightAt(x, y) * ts / 4);
+            int baseY = y * ts - ((knownHeight ?? GetHeightAt(x, y)) * ts / 4);
             Rectangle src = new Rectangle(0, 0, cliffBorderTex.Width, cliffBorderTex.Height);
             Rectangle dest;
             float rotation = 0;

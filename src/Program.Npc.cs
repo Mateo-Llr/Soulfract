@@ -59,6 +59,270 @@ namespace Soulfract
 			return NetworkManager.IsClient ? NetworkManager.GetVillagerProxies() : entities;
 		}
 
+		private static List<Entity> GetMusicBipeds()
+		{
+			return NetworkManager.IsClient ? NetworkManager.GetMusicBipedProxies() : entities;
+		}
+
+		public static bool IsMusicBandMember(Entity entity)
+		{
+			if (!entity.IsAlive || SpeciesData.GetSpeciesInfo(entity.Species)?.Type != "biped")
+				return false;
+
+			if (entity.IsGuildMember)
+				return true;
+
+			return entity.IsTamed && !entity.IsHostilePet && entity.OwnerNpcId == null;
+		}
+
+		private static Entity? FindMusicBipedUnderMouse(Camera2D camera)
+		{
+			Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
+			float bestDistSq = 50f * 50f;
+			Entity? closest = null;
+
+			foreach (var entity in GetMusicBipeds())
+			{
+				if (!IsMusicBandMember(entity))
+					continue;
+
+				Vector2 entityVisualPos = entity.VisualWorldPos;
+				int tileX = (int)(entityVisualPos.X / TileSize);
+				int tileY = (int)(entityVisualPos.Y / TileSize);
+				int height = World.GetHeightAt(tileX, tileY);
+				Vector2 visualPos = new(entityVisualPos.X, entityVisualPos.Y - height * TileSize / 4f);
+				float distSq = Vector2.DistanceSquared(mouseWorld, visualPos);
+				if (distSq < bestDistSq)
+				{
+					bestDistSq = distSq;
+					closest = entity;
+				}
+			}
+
+			return closest;
+		}
+
+		private static bool TryInteractWithMusicBiped(Camera2D camera)
+		{
+			if (PlayerCurrentCar != null)
+				return false;
+
+			Item? offeredItem = InventoryRenderer.GetHotbarItem(hotbarSlot);
+			if (offeredItem == null)
+				return false;
+			int instrumentId = GetItemId(offeredItem.Name);
+			if (!GameData.ItemDatabase.TryGetValue(instrumentId, out var itemData) || !itemData.IsInstrument)
+				return false;
+
+			Entity? target = FindMusicBipedUnderMouse(camera);
+			if (target == null)
+				return false;
+
+			float interactionRange = Math.Max(TileSize * 5f, 160f);
+			if (Vector2.DistanceSquared(GetPlayerPosition(), target.WorldPos) > interactionRange * interactionRange)
+			{
+				AddNotification(new Notification("Rapprochez-vous du bipède pour lui donner un instrument.", Color.Orange, 2f));
+				return true;
+			}
+
+			NetworkManager.RequestInstrumentExchange(target.NetId, instrumentId, offeredItem);
+			return true;
+		}
+
+		public static bool TryExchangeInstrument(Entity target, Item instrument, out string message)
+		{
+			message = "L'échange d'instrument a échoué.";
+			int instrumentId = GetItemId(instrument.Name);
+			if (!IsMusicBandMember(target) || target.Equipment == null ||
+				!GameData.ItemDatabase.TryGetValue(instrumentId, out var instrumentData) ||
+				!instrumentData.IsInstrument || !instrumentData.HasEquipSlot ||
+				instrumentData.EquipSlot != EquipmentSlot.MainHand)
+				return false;
+
+			Item? previousItem = target.Equipment.MainHand;
+			if (previousItem != null && GetItemId(previousItem.Name) == instrumentId)
+			{
+				message = $"{target.DisplayName} possède déjà cet instrument.";
+				return false;
+			}
+
+			InventorySlot? previousItemSlot = previousItem == null
+				? null
+				: target.Inventory.Slots.FirstOrDefault(slot => !slot.IsEmpty && ReferenceEquals(slot.Item, previousItem));
+			List<InventorySlot> freeSlots = target.Inventory.Slots.Where(slot => slot.IsEmpty).ToList();
+			InventorySlot? previousItemDestination = previousItem != null && previousItemSlot == null
+				? freeSlots.FirstOrDefault()
+				: null;
+			InventorySlot? instrumentDestination = freeSlots.FirstOrDefault(slot => slot != previousItemDestination);
+			if (instrumentDestination == null || (previousItem != null && previousItemDestination == null && previousItemSlot == null))
+			{
+				message = $"L'inventaire de {target.DisplayName} n'a pas assez de place pour cet instrument.";
+				return false;
+			}
+
+			if (previousItemDestination != null)
+			{
+				previousItemDestination.Item = previousItem;
+				previousItemDestination.Count = 1;
+			}
+
+			instrument.Count = 1;
+			instrumentDestination.Item = instrument;
+			instrumentDestination.Count = 1;
+
+			foreach (var key in target.Equipment.EquippedItems.Keys
+				.Where(key => key.slot == EquipmentSlot.MainHand).ToList())
+				target.Equipment.EquippedItems.Remove(key);
+
+			target.Equipment.MainHand = null;
+			target.Equipment.MainHandContainer = null;
+			if (!target.Equipment.EquipItem(instrument, EquipmentSlot.MainHand))
+			{
+				instrumentDestination.Clear();
+				if (previousItemDestination != null)
+					previousItemDestination.Clear();
+				if (previousItem != null)
+				{
+					target.Equipment.MainHand = previousItem;
+					target.Equipment.EquippedItems[(EquipmentSlot.MainHand, 0)] = previousItem;
+				}
+				message = "Cet instrument ne peut pas être équipé dans la main droite.";
+				return false;
+			}
+
+			target.Equipment.LoadEquipmentTextures();
+			message = previousItem != null
+				? $"Instrument donné à {target.DisplayName} et rangé dans son inventaire. Son objet précédent y a aussi été rangé."
+				: $"{target.DisplayName} a rejoint votre groupe musical.";
+			return true;
+		}
+
+		public static Item? CreateInstrumentFromGrant(ItemGrantMsg grant)
+		{
+			if (!GameData.ItemDatabase.TryGetValue(grant.ItemId, out var itemData) || !itemData.IsInstrument)
+				return null;
+
+			var item = new Item(itemData.Name, 1, itemData.Color, itemData.Icon);
+			if (grant.Colors != null && grant.Colors.Count > 0)
+				item.CustomColors = grant.Colors.Select(color => color != null
+					? (Color?)new Color(color.R, color.G, color.B, color.A)
+					: null).ToList();
+			item.RestoreMetadataFromSave(grant.Metadata ?? "");
+			if (grant.Meta != null)
+				foreach (var pair in grant.Meta)
+					item.Meta[pair.Key] = pair.Value;
+			item.Container = grant.PortableContainer != null
+				? RestorePortableContainer(grant.PortableContainer)
+				: null;
+			item.Backpack = grant.Backpack != null
+				? RestoreBackpack(grant.Backpack)
+				: null;
+			return item;
+		}
+
+		public static List<MusicPerformer> GetMusicBandPerformers(int additionalPlayerId, int additionalInstrumentId)
+		{
+			var performers = new List<MusicPerformer>();
+			var includedPlayers = new HashSet<int>();
+
+			void AddPlayerInstrument(int playerId, int itemId)
+			{
+				if (itemId <= 0 || !includedPlayers.Add(playerId) ||
+					!GameData.ItemDatabase.TryGetValue(itemId, out var itemData) || !itemData.IsInstrument)
+					return;
+
+				performers.Add(new MusicPerformer
+				{
+					Program = MusicPlayer.GetInstrumentProgram(itemData.Name),
+					PlayerId = playerId,
+					IsPercussion = MusicPlayer.IsPercussionInstrument(itemData.Name)
+				});
+			}
+
+			AddPlayerInstrument(NetworkManager.LocalConnectionId, GetMusicInstrumentId(equipment));
+			AddPlayerInstrument(additionalPlayerId, additionalInstrumentId);
+
+			foreach (var entity in GetMusicBipeds())
+			{
+				if (!IsMusicBandMember(entity) || entity.Equipment == null)
+					continue;
+
+				int instrumentId = GetMusicInstrumentId(entity.Equipment);
+				if (instrumentId > 0 && GameData.ItemDatabase.TryGetValue(instrumentId, out var itemData))
+					performers.Add(new MusicPerformer
+					{
+						Program = MusicPlayer.GetInstrumentProgram(itemData.Name),
+						EntityNetId = entity.NetId.ToString(),
+						IsPercussion = MusicPlayer.IsPercussionInstrument(itemData.Name)
+					});
+			}
+
+			return performers.Take(15).ToList();
+		}
+
+		private static int GetMusicInstrumentId(Equipment? entityEquipment)
+		{
+			if (entityEquipment == null)
+				return 0;
+
+			foreach (var item in new[]
+			{
+				entityEquipment.MainHand,
+				entityEquipment.GetItemInSlot(EquipmentSlot.Instrument),
+				entityEquipment.OffHand
+			})
+			{
+				if (item == null)
+					continue;
+				int itemId = GetItemId(item.Name);
+				if (GameData.ItemDatabase.TryGetValue(itemId, out var itemData) && itemData.IsInstrument)
+					return itemId;
+			}
+
+			return 0;
+		}
+
+		public static void EmitMusicNoteParticle(MusicPerformer performer, int pitch, int velocity, float duration)
+		{
+			Vector2 origin;
+			if (performer.PlayerId >= 0)
+			{
+				if (!NetworkManager.TryGetMusicPlayerPosition(performer.PlayerId, out origin))
+					return;
+				origin.Y -= 24f;
+			}
+			else if (Guid.TryParse(performer.EntityNetId, out var entityNetId))
+			{
+				if (!NetworkManager.TryGetMusicEntityPosition(entityNetId, out origin))
+					return;
+				origin.Y -= 28f;
+			}
+			else
+			{
+				return;
+			}
+
+			float sideOffset = (float)(Random.Shared.NextDouble() * 12f - 6f);
+			float riseSpeed = 24f + Math.Clamp(pitch - 36, 0, 48) * 1.2f;
+			float horizontalSpeed = sideOffset * 1.8f + (float)(Random.Shared.NextDouble() * 8f - 4f);
+			float durationFactor = Math.Clamp(duration, 0.1f, 2.5f);
+			float size = 7f + Math.Clamp(durationFactor * 2f, 0f, 5f) + velocity / 100f;
+			float lifetime = Math.Clamp(0.55f + durationFactor * 0.38f, 0.6f, 1.6f);
+
+			GetParticleList().Add(new MusicNoteParticle(
+				origin + new Vector2(sideOffset, 0),
+				new Vector2(horizontalSpeed, -riseSpeed),
+				pitch,
+				size,
+				lifetime));
+		}
+
+		public static void ApplyInstrumentExchangeResult(int offeredInstrumentId)
+		{
+			if (GameData.ItemDatabase.TryGetValue(offeredInstrumentId, out var offeredItem))
+				RemoveItemFromInventory(offeredItem.Name, 1);
+		}
+
 		//  SYSTÈME DE QUÊTES (TameAndBring) : animal proposé au don, en attente de la réponse
 		// du joueur dans la bulle de confirmation ouverte par TryDeliverQuestWithNpc.
 		private static Entity? _pendingGiftAnimal = null;

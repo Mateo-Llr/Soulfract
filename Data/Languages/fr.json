@@ -350,6 +350,8 @@
     "item.description.wool":  "Douce et chaude",
     "item.name.egg":  "Œuf",
     "item.description.egg":  "Frais du matin",
+    "item.name.dodo_egg":  "Œuf de dodo",
+    "item.description.dodo_egg":  "Un œuf pondu par un dodo",
     "item.name.milk":  "Lait",
     "item.description.milk":  "Nutritif et rafraîchissant",
     "item.name.feather":  "Plume",

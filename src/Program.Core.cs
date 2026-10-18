@@ -441,6 +441,7 @@ void main()
 			{
 				FontManager.UnloadFont();
 				ProceduralNpcVoice.Unload();
+				MusicPlayer.Shutdown(); // arrête le thread de rendu audio avant de fermer le périphérique
 				Raylib.CloseAudioDevice();
 
 				//  MULTIJOUEUR : se déconnecter proprement avant de quitter
@@ -927,7 +928,7 @@ void main()
 			// Debug (F3)
 			if (KeyBindings.IsPressed(GameAction.ToggleDebug) && _gameState == GameState.Playing)
 			{
-				_showDebug = !_showDebug;
+				CycleDebugMode();
 			}
 			
 			// Fullscreen (F11)
@@ -985,6 +986,7 @@ void main()
 			// Dans HandleInput, après la gestion des interactions de station, etc.
 			if (KeyBindings.IsPressed(GameAction.Interact) && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen && !QuestDialogUI.IsOpen)
 			{
+				if (TryInteractWithMusicBiped(inputCamera)) return;
 				if (TryHandleWagonInteraction()) return;
 
 				// Cas 1 : on est dans une voiture → descendre
@@ -1310,10 +1312,15 @@ void main()
 			// 7. ACTIONS PHYSIQUES BLOQUÉES PAR L'UI (mais menu fermé)
 			// ========================================================
 
+			if (Raylib.IsKeyPressed(KeyboardKey.M) && !InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen && PlayerCurrentCar == null && !InstrumentUI.IsOpen && InstrumentUI.GetEquippedInstrument() != null)
+			{
+				InstrumentUI.Open();
+			}
+
 			bool instrumentOpenRequested = Raylib.IsMouseButtonPressed(MouseButton.Left) && !InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen && PlayerCurrentCar == null && !_rightClickConsumed;
 			if (instrumentOpenRequested)
 			{
-				Item? heldInstrument = equipment.MainHand;
+				Item? heldInstrument = InstrumentUI.GetEquippedInstrument();
 				if (heldInstrument != null && GameData.ItemDatabase.TryGetValue(GetItemId(heldInstrument.Name), out var data) && data.IsInstrument)
 				{
 					if (GetItemId(heldInstrument.Name) == GameData.GetItemId("flute"))
@@ -3756,12 +3763,12 @@ void main()
 							bool useBulletProjectile = ammoId > 0 && ammoId == GetItemId("pistol_ammo");
 							if (useBulletProjectile)
 							{
-								_bullets.Add(new ArrowProjectile(spawnPos, shootDir, 1800f, Math.Max(1f, equipment.TotalAttack + 4f)) { IsBullet = true });
+								_bullets.Add(new ArrowProjectile(spawnPos, shootDir, 1800f, Math.Max(1f, equipment.TotalAttack + 4f)) { IsBullet = true, IsPlayerWeaponProjectile = true });
 								PlayPistolShootSound();
 							}
 							else
 							{
-								_arrows.Add(new ArrowProjectile(spawnPos, shootDir, 1200f, equipment.TotalAttack));
+								_arrows.Add(new ArrowProjectile(spawnPos, shootDir, 1200f, equipment.TotalAttack) { IsPlayerWeaponProjectile = true });
 							}
 							float weaponShootDelay = Math.Max(0.05f, 1f / Math.Max(0.1f, weaponData.FireRate));
 							_shootCooldown = useBulletProjectile ? weaponShootDelay : Math.Max(weaponShootDelay, _shootDelay);
@@ -4756,6 +4763,12 @@ void main()
 				var e = entities[i];
 				if (!e.IsAlive)
 				{
+					if (e.WasKilledByPlayerWeapon)
+						SoundEffects.PlaySwordKillOrganic();
+					else if (!e.IsTamed && (e.IsBoss
+						|| string.Equals(e.Behavior, "hostile", StringComparison.OrdinalIgnoreCase)))
+						SoundEffects.PlayEnemyDeathPuff();
+
 					if (!e.IsBoss && !e.IsTamed
 						&& string.Equals(e.Behavior, "hostile", StringComparison.OrdinalIgnoreCase))
 					{
@@ -4785,7 +4798,7 @@ void main()
 					SpawnDeathParticles(entityVisualPos, e.Tint);
 					if (TraderUI.IsOpen && TraderUI.GetCurrentTrader() == e) TraderUI.Close();
 					//  MULTIJOUEUR : informer les clients de la mort de cette entité
-					NetworkManager.BroadcastEntityDeath(e.NetId);
+					NetworkManager.BroadcastEntityDeath(e.NetId, e.WasKilledByPlayerWeapon);
 					entities.RemoveAt(i);
 					continue;
 				}
@@ -4848,6 +4861,11 @@ void main()
 
 					PerfStats.NotifyFullAiUpdate();
 					e.Update(dt, destroyedObjects, targetPos, targetHeldItemId);
+					if (e.TryGetRequestedBirdRoost(out int roostX, out int roostY)
+						&& World.TryStoreBirdInTree(roostX, roostY, e.Species))
+					{
+						entities.RemoveAt(i);
+					}
 				}
 			}
 			PerfStats.EndSection(PerfStats.Section.EntityUpdate);
@@ -4892,6 +4910,7 @@ void main()
 				if (!_floatingDamages[i].IsAlive) _floatingDamages.RemoveAt(i);
 			}
 			World.UpdateTreeFalls(dt, _particles);
+			World.UpdateTreeBirds(dt, _playerPos);
 			for (int i = _particles.Count - 1; i >= 0; i--)
 			{
 				_particles[i].Update(dt);
@@ -5941,7 +5960,7 @@ void main()
 					Vector2 drawPosition = new(visualPos.X, visualPos.Y + yOffset - entity.VisualOffsetY);
 					Vector2 eyePosition = EntityRenderer.GetSpiritEyeLightPosition(
 						entity.Species, entity.AnimState, entity.CurrentFrame, entity.AnimProgress,
-						entity.Facing, drawPosition, entity.IsInWater, entity.Scale);
+						entity.Facing, drawPosition, entity.IsInWater, entity.Scale, blendKey: entity);
 					lights.Add((eyePosition, 160, new Color(130, 190, 255, 255)));
 				}
 
@@ -5966,10 +5985,13 @@ void main()
 					if (!spirit.IsSpiritAnimal || spirit.HP <= 0)
 						continue;
 
-					Vector2 drawPosition = new(spirit.PosX, spirit.PosY);
+					Vector2 drawPosition = World.GetEntityGroundPosition(new Vector2(spirit.PosX, spirit.PosY));
+					object spiritPoseBlendKey = string.IsNullOrEmpty(spirit.NetId)
+						? spirit
+						: EntityRenderer.GetStablePoseBlendKey($"entity:{spirit.NetId}");
 					Vector2 eyePosition = EntityRenderer.GetSpiritEyeLightPosition(
 						spirit.Species, spirit.AnimState, spirit.AnimFrame, spirit.AnimProg,
-						spirit.Facing, drawPosition, false, spirit.Scale);
+						spirit.Facing, drawPosition, false, spirit.Scale, blendKey: spiritPoseBlendKey);
 					lights.Add((eyePosition, 160, new Color(130, 190, 255, 255)));
 				}
 			}
@@ -7415,6 +7437,8 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
                  int craftSelected, bool showDebug)
 		{
 			Raylib.BeginDrawing();
+			PerfStats.StartSection(PerfStats.Section.FrameDraw);
+			bool screenOverlaysStarted = false;
 			if (_isSoulArrivalCinematic)
 			{
 				DrawSoulArrivalCinematic();
@@ -7466,6 +7490,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				shakenCamera.Target += _shakeOffset;
 				Raylib.BeginMode2D(shakenCamera);
 				_currentCamera = camera;
+				PerfStats.StartSection(PerfStats.Section.WorldPreDraw);
 				Vector2 mouseWorldPos = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 				(int hoverTileX, int hoverTileY, _, _) = FindTileUnderMouse(mouseWorldPos, TileSize);
 				
@@ -7522,7 +7547,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 						heldItem = hotbarSlots[hotbarSlot].Item;
 				}
 				
-				if (showDebug)
+				if (showDebug && DebugOverlaySettings.VehicleAndAttackHitboxes)
 				{
 					foreach (var car in Program.Cars)
 					{
@@ -7562,19 +7587,21 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				// comme de vrais objets posés au sol (devant/derrière selon la profondeur), sans "case".
 				RitualCircleUI.QueueGroundItems();
 
-				//  DEBUG F3 : mesure le temps passé dans tout le rendu du monde (tuiles, tri par
-				// Y, dessin des entités...), à comparer au temps IA mesuré plus haut. Voir PerfStats.cs.
+				PerfStats.EndSection(PerfStats.Section.WorldPreDraw);
+				PerfStats.StartSection(PerfStats.Section.LightGridPrepare);
 				PrepareLightGridForWorldDraw(camera);
+				PerfStats.EndSection(PerfStats.Section.LightGridPrepare);
 				PerfStats.StartSection(PerfStats.Section.WorldDraw);
 				World.DrawWorld(playerPos, camera, _animState, _animFrame, _animProg, facing, hitboxDim, SkinColor,
 					missingTexture, destroyedObjects, objectHPs, entities, tileTextures,
-					hairBaseTextures, hairOverlayTextures, mouseWorldPos, hoverTileX, hoverTileY, _showDebug,
+					hairBaseTextures, hairOverlayTextures, mouseWorldPos, hoverTileX, hoverTileY, DebugOverlaySettings.AnyEnabled,
 					isCarrying, _isPlayerInWater, _headAngle, _isSitting ? _sittingPosition : null, _playerDepth,
 					playersToRender: remotePlayersToRender, spellProjectiles: _spellProjectiles,
 					drawPlayer: !captureWorldForReveal || _worldRevealAlpha >= 0.82f);
-				if (showDebug)
+				if (showDebug && DebugOverlaySettings.VehicleAndAttackHitboxes)
 					DrawAttackDebugZone(playerPos, mouseWorldPos, facing, heldItem);
 				PerfStats.EndSection(PerfStats.Section.WorldDraw);
+				PerfStats.StartSection(PerfStats.Section.WorldEffects);
 				//  PORTAGE DE CRÉATURES : dessinée désormais à l'intérieur même de World.cs / EntityRenderer,
 				// entre le bras gauche et le bras droit du joueur, pour un rendu correctement superposé.
 
@@ -7714,6 +7741,10 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					else if (particle is ZzzParticle zzz)
 					{
 						zzz.Draw();
+					}
+					else if (particle is MusicNoteParticle musicNote)
+					{
+						musicNote.Draw();
 					}
 					else if (particle is LevelUpStreakParticle streak)
 					{
@@ -7947,6 +7978,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				// rendu du jeu et non une interface plaquée par-dessus.
 				RitualCircleUI.Draw();
 
+				PerfStats.EndSection(PerfStats.Section.WorldEffects);
 				Raylib.EndMode2D();
 				if (captureWorldForReveal)
 				{
@@ -7990,12 +8022,16 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 
 				if (_gameState == GameState.Playing || _gameState == GameState.Paused)
 				{
+					PerfStats.StartSection(PerfStats.Section.ScreenLighting);
 					DrawLighting(camera);
 					//  Léger voile de couleur (bleu-violet la nuit, rose saumon à l'aube,
 					// orange au coucher de soleil), dessiné après le masque de lumière comme
 					// une couche cosmétique en plus, pas un remplacement.
 					DrawDayNightColorFilter();
+					PerfStats.EndSection(PerfStats.Section.ScreenLighting);
 				}
+				PerfStats.StartSection(PerfStats.Section.ScreenOverlays);
+				screenOverlaysStarted = true;
 
 				// Jauge de charge pour le clic gauche
 				if (_isChargingLeftClick && _leftClickSpell.Power != PowerLevel.Weak && PlayerCurrentCar == null && !InventoryRenderer.IsInventoryOpen && !ChatSystem.IsOpen && !QuestDialogUI.IsOpen)
@@ -8432,7 +8468,10 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				DrawDeathScreen();
 			}
 
+			if (screenOverlaysStarted)
+				PerfStats.EndSection(PerfStats.Section.ScreenOverlays);
 			Raylib.EndDrawing();
+			PerfStats.EndSection(PerfStats.Section.FrameDraw);
 		}
 
 	private static void UpdateMainMenuFade(float dt)
@@ -8876,7 +8915,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				new Rectangle(drawX, drawY, w, h),
 				Vector2.Zero, 0, ghostColor);
 
-			if (_showDebug && tileData.CollisionSize != null)
+			if (_showDebug && DebugOverlaySettings.TileHitboxes && tileData.CollisionSize != null)
 			{
 				int colW = ts * tileData.CollisionSize.Width;
 				int colH = ts * tileData.CollisionSize.Height;
@@ -11014,6 +11053,10 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			isAttacking = true;
 			attackAnim = 0.35f;
 			attackCooldown = 0.5f;
+			if (heldItem != null
+				&& GameData.GetItemType(heldItem.Name) is ItemType.Tool or ItemType.Weapon
+				&& !GameData.IsRangedWeapon(heldItem.Name))
+				SoundEffects.PlaySwing();
 
 			if (heldItem != null && GameData.GetToolType(heldItem.Name) == ToolType.Scythe)
 				HarvestScythePlants(GetPlayerAttackOrigin(playerPos), attackDir, attackRadius);
@@ -11022,7 +11065,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 			var pvpTargets = GetPvpTargetsInAttackCone(playerPos, attackDir, attackRadius, ATTACK_ANGLE);
 			if (pvpTargets.Count > 0)
 			{
-				PlayPunchSound();
+				PlayEntityImpactSound(heldItem);
 				int pvpDamage = equipment.TotalAttack;
 				foreach (var target in pvpTargets)
 				{
@@ -11056,12 +11099,14 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				var hitDtos = GetRemoteEntitiesInAttackCone(playerPos, attackDir, attackRadius, ATTACK_ANGLE);
 				if (hitDtos.Count > 0)
 				{
-					PlayPunchSound();
+					PlayEntityImpactSound(heldItem);
 					int clientDamage = equipment.TotalAttack;
 					foreach (var dto in hitDtos)
 					{
 						if (!Guid.TryParse(dto.NetId, out var dtoGuid)) continue;
-						NetworkManager.RequestEntityHit(dtoGuid, clientDamage);
+						bool isPlayerWeapon = heldItem != null
+							&& GameData.GetItemType(heldItem.Name) == ItemType.Weapon;
+						NetworkManager.RequestEntityHit(dtoGuid, clientDamage, isPlayerWeapon);
 						Vector2 dtoVisualPos = new Vector2(dto.PosX, dto.PosY + (World.GetHeightAt((int)(dto.PosX / ts), (int)(dto.PosY / ts)) * -ts / 4));
 						if (!float.IsNaN(dtoVisualPos.X) && !float.IsNaN(dtoVisualPos.Y) &&
 							!float.IsInfinity(dtoVisualPos.X) && !float.IsInfinity(dtoVisualPos.Y))
@@ -11084,7 +11129,7 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 				hitEntities.RemoveAll(e => e.IsInvulnerable);
 			if (hitEntities.Count > 0)
 			{
-				PlayPunchSound(); //  Son de coup une seule fois par attaque qui touche, pas par entité
+				PlayEntityImpactSound(heldItem); // Un son par attaque qui touche, pas par entité.
 				int damage = equipment.TotalAttack;
 				foreach (var entity in hitEntities)
 				{
@@ -11107,6 +11152,10 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 					}
 					if (!entity.IsAlive)
 					{
+						if (heldItem != null
+							&& GameData.GetItemType(heldItem.Name) == ItemType.Weapon)
+							entity.WasKilledByPlayerWeapon = true;
+
 						SkillSystem.AddXP(SkillType.Chasseur, 5);
 						entityVisualPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + (World.GetHeightAt((int)(entity.WorldPos.X / ts), (int)(entity.WorldPos.Y / ts)) * -ts / 4));
 						SpawnDeathParticles(entityVisualPos, entity.Tint);
@@ -11873,6 +11922,9 @@ TextInput.Update(ref _newWorldSeed, "world-seed", seedFieldRect, 11, c => c == '
 
 		private static void TrySpawnBirdFromTreeHit(int treeTileX, int treeTileY)
 		{
+			if (World.ReleaseBirdsFromTree(treeTileX, treeTileY) > 0)
+				return;
+
 			const double escapeChance = 0.18;
 			const float nearbyRadius = 110f;
 			const int maxNearbyBirds = 3;

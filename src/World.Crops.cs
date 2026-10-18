@@ -20,6 +20,12 @@ namespace Soulfract
 		private const float TREE_JOINT_HEIGHT = 16f;
 		private const float TREE_GRAVITY = 980f;
 		private const float TREE_FADE_DURATION = 0.55f;
+		private const string TREE_BIRDS_META_KEY = "tree_birds";
+		private const int MAX_BIRDS_PER_TREE = 3;
+		private static float _treeBirdUpdateAccumulator;
+		private static readonly Dictionary<(int X, int Y), float> _treeBirdSoundCooldowns = new();
+		private static readonly Dictionary<(int X, int Y), float> _treeBirdExitCooldowns = new();
+		private static readonly Dictionary<string, List<Sound>> _treeBirdSounds = new(StringComparer.OrdinalIgnoreCase);
 		private sealed class TreeFallState
 		{
 			public int TreeId;
@@ -42,6 +48,7 @@ namespace Soulfract
 		private static readonly Dictionary<(int x, int y), TreeFallState> _treeFalls = new();
 
 	private static Dictionary<(int x, int y), float> _farmlandMoisture = new();
+	private static readonly List<(int x, int y)> _farmlandMoistureKeys = new();
 
 		private const float FARMLAND_DRYING_TIME = 300f;
 
@@ -161,9 +168,10 @@ namespace Soulfract
 
 		public static void UpdateFarmlandMoisture(float dt)
 		{
-			var moistureKeys = _farmlandMoisture.Keys.ToList();
+			_farmlandMoistureKeys.Clear();
+			_farmlandMoistureKeys.AddRange(_farmlandMoisture.Keys);
 			
-			foreach (var key in moistureKeys)
+			foreach (var key in _farmlandMoistureKeys)
 			{
 				int x = key.x, y = key.y;
 				bool waterConsumed = false;
@@ -805,7 +813,21 @@ namespace Soulfract
 			}
 		}
 
+		//  PERF : la teinte est purement déterministe (seed = position de la tuile), mais elle était
+		// recalculée avec un `new Random(seed)` PAR ARBRE ET PAR FRAME (allocation + init du générateur).
+		// En dézoom forestier ça représente des milliers d'allocations/frame. Résultat identique, mis en cache.
+		private static readonly Dictionary<(int, int, int), Color> _treeLeafTintCache = new();
 		private static Color GetTreeLeafTintForObjectId(int objectId, int worldX, int worldY)
+		{
+			var cacheKey = (objectId, worldX, worldY);
+			if (_treeLeafTintCache.TryGetValue(cacheKey, out var cachedTint)) return cachedTint;
+			if (_treeLeafTintCache.Count >= 100_000) _treeLeafTintCache.Clear();
+			var tint = ComputeTreeLeafTintForObjectId(objectId, worldX, worldY);
+			_treeLeafTintCache[cacheKey] = tint;
+			return tint;
+		}
+
+		private static Color ComputeTreeLeafTintForObjectId(int objectId, int worldX, int worldY)
 		{
 			long seed = ((long)worldX * 73856093L) ^ ((long)worldY * 19349663L) ^ 0x9E3779B9L;
 			var rand = new Random(Math.Abs((int)seed));
@@ -854,6 +876,23 @@ namespace Soulfract
 						(byte)Math.Clamp(b, 0, 255),
 						(byte)255);
 			}
+		}
+
+		//  PERF : fin de GetGroundTileIdAt (partie procédurale), pour l'appelant qui a DÉJÀ vérifié qu'il
+		// n'existe pas d'override de sol sur cette tuile (le rendu l'a fait avec son chunk en main).
+		private static int GetProceduralGroundTileId(int x, int y)
+		{
+			if (x == int.MinValue || x == int.MaxValue || y == int.MinValue || y == int.MaxValue)
+				return 0;
+			if (_isUnderground)
+				return GetCaveGroundTileIdAt(x, y);
+
+			var climate = GetClimateAt(x, y);
+			Biome biome = WorldGeneration.GetBiome(climate.temperature, climate.humidity, climate.elevation);
+			int groundId = WorldGeneration.GetGroundTileForBiome(biome);
+			if (groundId == 27 && IsFarmlandWet(x, y))
+				return 29;
+			return groundId;
 		}
 
 		public static int GetGroundTileIdAt(int x, int y)
@@ -1082,7 +1121,13 @@ namespace Soulfract
 
 		public static bool IsMatureTree(int objectId) => MatureTreeStumpTileIds.ContainsKey(objectId);
 
-		public static bool IsTreeStump(int objectId) => MatureTreeStumpTileIds.Values.Contains(objectId);
+		//  PERF : avant, parcours linéaire des valeurs du dictionnaire à chaque appel (par objet et par frame).
+		private static HashSet<int>? _treeStumpIdSet;
+		public static bool IsTreeStump(int objectId)
+		{
+			_treeStumpIdSet ??= new HashSet<int>(MatureTreeStumpTileIds.Values);
+			return _treeStumpIdSet.Contains(objectId);
+		}
 
 		public static string GetMatureTreeTexturePrefix(int treeId)
 		{
@@ -1113,6 +1158,7 @@ namespace Soulfract
 			int stumpId = GetTreeStumpTileId(treeId);
 			if (stumpId == 0) return;
 
+			ReleaseBirdsFromTree(x, y);
 			bool hasLeafSpawnPoints = TryGetTreeLeafSpawnPoints(x, y, out List<Vector2> leafSpawnPoints, out float groundY);
 			WorldTileData? treeData = WorldTileRegistry.GetTile(treeId);
 			int tileSize = Program.TileSize;
@@ -1129,6 +1175,7 @@ namespace Soulfract
 
 			RemovePlacedObject_Apply(x, y);
 			AddPlacedObject_Apply(x, y, stumpId);
+			SoundEffects.PlayTreeBreaking();
 			float jointHeight = Math.Min(TREE_JOINT_HEIGHT, drawHeight * 0.25f);
 			float length = drawHeight - jointHeight;
 			_treeFalls[(x, y)] = new TreeFallState
@@ -1174,6 +1221,7 @@ namespace Soulfract
 					if (fall.AngleRadians >= fall.ImpactAngleRadians)
 					{
 						fall.Impacted = true;
+						SoundEffects.PlayTreeHitGround();
 						SpawnFallingTreeLeaves(fall, particles);
 						SpawnTreeImpactSmoke(fall, particles);
 					}
@@ -1352,6 +1400,194 @@ namespace Soulfract
 			return true;
 		}
 
+		public static bool TryFindNearbyBirdRoost(Vector2 birdPosition, float maxDistance, out int treeX, out int treeY)
+		{
+			treeX = 0;
+			treeY = 0;
+			if (_isUnderground || Program.TileSize <= 0) return false;
+
+			int tileRadius = (int)MathF.Ceiling(maxDistance / Program.TileSize) + 6;
+			int centerX = (int)MathF.Floor(birdPosition.X / Program.TileSize);
+			int centerY = (int)MathF.Floor(birdPosition.Y / Program.TileSize);
+			float nearestDistanceSquared = maxDistance * maxDistance;
+			bool found = false;
+
+			for (int y = centerY - tileRadius; y <= centerY + tileRadius; y++)
+			{
+				for (int x = centerX - tileRadius; x <= centerX + tileRadius; x++)
+				{
+					int treeId = GetObjectIdAt(x, y);
+					if (!IsMatureTree(treeId) || GetBirdsInTree(x, y).Count >= MAX_BIRDS_PER_TREE)
+						continue;
+
+					var treeData = WorldTileRegistry.GetTile(treeId);
+					if (treeData?.Size == null) continue;
+
+					float treeGroundY = (y + 1) * Program.TileSize - GetHeightAt(x, y) * Program.TileSize / 4f;
+					float treeCenterX = x * Program.TileSize + treeData.Size.Width * Program.TileSize / 2f;
+					float distanceSquared = Vector2.DistanceSquared(birdPosition, new Vector2(treeCenterX, treeGroundY));
+					if (distanceSquared >= nearestDistanceSquared) continue;
+
+					nearestDistanceSquared = distanceSquared;
+					treeX = x;
+					treeY = y;
+					found = true;
+				}
+			}
+
+			return found;
+		}
+
+		public static bool TryStoreBirdInTree(int x, int y, string species)
+		{
+			if (NetworkManager.IsClient || !IsMatureTree(GetObjectIdAt(x, y))) return false;
+
+			var treeBirds = GetBirdsInTree(x, y);
+			if (treeBirds.Count >= MAX_BIRDS_PER_TREE) return false;
+
+			string normalizedSpecies = SpeciesData.GetSpeciesInfo(species)?.Name ?? string.Empty;
+			if (!new[] { "Sparrow", "Pigeon", "Crow", "Robin", "Seagull" }
+				.Contains(normalizedSpecies, StringComparer.OrdinalIgnoreCase))
+				return false;
+
+			treeBirds.Add(normalizedSpecies);
+			SetTileMeta(x, y, TREE_BIRDS_META_KEY, string.Join(";", treeBirds));
+			return true;
+		}
+
+		public static int ReleaseBirdsFromTree(int x, int y, int maxCount = int.MaxValue)
+		{
+			if (NetworkManager.IsClient || maxCount <= 0) return 0;
+
+			var treeBirds = GetBirdsInTree(x, y);
+			if (treeBirds.Count == 0) return 0;
+
+			bool hasSpawnPosition = TryGetTreeBirdSpawnPosition(x, y, out Vector2 spawnPosition);
+			if (!hasSpawnPosition)
+				spawnPosition = new Vector2((x + 0.5f) * Program.TileSize, (y + 1f) * Program.TileSize);
+
+			int releaseCount = Math.Min(maxCount, treeBirds.Count);
+			var releasedBirds = treeBirds.Take(releaseCount).ToList();
+			treeBirds.RemoveRange(0, releaseCount);
+			SetTileMeta(x, y, TREE_BIRDS_META_KEY,
+				treeBirds.Count == 0 ? null : string.Join(";", treeBirds));
+			_treeBirdSoundCooldowns.Remove((x, y));
+			_treeBirdExitCooldowns.Remove((x, y));
+
+			foreach (string species in releasedBirds)
+			{
+				var bird = new Entity(spawnPosition, species, false);
+				Program.GetEntities().Add(bird);
+				bird.EscapeFromTreeHit(spawnPosition + new Vector2(-bird.Facing * 30f, 0f));
+			}
+
+			return releasedBirds.Count;
+		}
+
+		public static void UpdateTreeBirds(float dt, Vector2 playerPosition)
+		{
+			if (_isUnderground || Program.TileSize <= 0) return;
+
+			_treeBirdUpdateAccumulator += Math.Max(0f, dt);
+			if (_treeBirdUpdateAccumulator < 1f) return;
+			float elapsed = _treeBirdUpdateAccumulator;
+			_treeBirdUpdateAccumulator = 0f;
+
+			const float hearDistance = 850f;
+			int tileRadius = (int)MathF.Ceiling(hearDistance / Program.TileSize) + 6;
+			int centerX = (int)MathF.Floor(playerPosition.X / Program.TileSize);
+			int centerY = (int)MathF.Floor(playerPosition.Y / Program.TileSize);
+			var nearbyTrees = new HashSet<(int X, int Y)>();
+
+			for (int y = centerY - tileRadius; y <= centerY + tileRadius; y++)
+			{
+				for (int x = centerX - tileRadius; x <= centerX + tileRadius; x++)
+				{
+					if (!IsMatureTree(GetObjectIdAt(x, y))) continue;
+					var key = (x, y);
+					nearbyTrees.Add(key);
+					var birds = GetBirdsInTree(x, y);
+					if (birds.Count == 0)
+					{
+						_treeBirdSoundCooldowns.Remove(key);
+						_treeBirdExitCooldowns.Remove(key);
+						continue;
+					}
+
+					Vector2 treePosition = new((x + 0.5f) * Program.TileSize, (y + 1f) * Program.TileSize);
+					if (!_treeBirdSoundCooldowns.TryGetValue(key, out float soundCooldown))
+						soundCooldown = (float)(Random.Shared.NextDouble() * 12f + 3f);
+					soundCooldown -= elapsed;
+					if (soundCooldown <= 0f &&
+						Vector2.DistanceSquared(playerPosition, treePosition) <= hearDistance * hearDistance)
+					{
+						PlayTreeBirdSound(birds[Random.Shared.Next(birds.Count)], playerPosition, treePosition);
+						soundCooldown = (float)(Random.Shared.NextDouble() * 25f + 20f);
+					}
+					_treeBirdSoundCooldowns[key] = soundCooldown;
+
+					if (NetworkManager.IsClient) continue;
+					if (!_treeBirdExitCooldowns.TryGetValue(key, out float exitCooldown))
+						exitCooldown = (float)(Random.Shared.NextDouble() * 45f + 35f);
+					exitCooldown -= elapsed;
+					if (exitCooldown <= 0f)
+						ReleaseBirdsFromTree(x, y, 1);
+					else
+						_treeBirdExitCooldowns[key] = exitCooldown;
+				}
+			}
+
+			foreach (var key in _treeBirdSoundCooldowns.Keys.Where(key => !nearbyTrees.Contains(key)).ToArray())
+				_treeBirdSoundCooldowns.Remove(key);
+			foreach (var key in _treeBirdExitCooldowns.Keys.Where(key => !nearbyTrees.Contains(key)).ToArray())
+				_treeBirdExitCooldowns.Remove(key);
+		}
+
+		private static List<string> GetBirdsInTree(int x, int y)
+		{
+			return GetTileMeta(x, y, TREE_BIRDS_META_KEY)
+				.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+				.ToList();
+		}
+
+		private static void PlayTreeBirdSound(string species, Vector2 playerPosition, Vector2 treePosition)
+		{
+			string speciesKey = species.Trim().ToLowerInvariant().Replace(' ', '_');
+			if (!_treeBirdSounds.TryGetValue(speciesKey, out var sounds))
+			{
+				sounds = new List<Sound>();
+				string soundsDirectory = Path.Combine("assets", "sounds");
+				string filePrefix = $"{speciesKey}_idle";
+				foreach (string extension in new[] { ".mp3", ".wav" })
+				{
+					string directPath = Path.Combine(soundsDirectory, filePrefix + extension);
+					if (File.Exists(directPath))
+					{
+						Sound sound = Raylib.LoadSound(directPath);
+						if (Raylib.IsSoundReady(sound)) sounds.Add(sound);
+					}
+
+					foreach (string path in Directory.Exists(soundsDirectory)
+						? Directory.GetFiles(soundsDirectory, $"{filePrefix}*{extension}")
+						: Array.Empty<string>())
+					{
+						string suffix = Path.GetFileNameWithoutExtension(path)[filePrefix.Length..];
+						if (suffix.Length == 0 || !suffix.All(char.IsDigit)) continue;
+						Sound sound = Raylib.LoadSound(path);
+						if (Raylib.IsSoundReady(sound)) sounds.Add(sound);
+					}
+				}
+				_treeBirdSounds[speciesKey] = sounds;
+			}
+
+			if (sounds.Count == 0) return;
+			Sound chosenSound = sounds[Random.Shared.Next(sounds.Count)];
+			float distance = Vector2.Distance(playerPosition, treePosition);
+			Raylib.SetSoundVolume(chosenSound, Math.Clamp(1f - distance / 850f, 0.05f, 1f));
+			Raylib.SetSoundPitch(chosenSound, 0.95f + (float)Random.Shared.NextDouble() * 0.1f);
+			Raylib.PlaySound(chosenSound);
+		}
+
 		public static int GetPottedFlowerTileId(int itemId)
 		{
 			if (GameData.ItemDatabaseByKey.TryGetValue("rose", out var rose) && rose.ID == itemId)
@@ -1400,13 +1636,13 @@ namespace Soulfract
 				if (frames != null && frames.Count > 0)
 				{
 					var animKey = (x, y);
-					if (!_tileAnimationStartCache.ContainsKey(animKey))
+					if (!_tileAnimationStartCache.TryGetValue(animKey, out int cachedAnimStart))
 					{
 						int hash = (x * 73856093) ^ (y * 19349663);
-						int startAnimFrame = Math.Abs(hash) % frames.Count;
-						_tileAnimationStartCache[animKey] = startAnimFrame;
+						cachedAnimStart = Math.Abs(hash) % frames.Count;
+						_tileAnimationStartCache[animKey] = cachedAnimStart;
 					}
-					int frameIndex = (_tileAnimationStartCache[animKey] + (int)(currentTime / 0.15f)) % frames.Count;
+					int frameIndex = (cachedAnimStart + (int)(currentTime / 0.15f)) % frames.Count;
 					return frames[frameIndex];
 				}
 			}

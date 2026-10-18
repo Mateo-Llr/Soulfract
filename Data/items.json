@@ -209,7 +209,9 @@
       "type": "instrument",
       "stackSize": 1,
       "value": 80,
-      "rarity": "rare"
+      "rarity": "rare",
+      "equipSlot": "MainHand",
+      "equipMax": 1
     },
     {
       "id": "iron_ore",
@@ -669,21 +671,27 @@
       "type": "instrument",
       "stackSize": 1,
       "value": 100,
-      "rarity": "rare"
+      "rarity": "rare",
+      "equipSlot": "MainHand",
+      "equipMax": 1
     },
     {
       "id": "piano",
       "type": "instrument",
       "stackSize": 1,
       "value": 500,
-      "rarity": "epic"
+      "rarity": "epic",
+      "equipSlot": "MainHand",
+      "equipMax": 1
     },
     {
       "id": "saxophone",
       "type": "instrument",
       "stackSize": 1,
       "value": 300,
-      "rarity": "rare"
+      "rarity": "rare",
+      "equipSlot": "MainHand",
+      "equipMax": 1
     },
     {
       "id": "gong_hammer",
@@ -2232,7 +2240,7 @@
       "stackSize": 2,
       "value": 15,
       "rarity": "uncommon",
-      "equipSlot": "OffHand",
+      "equipSlot": "MainHand",
       "equipMax": 1
     },
     {
@@ -3163,6 +3171,17 @@
       "value": 25,
       "placeableId": 124,
       "rarity": "uncommon"
+    },
+    {
+      "id": "dodo_egg",
+      "type": "food",
+      "isThrowable": true,
+      "stackSize": 50,
+      "value": 5,
+      "healAmount": 4,
+      "rarity": "uncommon",
+      "hungerRestore": 8.0,
+      "thirstRestore": 2.0
     }
   ]
 }

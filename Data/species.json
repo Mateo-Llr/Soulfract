@@ -244,6 +244,50 @@
       "visionRange": 12,
       "alertDuration": 1.5,
       "attackCooldown": 1.0,
+      "tintable": true,
+      "colorMin": [75, 78, 82],
+      "colorMax": [115, 118, 122],
+      "eyeColors": [
+        [175, 55, 60],
+        [35, 145, 85],
+        [65, 120, 195],
+        [220, 160, 60],
+        [235, 120, 15],
+        [135, 80, 175]
+      ],
+      "presetChance": 1.0,
+      "colorPresets": [
+        {
+          "name": "dark_gray",
+          "weight": 1,
+          "colorMin": [75, 78, 82],
+          "colorMax": [115, 118, 122]
+        },
+        {
+          "name": "green",
+          "weight": 1,
+          "colorMin": [165, 180, 110],
+          "colorMax": [185, 200, 130]
+        },
+        {
+          "name": "blue",
+          "weight": 1,
+          "colorMin": [105, 185, 185],
+          "colorMax": [125, 210, 210]
+        },
+        {
+          "name": "pale",
+          "weight": 1,
+          "colorMin": [215, 213, 205],
+          "colorMax": [240, 238, 230]
+        },
+        {
+          "name": "ogre",
+          "weight": 1,
+          "colorMin": [115, 80, 30],
+          "colorMax": [190, 160, 95]
+        }
+      ],
       "drops": {
         "coin": {
           "chance": 0.6,
@@ -1930,6 +1974,77 @@
           "name": "head",
           "baseX": 3,
           "baseY": 1,
+          "baseRot": 0,
+          "parent": "body"
+        }
+      ]
+    },
+    {
+      "name": "Dodo",
+      "type": "biped",
+      "preferredFoodId": "grass",
+      "scale": 0.6,
+      "speed": 85,
+      "runSpeed": 130,
+      "maxHp": 8,
+      "attack": 1,
+      "behavior": "passive",
+      "portable": true,
+      "visionRange": 10,
+      "alertDuration": 1.0,
+      "attackCooldown": 1.0,
+      "drops": {
+        "chicken_feather": {
+          "chance": 1.0,
+          "min": 2,
+          "max": 2
+        },
+        "raw_chicken": {
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "skeleton": [
+        {
+          "name": "llegtop",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -2,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
+          "baseX": 0,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rarmtop",
+          "baseX": -1,
+          "baseY": 0,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "tail",
+          "baseX": -7,
+          "baseY": 2,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "head",
+          "baseX": 4,
+          "baseY": 5,
           "baseRot": 0,
           "parent": "body"
         }
@@ -3628,7 +3743,7 @@
       "scale": 0.6,
       "speed": 75,
       "runSpeed": 90,
-      "maxHp": 2,
+      "maxHp": 1,
       "attack": 0,
       "behavior": "passive",
       "portable": true,
@@ -3680,7 +3795,7 @@
       "scale": 0.4,
       "speed": 85,
       "runSpeed": 100,
-      "maxHp": 2,
+      "maxHp": 1,
       "attack": 0,
       "behavior": "passive",
       "visionRange": 5,
@@ -3738,7 +3853,7 @@
       "scale": 0.8,
       "speed": 65,
       "runSpeed": 80,
-      "maxHp": 3,
+      "maxHp": 1,
       "attack": 0,
       "behavior": "passive",
       "visionRange": 5,

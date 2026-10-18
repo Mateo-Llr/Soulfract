@@ -395,6 +395,8 @@ namespace Soulfract
         private float _birdFlightDuration = 0f;     // temps restant à voler avant d'envisager d'atterrir
         private float _birdPatternPhase = 0f;       // accumulateur pour zigzag/hop/cercle
         private float _birdTargetFlightHeight = 90f;
+        private float _birdRoostDecisionTimer = 4f;
+        private (int X, int Y)? _requestedBirdRoost;
 
         // Vol en cercle autour d'un point (arbre, rocher...) ou d'un autre oiseau
         private Vector2 _birdCircleCenter;
@@ -442,6 +444,19 @@ namespace Soulfract
 
         public bool IsBird => BirdSpecies.Contains(Species);
         public bool IsBirdFlying => _birdFlightState == BirdFlightState.Flying || _birdFlightState == BirdFlightState.TakingOff;
+        public bool TryGetRequestedBirdRoost(out int tileX, out int tileY)
+        {
+            if (_requestedBirdRoost.HasValue)
+            {
+                tileX = _requestedBirdRoost.Value.X;
+                tileY = _requestedBirdRoost.Value.Y;
+                return true;
+            }
+
+            tileX = 0;
+            tileY = 0;
+            return false;
+        }
 
         public float VisualOffsetY => _slimeHeight + _birdFlightHeight; // utilisé pour le rendu
 
@@ -704,6 +719,53 @@ namespace Soulfract
                 default:
                     return 0f;
             }
+        }
+
+        public void DrawAttackDebugZone()
+        {
+            if (!IsAlive || IsPlayer || Attack <= 0 || (!_combatActive && Behavior != "hostile" && !IsHostilePet))
+                return;
+
+            CombatProfile profile = GetCombatProfile();
+            Vector2 origin = World.GetEntityGroundPosition(WorldPos);
+            Color outline = new Color(255, 105, 90, 200);
+
+            if (profile.Kind == CombatImpactKind.Arrow)
+            {
+                Raylib.DrawCircleLines((int)origin.X, (int)origin.Y, RANGED_PREFERRED_MIN, new Color(255, 210, 90, 180));
+                Raylib.DrawCircleLines((int)origin.X, (int)origin.Y, RANGED_PREFERRED_MAX, outline);
+                return;
+            }
+
+            float radius = AttackHitRange + (profile.FrontOnly ? STRIKE_REACH_TOLERANCE : 0f);
+            if (radius <= 0f)
+                return;
+
+            if (!profile.FrontOnly)
+            {
+                Raylib.DrawCircleLines((int)origin.X, (int)origin.Y, radius, outline);
+                return;
+            }
+
+            float centerAngle = Facing >= 0f ? 0f : MathF.PI;
+            const float halfAngle = MathF.PI / 2f;
+            const int segments = 20;
+            Vector2 previous = origin + new Vector2(
+                MathF.Cos(centerAngle - halfAngle), MathF.Sin(centerAngle - halfAngle)) * radius;
+            for (int i = 1; i <= segments; i++)
+            {
+                float angle = centerAngle - halfAngle + MathF.PI * i / segments;
+                Vector2 point = origin + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+                Raylib.DrawLineEx(previous, point, 2f, outline);
+                previous = point;
+            }
+
+            Vector2 firstEdge = origin + new Vector2(
+                MathF.Cos(centerAngle - halfAngle), MathF.Sin(centerAngle - halfAngle)) * radius;
+            Vector2 lastEdge = origin + new Vector2(
+                MathF.Cos(centerAngle + halfAngle), MathF.Sin(centerAngle + halfAngle)) * radius;
+            Raylib.DrawLineEx(origin, firstEdge, 2f, outline);
+            Raylib.DrawLineEx(origin, lastEdge, 2f, outline);
         }
 
         // Pour compatibilité (si utilisé ailleurs)
@@ -1781,6 +1843,7 @@ namespace Soulfract
         public bool IsAlerted = false;
         public float AlertTimer = 0f;
         public Vector2 AlertOrigin;
+        public bool WasKilledByPlayerWeapon;
 
         //  SIGNAL D'ALERTE ("effet d'écho") : quand une entité hostile repère sa cible pour la
         // première fois (par vue directe, pas par écho), elle affiche brièvement l'icône
@@ -2110,6 +2173,8 @@ namespace Soulfract
         private string _idleSoundSlug = "";
         private List<Sound> _hurtSounds = new();
         private bool _hurtSoundLoaded = false;
+        private double _nextHurtSoundTime;
+        private const double HURT_SOUND_COOLDOWN = 0.75;
         private List<Sound> _attackSounds = new();
         private bool _attackSoundLoaded = false;
 
@@ -2572,6 +2637,10 @@ namespace Soulfract
         /// Le volume diminue avec la distance au joueur, comme pour le son idle.</summary>
         private void PlayHurtSound()
         {
+            double currentTime = Raylib.GetTime();
+            if (currentTime < _nextHurtSoundTime)
+                return;
+
             InitializeHurtSound();
             if (_hurtSounds.Count == 0)
                 return;
@@ -2588,6 +2657,7 @@ namespace Soulfract
             Raylib.SetSoundVolume(sound, volume);
             Raylib.SetSoundPitch(sound, 0.92f + (float)(Random.Shared.NextDouble() * 0.16f));
             Raylib.PlaySound(sound);
+            _nextHurtSoundTime = currentTime + HURT_SOUND_COOLDOWN;
         }
 
         //  Donne à un gobelin une arme au hasard : épée en bois (item 16) pour un combattant
@@ -3128,6 +3198,7 @@ namespace Soulfract
 
             ShowAlertIcon = true;
             AlertIconTimer = ALERT_ICON_DURATION;
+            SoundEffects.PlayEntitySurprise();
 
             if (_pendingSignalDelay < 0f)
             {
@@ -3165,6 +3236,7 @@ namespace Soulfract
 
             ShowAlertIcon = true;
             AlertIconTimer = ALERT_ICON_DURATION;
+            SoundEffects.PlayEntitySurprise();
 
             if (!HasPropagatedSignal)
             {
@@ -3207,7 +3279,7 @@ namespace Soulfract
                 _retaliationTimer = RETALIATION_DURATION;
             }
             DamageFlash = 0.2f;
-            PlayHurtSound(); //  Son de blessure {espèce}_hurtN.mp3 (aléatoire) à chaque coup reçu
+            PlayHurtSound();
 
             if (_isSleeping)
                 WakeFromSleep(8f);
@@ -5124,7 +5196,8 @@ namespace Soulfract
                         }
                     }
                 }
-                else if (string.Equals(Species, "Chicken", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(Species, "Chicken", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Species, "Dodo", StringComparison.OrdinalIgnoreCase))
                 {
                     _eggDropTimer -= dt;
                     if (_eggDropTimer <= 0f)
@@ -5133,7 +5206,10 @@ namespace Soulfract
                         if (Random.Shared.NextDouble() < EGG_DROP_CHANCE)
                         {
                             Vector2 dropPos = new Vector2(WorldPos.X, WorldPos.Y + 12f);
-                            Program.DropItemOnGround(dropPos, GameData.GetItemId("egg"), 1);
+                            string eggId = string.Equals(Species, "Dodo", StringComparison.OrdinalIgnoreCase)
+                                ? "dodo_egg"
+                                : "egg";
+                            Program.DropItemOnGround(dropPos, GameData.GetItemId(eggId), 1);
                         }
                     }
                 }
@@ -7312,6 +7388,21 @@ namespace Soulfract
 
         void Wander(float dt, HashSet<string> destroyed)
         {
+            if (IsBird && _birdFlightState == BirdFlightState.Grounded)
+            {
+                _birdRoostDecisionTimer -= dt;
+                if (_birdRoostDecisionTimer <= 0f)
+                {
+                    _birdRoostDecisionTimer = RandomRange(5f, 12f);
+                    if (Random.Shared.NextDouble() < 0.45
+                        && World.TryFindNearbyBirdRoost(WorldPos, 90f, out int treeX, out int treeY))
+                    {
+                        _requestedBirdRoost = (treeX, treeY);
+                        return;
+                    }
+                }
+            }
+
             //  Envol spontané, sans menace : donne un peu de vie au monde (un oiseau qui
             // s'envole brièvement puis se repose plus loin), indépendamment de toute fuite.
             if (IsBird && _birdFlightState == BirdFlightState.Grounded && Random.Shared.NextDouble() < 0.0015)
@@ -10142,10 +10233,17 @@ namespace Soulfract
             //  Couleur d'yeux customisée : priorité au préset, sinon plage de l'espèce, sinon pas de teinte (blanc).
             // Stockée sous une clé réservée dans RandomFeatureColor pour être transmise à EntityRenderer
             // sans changer la signature de DrawEntity.
-            Color? eyeMin = preset?.EyeColorMin ?? info.EyeColorMin;
-            Color? eyeMax = preset?.EyeColorMax ?? info.EyeColorMax;
-            if (eyeMin.HasValue && eyeMax.HasValue)
+            if (info.EyeColors.Count > 0)
+            {
+                randomFeatureColor["__eyeColor"] = info.EyeColors[Random.Shared.Next(info.EyeColors.Count)];
+            }
+            else
+            {
+                Color? eyeMin = preset?.EyeColorMin ?? info.EyeColorMin;
+                Color? eyeMax = preset?.EyeColorMax ?? info.EyeColorMax;
+                if (eyeMin.HasValue && eyeMax.HasValue)
                 randomFeatureColor["__eyeColor"] = RandomColorInRange(eyeMin.Value, eyeMax.Value);
+            }
         }
 
         private void SpawnFootstepParticle()

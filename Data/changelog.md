@@ -1395,6 +1395,29 @@
 - [CHANGED] Bandes cinématiques animées pendant l'arrivée et la matérialisation du personnage
 - [ADDED] Icône dédiée pour le lanceur du jeu
 
+### 18 octobre
+
+- [PERF] Optimisation du changelog en jeu : mise en page et résumés par date mis en cache, rendu limité aux entrées visibles
+- [ADDED] Instruments jouables avec un clavier de notes et un timbre adapté à chaque instrument
+- [ADDED] Synchronisation des notes jouées entre les joueurs en multijoueur
+- [FIXED] Commande `/play` compatible avec les fichiers MIDI `.mid` et `.midi`
+- [ADDED] Échange d'instruments avec les bipèdes apprivoisés et les membres de guilde
+- [ADDED] Groupe musical : les bipèdes équipés jouent ensemble au démarrage d'une musique, avec leur propre timbre
+- [ADDED] Synchronisation multijoueur du lancement, de la pause et de l'arrêt des musiques de groupe
+- [ADDED] Notes visuelles qui s'élèvent de chaque musicien, avec une taille et une envolée adaptées à la note jouée
+- [FIXED] Les instruments utilisent leurs presets SoundFont disponibles; les maracas jouent le kit de percussion et un preset proche remplace tout timbre absent
+- [CHANGED] Réduction du volume de lecture des instruments et des groupes musicaux
+- [CHANGED] Les instruments donnés aux bipèdes équipent leur main principale; l'objet remplacé rejoint leur inventaire habituel
+- [FIXED] Refus du don d'instrument si l'inventaire du bipède ne peut pas accueillir son objet tenu
+- [FIXED] Les instruments donnés sont placés dans l'inventaire du bipède puis équipés dans le slot réel « Main droite » affiché par la guilde
+- [ADDED] Ajout des œufs de dodo, pondus occasionnellement par les dodos
+- [CHANGED] Les dodos apparaissent dans les savanes, jungles et plages; les ratons laveurs dans les forêts, forêts de bouleaux, forêts sombres et taïgas
+- [FIXED] Alignement du rendu du ver et de ses ombres sur la hauteur réelle du terrain, y compris les falaises
+- [FIXED] Transitions d'animation lissées pour les entités et les joueurs; les ancrages des membres suivent la pose affichée et les aperçus d'interface gardent leur propre lissage
+- [FIXED] Décalage vertical des entités reçues par les clients corrigé selon la hauteur du terrain, avec tri et éléments associés ancrés à leur position visuelle
+- [FIXED] Lumières des esprits synchronisées avec l'altitude du terrain et la pose lissée, y compris pour les entités reçues en multijoueur
+- [PERF] Diagnostic F3 du rendu étendu aux temps Draw total, préparation lumineuse, phases internes de World.DrawWorld, effets monde et overlays écran
+
 ---
 
 # Potentiels ajouts futurs

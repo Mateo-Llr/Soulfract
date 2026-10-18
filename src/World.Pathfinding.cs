@@ -237,14 +237,15 @@ namespace Soulfract
             {
                 for (int wY = minY - pad; wY <= maxY + pad; wY++)
                 {
-                    string key = $"{wX}_{wY}";
-                    if (destroyed.Contains(key)) continue;
-                    if (IsDoorTile(wX, wY)) continue;
-
+                    //  PERF : on teste d'abord le moins cher et le plus discriminant (tuile sans objet, objet
+                    // praticable) avant de construire la clé "x_y" : avant, une string était allouée pour CHAQUE
+                    // tuile de la zone (milliers par appel), même vide. Même résultat : ce sont des "continue" indépendants.
                     int objectId = GetObjectIdAt(wX, wY);
                     if (objectId == 0) continue;
                     var tileData = WorldTileRegistry.GetTile(objectId);
                     if (tileData == null || tileData.Walkable) continue;
+                    if (IsDoorTile(wX, wY)) continue;
+                    if (destroyed.Contains(GetTileKeyString(wX, wY))) continue;
 
                     var (x, y, w, h) = GetCollisionRect(wX, wY, tileData, ts);
                     // (Ancrage bas-gauche géré dans GetCollisionRect, plus de recorrection ici.)

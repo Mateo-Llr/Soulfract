@@ -291,23 +291,41 @@ namespace Soulfract
 			// par le générateur) est simplement un chunk de roche vide, tout comme ses voisins.
 			if (_isInDungeon)
 			{
-				ChunkData? dungeonChunk = !string.IsNullOrEmpty(CurrentSaveName) && _currentDungeonInstanceId >= 0
-					? SaveSystem.LoadDungeonChunk(CurrentSaveName, _currentDungeonInstanceId, chunkX, chunkY)
-					: null;
+				ChunkData? dungeonChunk = null;
+				if (!string.IsNullOrEmpty(CurrentSaveName) && _currentDungeonInstanceId >= 0)
+				{
+					PerfStats.StartSection(PerfStats.Section.ChunkDiskLoad);
+					try
+					{
+						dungeonChunk = SaveSystem.LoadDungeonChunk(CurrentSaveName, _currentDungeonInstanceId, chunkX, chunkY);
+					}
+					finally
+					{
+						PerfStats.EndSection(PerfStats.Section.ChunkDiskLoad);
+					}
+				}
 				dungeonChunk ??= new ChunkData { IsGenerated = true };
 				dungeonChunk.LastAccessTime = currentTime;
 				chunksDict[chunkKey] = dungeonChunk;
-				foreach (var savedEntity in dungeonChunk.Entities)
+				PerfStats.StartSection(PerfStats.Section.ChunkEntityMerge);
+				try
 				{
-					var loadedEntity = globalEntities.FirstOrDefault(entity => entity.NetId == savedEntity.NetId);
-					if (loadedEntity == null)
+					foreach (var savedEntity in dungeonChunk.Entities)
 					{
-						loadedEntity = savedEntity;
-						globalEntities.Add(loadedEntity);
-					}
+						var loadedEntity = globalEntities.FirstOrDefault(entity => entity.NetId == savedEntity.NetId);
+						if (loadedEntity == null)
+						{
+							loadedEntity = savedEntity;
+							globalEntities.Add(loadedEntity);
+						}
 
-					if (string.Equals(loadedEntity.Species, "ogre", StringComparison.OrdinalIgnoreCase))
-						RegisterDungeonBoss(loadedEntity, _currentDungeonInstanceId);
+						if (string.Equals(loadedEntity.Species, "ogre", StringComparison.OrdinalIgnoreCase))
+							RegisterDungeonBoss(loadedEntity, _currentDungeonInstanceId);
+					}
+				}
+				finally
+				{
+					PerfStats.EndSection(PerfStats.Section.ChunkEntityMerge);
 				}
 				Program.InvalidateLightGrid();
 				return;
@@ -326,7 +344,15 @@ namespace Soulfract
 			
 			if (!string.IsNullOrEmpty(CurrentSaveName))
 			{
-				chunk = SaveSystem.LoadChunk(CurrentSaveName, chunkX, chunkY, _isUnderground);
+				PerfStats.StartSection(PerfStats.Section.ChunkDiskLoad);
+				try
+				{
+					chunk = SaveSystem.LoadChunk(CurrentSaveName, chunkX, chunkY, _isUnderground);
+				}
+				finally
+				{
+					PerfStats.EndSection(PerfStats.Section.ChunkDiskLoad);
+				}
 				if (chunk != null)
 				{
 					chunk.LastAccessTime = currentTime;
@@ -350,14 +376,14 @@ namespace Soulfract
 					// familles) et ratait les entités ayant bougé de plus de 50px depuis leur
 					// dernière sauvegarde — ce qui provoquait des duplications à chaque
 					// rechargement du chunk.
-					foreach (var entity in chunk.Entities)
+					PerfStats.StartSection(PerfStats.Section.ChunkEntityMerge);
+					try
 					{
-						bool exists = globalEntities.Any(e => e.NetId == entity.NetId);
-						
-						if (!exists)
-						{
-							globalEntities.Add(entity);
-						}
+						TransferChunkEntitiesToGlobalList(chunk, globalEntities);
+					}
+					finally
+					{
+						PerfStats.EndSection(PerfStats.Section.ChunkEntityMerge);
 					}
 					return;
 				}
@@ -371,7 +397,15 @@ namespace Soulfract
             {
                 // Placer un chunk temporaire pour éviter que GenerateNewChunk ne relance la génération
                 chunksDict[chunkKey] = new ChunkData();
-				chunk = GenerateNewChunk(chunkX, chunkY, chunksDict[chunkKey]);
+				PerfStats.StartSection(PerfStats.Section.ChunkGeneration);
+				try
+				{
+					chunk = GenerateNewChunk(chunkX, chunkY, chunksDict[chunkKey]);
+				}
+				finally
+				{
+					PerfStats.EndSection(PerfStats.Section.ChunkGeneration);
+				}
                 if (chunk == null)
                 {
                     chunksDict.Remove(chunkKey);
@@ -383,24 +417,37 @@ namespace Soulfract
 				Program.InvalidateLightGrid();
                 EnsureRainCollectorEntriesForChunk(chunk, currentTime);
 
-                //  CORRECTIF : un chunk fraîchement généré (pas rechargé depuis une sauvegarde)
-                // n'était jusqu'ici jamais transféré vers globalEntities — contrairement à la
-                // branche SaveSystem.LoadChunk ci-dessus. Résultat : aucune entité créée pendant
-                // GenerateNewChunk (PNJ, animaux, insectes, hordes de gobelins...) n'était mise à
-                // jour ni dessinée, alors qu'elle existait bien dans chunk.Entities. Même
-                // dédoublonnage par NetId que pour la branche "chargé depuis le disque".
-                foreach (var entity in chunk.Entities)
-                {
-                    bool exists = globalEntities.Any(e => e.NetId == entity.NetId);
-                    if (!exists)
-                        globalEntities.Add(entity);
-                }
+				PerfStats.StartSection(PerfStats.Section.ChunkEntityMerge);
+				try
+				{
+					TransferChunkEntitiesToGlobalList(chunk, globalEntities);
+				}
+				finally
+				{
+					PerfStats.EndSection(PerfStats.Section.ChunkEntityMerge);
+				}
             }
             finally
             {
                 _chunksBeingGenerated.Remove(chunkKey);
             }
         }
+
+		private static void TransferChunkEntitiesToGlobalList(ChunkData chunk, List<Entity> globalEntities)
+		{
+			if (chunk.Entities.Count == 0)
+				return;
+
+			var knownNetIds = new HashSet<Guid>();
+			foreach (var entity in globalEntities)
+				knownNetIds.Add(entity.NetId);
+
+			foreach (var entity in chunk.Entities)
+			{
+				if (knownNetIds.Add(entity.NetId))
+					globalEntities.Add(entity);
+			}
+		}
 
 		public static void RebuildEnergySystems()
 		{
@@ -609,6 +656,9 @@ namespace Soulfract
 				int oldItemId = 0;
 				if (chunk.Objects.TryGetValue((x, y), out int id))
 					oldItemId = id;
+
+				if (IsMatureTree(oldItemId))
+					ReleaseBirdsFromTree(x, y);
 				
 				if (oldItemId != 0)
 				{

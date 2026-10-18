@@ -24,6 +24,7 @@ namespace Soulfract
 		public static Color PlayerMorphTint = Color.White;
 		public static Dictionary<string, int> PlayerMorphFeatureVariants = new();
 		public static Dictionary<string, Color> PlayerMorphFeatureColors = new();
+		internal static readonly object PlayerPoseBlendKey = new();
 
 		public static void SetPlayerMorphSpecies(string species)
 		{

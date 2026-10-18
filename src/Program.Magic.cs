@@ -1660,6 +1660,8 @@ namespace Soulfract
 				if (text.Length == 0) continue;
 				_changelogItems.Add(new ChangelogItem { Month = month, Date = date, Type = type, Text = text });
 			}
+
+			BuildChangelogDateSummaries();
 		}
 
 		static List<string> WrapChangelogText(string text, int fontSize, int maxWidth)
@@ -1690,19 +1692,93 @@ namespace Soulfract
 			_ => new Color(190, 198, 215, 255)
 		};
 
+		static void BuildChangelogDateSummaries()
+		{
+			_changelogDateSummaries.Clear();
+			foreach (IGrouping<(string Month, string Date), ChangelogItem> group in
+				_changelogItems.GroupBy(item => (item.Month, item.Date)))
+			{
+				var counts = group.GroupBy(item => item.Type)
+					.ToDictionary(items => items.Key, items => items.Count());
+				var summary = new List<(string Type, int Count)>();
+				foreach (string type in _changelogSummaryTypeOrder)
+					if (counts.Remove(type, out int count)) summary.Add((type, count));
+				foreach (var entry in counts.OrderBy(entry => entry.Key))
+					summary.Add((entry.Key, entry.Value));
+				_changelogDateSummaries[group.Key] = summary;
+			}
+		}
+
 		static List<(string Type, int Count)> GetChangelogDateSummary(string month, string date)
 		{
-			string[] preferredOrder = { "ADDED", "CHANGED", "FIXED", "REMOVED", "PERF" };
-			var counts = _changelogItems
-				.Where(item => item.Month == month && item.Date == date)
-				.GroupBy(item => item.Type)
-				.ToDictionary(group => group.Key, group => group.Count());
-			var summary = new List<(string Type, int Count)>();
-			foreach (string type in preferredOrder)
-				if (counts.TryGetValue(type, out int count)) summary.Add((type, count));
-			foreach (var entry in counts.Where(entry => !preferredOrder.Contains(entry.Key)).OrderBy(entry => entry.Key))
-				summary.Add((entry.Key, entry.Value));
-			return summary;
+			return _changelogDateSummaries.TryGetValue((month, date), out var summary)
+				? summary
+				: new List<(string Type, int Count)>();
+		}
+
+		static void EnsureChangelogLayout(int width, int bodySize, int dateSize)
+		{
+			if (_changelogLayoutWidth == width
+				&& _changelogLayoutBodySize == bodySize
+				&& _changelogLayoutDateSize == dateSize)
+				return;
+
+			_changelogLayoutRows.Clear();
+			_changelogLayoutWidth = width;
+			_changelogLayoutBodySize = bodySize;
+			_changelogLayoutDateSize = dateSize;
+
+			float y = 0f;
+			float lineHeight = bodySize + 7;
+			string previousMonth = string.Empty;
+			string previousDate = string.Empty;
+			for (int index = _changelogItems.Count - 1; index >= 0; index--)
+			{
+				ChangelogItem item = _changelogItems[index];
+				if (item.Month != previousMonth)
+				{
+					float height = dateSize + 10;
+					_changelogLayoutRows.Add(new ChangelogLayoutRow
+					{
+						Kind = ChangelogLayoutRowKind.Month,
+						Y = y,
+						Height = height,
+						Text = item.Month.ToUpperInvariant()
+					});
+					y += height;
+					previousMonth = item.Month;
+					previousDate = string.Empty;
+				}
+
+				if (item.Date != previousDate)
+				{
+					float height = dateSize + 8;
+					_changelogLayoutRows.Add(new ChangelogLayoutRow
+					{
+						Kind = ChangelogLayoutRowKind.Date,
+						Y = y,
+						Height = height,
+						Text = item.Date,
+						Summary = GetChangelogDateSummary(item.Month, item.Date)
+					});
+					y += height;
+					previousDate = item.Date;
+				}
+
+				int badgeWidth = Math.Max(68, FontManager.MeasureText(item.Type, bodySize - 1) + 18);
+				List<string> wrappedLines = WrapChangelogText(item.Text, bodySize, width - badgeWidth - 12);
+				float entryHeight = lineHeight * wrappedLines.Count + 9;
+				_changelogLayoutRows.Add(new ChangelogLayoutRow
+				{
+					Kind = ChangelogLayoutRowKind.Entry,
+					Y = y,
+					Height = entryHeight,
+					Item = item,
+					WrappedLines = wrappedLines,
+					BadgeWidth = badgeWidth
+				});
+				y += entryHeight;
+			}
 		}
 
 		static void DrawChangelogPopup(int sw, int sh, Vector2 mousePos, bool interactive)
@@ -1741,16 +1817,10 @@ namespace Soulfract
 			int dateSize = Math.Max(16, Math.Min(22, (int)(panel.Height * 0.035f)));
 			int bodySize = Math.Max(13, Math.Min(18, (int)(panel.Height * 0.027f)));
 			int lineHeight = bodySize + 7;
-			float contentHeight = 0f;
-			string previousDate = string.Empty;
-			string previousMonth = string.Empty;
-			for (int index = _changelogItems.Count - 1; index >= 0; index--)
-			{
-				ChangelogItem item = _changelogItems[index];
-				if (item.Month != previousMonth) { contentHeight += dateSize + 10; previousMonth = item.Month; previousDate = string.Empty; }
-				if (item.Date != previousDate) { contentHeight += dateSize + 8; previousDate = item.Date; }
-				contentHeight += lineHeight * WrapChangelogText(item.Text, bodySize, (int)content.Width - 125).Count + 9;
-			}
+			EnsureChangelogLayout((int)content.Width, bodySize, dateSize);
+			float contentHeight = _changelogLayoutRows.Count == 0
+				? 0f
+				: _changelogLayoutRows[^1].Y + _changelogLayoutRows[^1].Height;
 			_changelogScroll = Math.Clamp(_changelogScroll, 0f, Math.Max(0f, contentHeight - content.Height));
 			float maxScroll = Math.Max(0f, contentHeight - content.Height);
 			_changelogScrollTarget = Math.Clamp(_changelogScrollTarget, 0f, maxScroll);
@@ -1790,46 +1860,53 @@ namespace Soulfract
 			}
 
 			Raylib.BeginScissorMode((int)content.X, (int)content.Y, (int)content.Width, (int)content.Height);
-			float y = content.Y - _changelogScroll;
-			previousDate = string.Empty;
-			previousMonth = string.Empty;
-			for (int index = _changelogItems.Count - 1; index >= 0; index--)
+			float visibleTop = _changelogScroll;
+			float visibleBottom = visibleTop + content.Height;
+			int low = 0;
+			int high = _changelogLayoutRows.Count;
+			while (low < high)
 			{
-				ChangelogItem item = _changelogItems[index];
-				if (item.Month != previousMonth)
+				int middle = low + (high - low) / 2;
+				ChangelogLayoutRow candidate = _changelogLayoutRows[middle];
+				if (candidate.Y + candidate.Height < visibleTop)
+					low = middle + 1;
+				else
+					high = middle;
+			}
+			for (int index = low; index < _changelogLayoutRows.Count; index++)
+			{
+				ChangelogLayoutRow row = _changelogLayoutRows[index];
+				if (row.Y > visibleBottom) break;
+				float rowY = content.Y + row.Y - _changelogScroll;
+				if (row.Kind == ChangelogLayoutRowKind.Month)
 				{
-					y += dateSize + 10;
-					FontManager.DrawText(item.Month.ToUpperInvariant(), (int)content.X, (int)y - dateSize, dateSize, new Color(129, 177, 224, 255));
-					previousMonth = item.Month;
-					previousDate = string.Empty;
+					FontManager.DrawText(row.Text, (int)content.X, (int)rowY + 10, dateSize, new Color(129, 177, 224, 255));
+					continue;
 				}
-				if (item.Date != previousDate)
+
+				if (row.Kind == ChangelogLayoutRowKind.Date)
 				{
-					y += dateSize + 8;
-					int dateY = (int)y - dateSize;
-					FontManager.DrawText(item.Date, (int)content.X, dateY, dateSize, Color.White);
-					int summaryX = (int)content.X + FontManager.MeasureText(item.Date, dateSize) + 18;
+					FontManager.DrawText(row.Text, (int)content.X, (int)rowY + 8, dateSize, Color.White);
+					int summaryX = (int)content.X + FontManager.MeasureText(row.Text, dateSize) + 18;
 					int summarySize = Math.Max(11, dateSize - 5);
-					foreach ((string type, int count) in GetChangelogDateSummary(item.Month, item.Date))
+					foreach ((string type, int count) in row.Summary)
 					{
 						string summaryText = $"{count} [{type}]";
-						FontManager.DrawText(summaryText, summaryX, dateY + 3, summarySize, GetChangelogTypeColor(type));
+						FontManager.DrawText(summaryText, summaryX, (int)rowY + 11, summarySize, GetChangelogTypeColor(type));
 						summaryX += FontManager.MeasureText(summaryText, summarySize) + 14;
 					}
-					previousDate = item.Date;
+					continue;
 				}
+
+				ChangelogItem item = row.Item!;
 				Color typeColor = GetChangelogTypeColor(item.Type);
-				int badgeWidth = Math.Max(68, FontManager.MeasureText(item.Type, bodySize - 1) + 18);
-				Rectangle badge = new Rectangle(content.X, y, badgeWidth, bodySize + 5);
+				Rectangle badge = new Rectangle(content.X, rowY, row.BadgeWidth, bodySize + 5);
 				Raylib.DrawRectangleRounded(badge, 0.25f, 5, new Color(typeColor.R, typeColor.G, typeColor.B, (byte)45));
 				FontManager.DrawText(item.Type, (int)badge.X + 9, (int)badge.Y + 2, bodySize - 1, typeColor);
 				float textX = badge.X + badge.Width + 12;
-				foreach (string wrappedLine in WrapChangelogText(item.Text, bodySize, (int)(content.Width - badge.Width - 12)))
-				{
-					FontManager.DrawText(wrappedLine, (int)textX, (int)y + 2, bodySize, new Color(218, 225, 237, 255));
-					y += lineHeight;
-				}
-				y += 9;
+				for (int lineIndex = 0; lineIndex < row.WrappedLines.Count; lineIndex++)
+					FontManager.DrawText(row.WrappedLines[lineIndex], (int)textX,
+						(int)rowY + 2 + lineHeight * lineIndex, bodySize, new Color(218, 225, 237, 255));
 			}
 			Raylib.EndScissorMode();
 
@@ -2057,6 +2134,7 @@ namespace Soulfract
 				string.Equals(preview.Species, "human", StringComparison.OrdinalIgnoreCase) ? preview.Skin : preview.MorphTint,
 				preview.HairBase, preview.HairOverlay, preview.HairColor, SpeciesData.Skeletons, eyes: EyesTexture, mouth: MouthTexture, customScale: scale, equipment: preview.Equipment, beardStyle: preview.BeardStyle, underwearTexture: LeafUnderpantsTexture,
 				randomFeatureVariant: preview.FeatureVariants, randomFeatureColor: preview.FeatureColors,
+				blendKey: preview,
 				pupilLeftOffset: gaze.pupilLeft, pupilRightOffset: gaze.pupilRight, eyebrowLeftOffset: gaze.browLeft, eyebrowRightOffset: gaze.browRight);
 		}
 

@@ -376,6 +376,14 @@ namespace Soulfract
 			Raylib.PlaySound(sound);
 		}
 
+		private static void PlayEntityImpactSound(Item? heldItem)
+		{
+			if (heldItem == null)
+				SoundEffects.PlayFistHitOrganic();
+			else
+				PlayPunchSound();
+		}
+
 		private static void InitializeDiscordRichPresence()
 		{
 			const string APPLICATION_ID = "1532723289418371194";

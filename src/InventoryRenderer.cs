@@ -9,6 +9,8 @@ namespace Soulfract
 {
     public static class InventoryRenderer
     {
+        private static readonly object _playerPreviewBlendKey = new();
+
         private static int SLOT_SIZE => UIManager.ItemSlotSize;
         private static int SLOT_STEP => UIManager.ItemSlotStep;
         private static int ITEM_SIZE => UIManager.ItemContentSize;
@@ -1022,6 +1024,7 @@ namespace Soulfract
                 forceBlinking: Program.IsBlinking,
                 randomFeatureVariant: Program.PlayerMorphFeatureVariants,
                 randomFeatureColor: Program.PlayerMorphFeatureColors,
+                blendKey: _playerPreviewBlendKey,
                 pupilLeftOffset: gaze.pupilLeft,
                 pupilRightOffset: gaze.pupilRight,
                 eyebrowLeftOffset: gaze.browLeft,

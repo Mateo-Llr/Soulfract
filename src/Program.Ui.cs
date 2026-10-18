@@ -220,6 +220,12 @@ namespace Soulfract
 		static float _changelogScrollbarDragOffset = 0f;
 		static bool _changelogLoaded = false;
 		static readonly List<ChangelogItem> _changelogItems = new();
+		static readonly Dictionary<(string Month, string Date), List<(string Type, int Count)>> _changelogDateSummaries = new();
+		static readonly List<ChangelogLayoutRow> _changelogLayoutRows = new();
+		static readonly string[] _changelogSummaryTypeOrder = { "ADDED", "CHANGED", "FIXED", "REMOVED", "PERF" };
+		static int _changelogLayoutWidth = -1;
+		static int _changelogLayoutBodySize = -1;
+		static int _changelogLayoutDateSize = -1;
 
 		private sealed class ChangelogItem
 		{
@@ -227,6 +233,20 @@ namespace Soulfract
 			public string Date { get; init; } = string.Empty;
 			public string Type { get; init; } = string.Empty;
 			public string Text { get; init; } = string.Empty;
+		}
+
+		private enum ChangelogLayoutRowKind { Month, Date, Entry }
+
+		private sealed class ChangelogLayoutRow
+		{
+			public ChangelogLayoutRowKind Kind { get; init; }
+			public float Y { get; init; }
+			public float Height { get; init; }
+			public string Text { get; init; } = string.Empty;
+			public ChangelogItem? Item { get; init; }
+			public List<string> WrappedLines { get; init; } = new();
+			public List<(string Type, int Count)> Summary { get; init; } = new();
+			public int BadgeWidth { get; init; }
 		}
 
 		// assets/gui/bin.png (bouton "supprimer" sous chaque monde du carrousel)

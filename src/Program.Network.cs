@@ -48,11 +48,15 @@ namespace Soulfract
 			_remoteWasDead.Remove(1000 + id);
 		}
 
-		public static void OnNetworkEntityDeath(string netIdStr)
+		public static void OnNetworkEntityDeath(string netIdStr, bool wasKilledByPlayerWeapon = false)
 		{
 			if (!Guid.TryParse(netIdStr, out var guid)) return;
 			var e = entities.FirstOrDefault(x => x.NetId == guid);
-			if (e != null) e.SetHealthSilently(0, e.MaxHP);
+			if (e != null)
+			{
+				e.WasKilledByPlayerWeapon = wasKilledByPlayerWeapon;
+				e.SetHealthSilently(0, e.MaxHP);
+			}
 		}
 
 		public static void ApplyNetworkGameTime(float gameTime)

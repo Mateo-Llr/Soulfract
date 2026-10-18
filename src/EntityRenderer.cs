@@ -4,6 +4,7 @@ using System.Buffers;
 using System.IO;
 using System.Numerics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Soulfract
 {
@@ -447,9 +448,55 @@ namespace Soulfract
         }
         private static Dictionary<string, SpeciesFeatureRenderCache> _speciesFeatureRenderCache = new(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, Texture2D> _speciesEyeTextureCache = new(StringComparer.OrdinalIgnoreCase);
+        private static Dictionary<string, Texture2D> _speciesAdditionalEyeTextureCache = new(StringComparer.OrdinalIgnoreCase);
         //  Optimisation affichage villages : noms d'animations disponibles par espèce,
         // calculés une seule fois au lieu d'un .Any() LINQ répété à chaque PNJ/chaque frame.
         private static Dictionary<string, HashSet<string>> _availableAnimNamesCache = new();
+
+        //  Lissage des transitions de pose (voir AnimPoseBlender) : un état PAR ENTITÉ, retrouvé via
+        // l'objet d'identité passé à DrawEntity (blendKey, ou à défaut le dictionnaire de traits
+        // aléatoires propre à chaque entité). ConditionalWeakTable : l'état est libéré tout seul
+        // quand l'entité est collectée, sans aucun nettoyage manuel.
+        private static readonly ConditionalWeakTable<object, AnimPoseBlender> _poseBlenders = new();
+        private static readonly Dictionary<string, (object Key, double LastSeen)> _externalPoseBlendKeys = new(StringComparer.Ordinal);
+        private static double _lastPoseBlendKeyCleanup;
+
+        internal static object GetStablePoseBlendKey(string identity)
+        {
+            double now = Raylib.GetTime();
+            if (_externalPoseBlendKeys.TryGetValue(identity, out var entry))
+            {
+                _externalPoseBlendKeys[identity] = (entry.Key, now);
+                return entry.Key;
+            }
+
+            object key = new();
+            _externalPoseBlendKeys.Add(identity, (key, now));
+            if (now - _lastPoseBlendKeyCleanup >= 1d)
+            {
+                foreach (string staleIdentity in _externalPoseBlendKeys
+                    .Where(pair => now - pair.Value.LastSeen > AnimPoseBlender.MaxGapSeconds)
+                    .Select(pair => pair.Key)
+                    .ToArray())
+                {
+                    _externalPoseBlendKeys.Remove(staleIdentity);
+                }
+                _lastPoseBlendKeyCleanup = now;
+            }
+            return key;
+        }
+
+        private static bool TryGetBlendedPose(object? blendKey, int partIndex, out Vector2 animOffset, out float animRotation)
+        {
+            if (blendKey != null
+                && _poseBlenders.TryGetValue(blendKey, out var poseBlender)
+                && poseBlender.TryGetShown(partIndex, Raylib.GetTime(), out animOffset, out animRotation))
+                return true;
+
+            animOffset = Vector2.Zero;
+            animRotation = 0f;
+            return false;
+        }
 
         private sealed class EquipmentRenderState
         {
@@ -515,12 +562,14 @@ namespace Soulfract
             return tex;
         }
 
-        // Position d'un point sur l'arc parabolique sortie -> entrée, pour un paramètre t in [0,1].
+        // Les points de sortie/entrée sont des coordonnées de déplacement; projeter chaque point
+        // sur le sol local pour suivre les dénivelés et les falaises comme les autres entités.
         private static Vector2 WormArcPos(Vector2 exit, Vector2 entry, float arcHeight, float t)
         {
             Vector2 flat = Vector2.Lerp(exit, entry, t);
             float arc = 4f * arcHeight * t * (1f - t);
-            return new Vector2(flat.X, flat.Y - arc);
+            Vector2 groundPosition = World.GetEntityGroundPosition(flat);
+            return new Vector2(groundPosition.X, groundPosition.Y - arc);
         }
 
         // Angle de la tangente locale à l'arc en t (par différence finie), pour orienter le sprite.
@@ -592,20 +641,16 @@ namespace Soulfract
             // -------------------------------------------------------------
             // NOUVELLE GESTION DES OMBRES
             // -------------------------------------------------------------
-            float exitSolY = GetGroundHeightAt(exit);
-            float entrySolY = GetGroundHeightAt(entry);
-
             // Ombre portée au sol sous chaque segment visible
             for (int i = 0; i < segmentCount; i++)
             {
                 float t = WormSegmentT(elapsed, i, stagger, headDuration);
                 if (t <= 0f || t >= 1f) continue;
 
+                Vector2 flatPos = Vector2.Lerp(exit, entry, t);
+                Vector2 groundPos = World.GetEntityGroundPosition(flatPos);
                 Vector2 segPos = WormArcPos(exit, entry, arcHeight, t);
-
-                // Hauteur du sol interpolée
-                float solY = Raymath.Lerp(exitSolY, entrySolY, t);
-                float heightAboveGround = segPos.Y - solY;
+                float heightAboveGround = groundPos.Y - segPos.Y;
                 float heightNorm = Math.Clamp(heightAboveGround / arcHeight, 0f, 1f);
 
                 // Opacité : plus le segment est haut, plus l'ombre est transparente
@@ -616,7 +661,7 @@ namespace Soulfract
 
                 Raylib.DrawEllipse(
                     (int)segPos.X,
-                    (int)solY,
+                    (int)groundPos.Y,
                     shadowRadiusX,
                     shadowRadiusY,
                     new Color((byte)0, (byte)0, (byte)0, alpha)
@@ -672,20 +717,6 @@ namespace Soulfract
             }
         }
 
-        /// <summary>
-        /// Retourne la hauteur Y du sol (en coordonnées monde) à une position donnée.
-        /// </summary>
-        private static float GetGroundHeightAt(Vector2 worldPos)
-        {
-            int tileX = (int)(worldPos.X / Program.TileSize);
-            int tileY = (int)(worldPos.Y / Program.TileSize);
-            int height = World.GetHeightAt(tileX, tileY);
-
-            // La hauteur du sol en pixels : tileY * TileSize - height * TileSize/4
-            // (correspond au décalage appliqué aux entités dans DrawEntity)
-            return tileY * Program.TileSize - height * Program.TileSize / 4f;
-        }
-
         private static SpeciesFeatureRenderCache GetSpeciesFeatureRenderCache(string speciesKey)
         {
             if (_speciesFeatureRenderCache.TryGetValue(speciesKey, out var cached))
@@ -730,6 +761,19 @@ namespace Soulfract
                 Raylib.EndBlendMode();
             }
         }
+
+        private static void DrawTextureProWithUncoloredOverlay(Texture2D texture, Rectangle src, Rectangle dest, Vector2 origin, float rotation, Color tint, bool flashWhite = false)
+        {
+            DrawTextureProWithFlash(texture, src, dest, origin, rotation, tint, flashWhite);
+
+            Texture2D overlay = SpeciesData.GetUncoloredOverlayTexture(texture);
+            if (overlay.Id == 0) return;
+
+            Rectangle overlaySource = new(src.Width < 0 ? overlay.Width : 0, 0,
+                src.Width < 0 ? -overlay.Width : overlay.Width, overlay.Height);
+            DrawTextureProWithFlash(overlay, overlaySource, dest, origin, rotation, Color.White, flashWhite);
+        }
+
         private static string ResolveRenderSpecies(string? speciesName)
         {
             if (string.Equals(speciesName, "Genie", StringComparison.OrdinalIgnoreCase))
@@ -774,10 +818,9 @@ namespace Soulfract
             foreach (var candidate in candidates)
             {
                 if (!File.Exists(candidate)) continue;
-                loaded = Raylib.LoadTexture(candidate);
+                loaded = SpeciesData.LoadTextureWithUncoloredOverlay(candidate);
                 if (loaded.Id != 0)
                 {
-                    Raylib.SetTextureFilter(loaded, TextureFilter.Point);
                     break;
                 }
             }
@@ -788,6 +831,37 @@ namespace Soulfract
             }
 
             _speciesEyeTextureCache[cacheKey] = loaded;
+            return loaded;
+        }
+
+        public static Texture2D GetAdditionalEyesTextureForSpecies(string speciesName)
+        {
+            string resolvedSpecies = ResolveRenderSpecies(speciesName);
+            if (string.IsNullOrWhiteSpace(resolvedSpecies)) return new Texture2D();
+
+            if (_speciesAdditionalEyeTextureCache.TryGetValue(resolvedSpecies, out var cached))
+                return cached;
+
+            string normalized = resolvedSpecies.Trim();
+            string normalizedNoSpace = normalized.Replace(" ", "");
+            string[] candidates =
+            {
+                $"assets/animals/{normalized}/{normalizedNoSpace}eyes_.png",
+                $"assets/animals/{normalized}/{normalized}eyes_.png"
+            };
+
+            Texture2D loaded = new Texture2D();
+            foreach (var candidate in candidates)
+            {
+                if (!File.Exists(candidate)) continue;
+                loaded = SpeciesData.LoadTextureWithUncoloredOverlay(candidate);
+                if (loaded.Id != 0)
+                {
+                    break;
+                }
+            }
+
+            _speciesAdditionalEyeTextureCache[resolvedSpecies] = loaded;
             return loaded;
         }
 
@@ -819,10 +893,9 @@ namespace Soulfract
             foreach (var candidate in candidates)
             {
                 if (!File.Exists(candidate)) continue;
-                loaded = Raylib.LoadTexture(candidate);
+                loaded = SpeciesData.LoadTextureWithUncoloredOverlay(candidate);
                 if (loaded.Id != 0)
                 {
-                    Raylib.SetTextureFilter(loaded, TextureFilter.Point);
                     break;
                 }
             }
@@ -859,10 +932,9 @@ namespace Soulfract
             foreach (var candidate in candidates)
             {
                 if (!File.Exists(candidate)) continue;
-                loaded = Raylib.LoadTexture(candidate);
+                loaded = SpeciesData.LoadTextureWithUncoloredOverlay(candidate);
                 if (loaded.Id != 0)
                 {
-                    Raylib.SetTextureFilter(loaded, TextureFilter.Point);
                     break;
                 }
             }
@@ -892,6 +964,9 @@ namespace Soulfract
             bool keepItemHorizontal = false,
             bool isBow = false,
             Texture2D underwearTexture = default,
+            // NOTE : prevAnim / prevFrame / prevProg / transitionWeight ne sont plus lus. Les transitions
+            // entre animations sont désormais gérées en interne (AnimPoseBlender, voir blendKey) ; ces
+            // paramètres sont conservés uniquement pour ne pas casser les appelants existants.
             string prevAnim = "",
             int prevFrame = 0,
             float prevProg = 0f,
@@ -918,7 +993,12 @@ namespace Soulfract
             string? ghostTrailKey = null,
             Item? slimeStoredItem = null,
             int? eyeStyleOverride = null,
-            Color? eyeColorOverride = null
+            Color? eyeColorOverride = null,
+            // Identité stable de l'entité dessinée (l'Entity elle-même, par exemple), utilisée pour
+            // retrouver son état de lissage entre deux frames. Si null, on se rabat sur
+            // randomFeatureVariant (un Dictionary propre à chaque entité). Sans aucun des deux : pas
+            // de lissage, comportement identique à avant.
+            object? blendKey = null
         )
         {
             //  DEBUG F3 : compte les entités réellement soumises au rendu détaillé cette frame
@@ -1024,6 +1104,25 @@ namespace Soulfract
 
             socksLayers = equipmentState.SocksLayers;
 
+            //  LISSAGE DES TRANSITIONS DE POSE : sans cela, au changement d'animation (ou de pose
+            // procédurale : portage, visée, geste d'attaque) chaque pièce saute d'un coup vers sa
+            // nouvelle position. Le blender mémorise la pose réellement affichée et résorbe l'écart avec
+            // la nouvelle pose cible en ~0,15 s ; la nouvelle animation continue de jouer normalement.
+            AnimPoseBlender? poseBlender = null;
+            object? blendIdentity = blendKey ?? randomFeatureVariant;
+            if (blendIdentity != null)
+            {
+                bool aimingPoseFlag = isHumanoid && headAngle != 0f && isBow;
+                int poseFlags = (aimingPoseFlag ? 1 : 0)
+                    | (aimingPoseFlag && heldItemTexture.Id != 0 ? 2 : 0)
+                    | (isHumanoid && attackSwingProgress > 0f && attackSwingProgress < 1f ? 4 : 0)
+                    | (isHumanoid && isCarryingCreature ? 8 : 0)
+                    | (isHumanoid && isCarrying ? 16 : 0);
+                poseBlender = _poseBlenders.GetValue(blendIdentity, static _ => new AnimPoseBlender());
+                poseBlender.Begin(speciesKey, partCount, animName, poseFlags, Raylib.GetTime(),
+                    AnimPoseBlender.GetDuration(animName));
+            }
+
             // --------------------- FIRST PASS : compute global positions (recursive) ---------------------
             //  Optimisation perf (villages avec beaucoup de PNJ à l'écran) : ces 3 tableaux
             // étaient auparavant réalloués à CHAQUE appel (donc à chaque PNJ, à chaque frame),
@@ -1040,6 +1139,8 @@ namespace Soulfract
             // ghost.fs est actif sur le framebuffer principal" — le shader n'est désormais
             // appliqué qu'une seule fois, à la toute fin, sur la silhouette déjà aplatie.
             bool ghostShaderActive = false;
+            long entityRenderStart = PerfStats.GetTimestamp();
+            bool measureEntityRender = PerfStats.BeginEntityRender();
             try
             {
             Array.Clear(computed, 0, partCount);
@@ -1105,6 +1206,9 @@ namespace Soulfract
                         animRot = Raymath.Lerp(frames[safeFrame].Z, frames[ni].Z, t);
                     }
                 }
+
+                // Lisse l'écart éventuel avec la pose affichée à la frame précédente (no-op hors transition).
+                poseBlender?.Apply(index, ref animOffset, ref animRot);
 
                 float additionalHeadRot = (part.Name == headPartName) ? headAngle * facing : 0f;
                 Vector2 fb = new(part.BasePos.X * speciesScale, part.BasePos.Y * speciesScale);
@@ -1378,7 +1482,24 @@ namespace Soulfract
                             Color goblinEyeColor = (randomFeatureColor != null && randomFeatureColor.TryGetValue("__eyeColor", out var eyeCol))
                                 ? eyeCol
                                 : Color.White;
-                            DrawTextureProWithFlash(goblinEyeBg, eSrc, eDst, eOrigin, globalRot, goblinEyeColor, flashWhite);
+                            if (isSleepingAnimation || goblinBlinking)
+                                DrawTextureProWithUncoloredOverlay(goblinEyeBg, eSrc, eDst, eOrigin, globalRot, goblinEyeColor, flashWhite);
+                            else
+                                DrawTextureProWithFlash(goblinEyeBg, eSrc, eDst, eOrigin, globalRot, goblinEyeColor, flashWhite);
+                        }
+
+                        if (!isSleepingAnimation && !goblinBlinking)
+                        {
+                            Texture2D additionalGoblinEyes = GetAdditionalEyesTextureForSpecies(speciesName);
+                            if (additionalGoblinEyes.Id != 0)
+                            {
+                                float ew = additionalGoblinEyes.Width;
+                                float eh = additionalGoblinEyes.Height;
+                                Rectangle eSrc = new(facing < 0 ? ew : 0, 0, ew * facing, eh);
+                                Rectangle eDst = new(globalPos.X, globalPos.Y, ew * speciesScale, eh * speciesScale);
+                                Vector2 eOrigin = new(eDst.Width / 2f, eDst.Height / 2f);
+                                DrawTextureProWithFlash(additionalGoblinEyes, eSrc, eDst, eOrigin, globalRot, Color.White, flashWhite);
+                            }
                         }
 
                         if (!isSleepingAnimation && !goblinBlinking)
@@ -1392,7 +1513,7 @@ namespace Soulfract
                                 Vector2 pOffset = (pupilLeftOffset ?? Program.PupilLeftOffset) * speciesScale;
                                 Rectangle pDst = new(globalPos.X + pOffset.X, globalPos.Y + pOffset.Y, pw * speciesScale, ph * speciesScale);
                                 Vector2 pOrigin = new(pDst.Width / 2f, pDst.Height / 2f);
-                                DrawTextureProWithFlash(lPupilTex, pSrc, pDst, pOrigin, globalRot, Color.White, flashWhite);
+                                DrawTextureProWithUncoloredOverlay(lPupilTex, pSrc, pDst, pOrigin, globalRot, Color.White, flashWhite);
                             }
 
                             Texture2D rPupilTex = GetPupilTextureForSpecies(speciesName, isLeft: false);
@@ -1404,7 +1525,7 @@ namespace Soulfract
                                 Vector2 pOffset = (pupilRightOffset ?? Program.PupilRightOffset) * speciesScale;
                                 Rectangle pDst = new(globalPos.X + pOffset.X, globalPos.Y + pOffset.Y, pw * speciesScale, ph * speciesScale);
                                 Vector2 pOrigin = new(pDst.Width / 2f, pDst.Height / 2f);
-                                DrawTextureProWithFlash(rPupilTex, pSrc, pDst, pOrigin, globalRot, Color.White, flashWhite);
+                                DrawTextureProWithUncoloredOverlay(rPupilTex, pSrc, pDst, pOrigin, globalRot, Color.White, flashWhite);
                             }
                         }
                     }
@@ -1430,7 +1551,7 @@ namespace Soulfract
                     Rectangle src = new(facing < 0 ? tw : 0, 0, tw * facing, th);
                     Rectangle dest = new(globalPos.X, globalPos.Y, tw * speciesScale, th * speciesScale);
                     Vector2 origin = new(dest.Width / 2f, dest.Height / 2f);
-                    DrawTextureProWithFlash(baseTextureToDraw, src, dest, origin, globalRot, partTint, flashWhite);
+                    DrawTextureProWithUncoloredOverlay(baseTextureToDraw, src, dest, origin, globalRot, partTint, flashWhite);
 
                     if (speciesKey == "slime" && part.Name == "body" && slimeStoredItem != null)
                     {
@@ -1468,13 +1589,15 @@ namespace Soulfract
                         Color featureColor = Color.White;
                         if (feature.colorable && randomFeatureColor != null && randomFeatureColor.TryGetValue(feature.name, out var col))
                             featureColor = col;
+                        else if (speciesKey == "goblin" && feature.name == "ears")
+                            featureColor = tint;
 
                         float fw = featureTex.Width;
                         float fh = featureTex.Height;
                         Rectangle fSrc = new(facing < 0 ? fw : 0, 0, fw * facing, fh);
                         Rectangle fDst = new(globalPos.X, globalPos.Y, fw * speciesScale, fh * speciesScale);
                         Vector2 fOrigin = new(fDst.Width / 2f, fDst.Height / 2f);
-                        DrawTextureProWithFlash(featureTex, fSrc, fDst, fOrigin, globalRot, featureColor, flashWhite);
+                        DrawTextureProWithUncoloredOverlay(featureTex, fSrc, fDst, fOrigin, globalRot, featureColor, flashWhite);
                     }
                 }
 
@@ -1510,7 +1633,8 @@ namespace Soulfract
                             Vector2 offset = (eyebrowLeftOffset ?? Program.EyebrowLeftOffset) * speciesScale;
                             Rectangle destination = new(globalPos.X + offset.X, globalPos.Y + offset.Y, width * speciesScale, height * speciesScale);
                             Vector2 origin = new(destination.Width / 2f, destination.Height / 2f);
-                            DrawTextureProWithFlash(leftBrow, source, destination, origin, globalRot, Color.White, flashWhite);
+                            DrawTextureProWithUncoloredOverlay(leftBrow, source, destination, origin, globalRot,
+                                speciesKey == "goblin" ? tint : Color.White, flashWhite);
                         }
 
                         if (rightBrow.Id != 0)
@@ -1521,7 +1645,8 @@ namespace Soulfract
                             Vector2 offset = (eyebrowRightOffset ?? Program.EyebrowRightOffset) * speciesScale;
                             Rectangle destination = new(globalPos.X + offset.X, globalPos.Y + offset.Y, width * speciesScale, height * speciesScale);
                             Vector2 origin = new(destination.Width / 2f, destination.Height / 2f);
-                            DrawTextureProWithFlash(rightBrow, source, destination, origin, globalRot, Color.White, flashWhite);
+                            DrawTextureProWithUncoloredOverlay(rightBrow, source, destination, origin, globalRot,
+                                speciesKey == "goblin" ? tint : Color.White, flashWhite);
                         }
                     }
 
@@ -2230,12 +2355,13 @@ namespace Soulfract
                 ArrayPool<Vector2>.Shared.Return(globalPositions);
                 ArrayPool<float>.Shared.Return(globalRotations);
                 ArrayPool<bool>.Shared.Return(computed);
+                PerfStats.EndEntityRender(measureEntityRender, entityRenderStart);
             }
         }
 
         public static float GetVisualTopY(
             string speciesName, string anim, int frame, float prog, float facing,
-            Vector2 pos, float customScale = 1f)
+            Vector2 pos, float customScale = 1f, object? blendKey = null)
         {
             string speciesKey = ResolveRenderSpecies(speciesName).ToLowerInvariant();
             if (!SpeciesData.Skeletons.TryGetValue(speciesKey, out var skeleton) || skeleton.Count == 0)
@@ -2273,6 +2399,11 @@ namespace Soulfract
                         new Vector2(frames[safeFrame].X, frames[safeFrame].Y),
                         new Vector2(frames[nextFrame].X, frames[nextFrame].Y), prog) * speciesScale;
                     animRotation = Raymath.Lerp(frames[safeFrame].Z, frames[nextFrame].Z, prog);
+                }
+                if (TryGetBlendedPose(blendKey, index, out var shownOffset, out float shownRotation))
+                {
+                    animOffset = shownOffset;
+                    animRotation = shownRotation;
                 }
 
                 Vector2 local = new(part.BasePos.X * speciesScale, part.BasePos.Y * speciesScale);
@@ -2564,11 +2695,11 @@ namespace Soulfract
             string speciesName,
             string anim, int frame, float prog,
             float facing, Vector2 drawPosition,
-            bool inWater, float customScale)
+            bool inWater, float customScale, object? blendKey = null)
         {
             var (headPosition, headRotation) = GetGlobalPartTransform(
                 speciesName, anim, frame, prog, facing, drawPosition,
-                SpeciesData.Skeletons, "head", inWater, customScale);
+                SpeciesData.Skeletons, "head", inWater, customScale, blendKey: blendKey);
             float renderScale = BASE_ENTITY_SCALE
                 * (SpeciesData.GetSpeciesInfo(speciesName)?.Scale ?? 1f)
                 * customScale;
@@ -2586,7 +2717,8 @@ namespace Soulfract
             string partName,
             bool inWater = false,
             float customScale = 1.0f,
-            float headAngle = 0f)
+            float headAngle = 0f,
+            object? blendKey = null)
         {
             string speciesKey = speciesName?.ToLowerInvariant() ?? "";
             if (!skeletons.ContainsKey(speciesKey))
@@ -2669,6 +2801,11 @@ namespace Soulfract
                         new Vector2(frames[safeFrame].X, frames[safeFrame].Y),
                         new Vector2(frames[ni].X, frames[ni].Y), t) * speciesScale;
                     animRot = Raymath.Lerp(frames[safeFrame].Z, frames[ni].Z, t);
+                }
+                if (TryGetBlendedPose(blendKey, index, out var shownOffset, out float shownRotation))
+                {
+                    animOffset = shownOffset;
+                    animRot = shownRotation;
                 }
 
                 float additionalHeadRot = (part.Name == "head") ? headAngle * facing : 0f;
@@ -3232,7 +3369,8 @@ namespace Soulfract
             int frame = 0,
             float prog = 0f,
             float customScale = 1.0f,
-            string partName = "rarmbottom")
+            string partName = "rarmbottom",
+            object? blendKey = null)
         {
             string speciesKey = speciesName?.ToLowerInvariant() ?? "";
             if (!skeletons.TryGetValue(speciesKey, out var skeleton)) return pos;
@@ -3294,6 +3432,11 @@ namespace Soulfract
                         new Vector2(frames[safeFrame].X, frames[safeFrame].Y),
                         new Vector2(frames[ni].X, frames[ni].Y), t) * speciesScale;
                     animRot = Raymath.Lerp(frames[safeFrame].Z, frames[ni].Z, t);
+                }
+                if (TryGetBlendedPose(blendKey, index, out var shownOffset, out float shownRotation))
+                {
+                    animOffset = shownOffset;
+                    animRot = shownRotation;
                 }
 
                 Vector2 fb = new(part.BasePos.X * speciesScale, part.BasePos.Y * speciesScale);

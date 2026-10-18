@@ -191,7 +191,8 @@ namespace Soulfract
 			{
 				var (headPosition, _) = EntityRenderer.GetGlobalPartTransform(
 					speciesName, _animState, _animFrame, _animProg, 1f,
-					visualPos, SpeciesData.Skeletons, "head", _isPlayerInWater);
+					visualPos, SpeciesData.Skeletons, "head", _isPlayerInWater,
+					blendKey: PlayerPoseBlendKey);
 				return headPosition;
 			}
 

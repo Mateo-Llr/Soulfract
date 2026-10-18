@@ -1850,7 +1850,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			
 			Vector2 playerPos = GetPlayerPosition();
 			Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), GetCurrentCamera());
-			Vector2 direction = mouseWorld - playerPos;
+			Vector2 direction = mouseWorld - GetPlayerAimOrigin(playerPos);
 			if (direction.Length() < 0.01f) direction = new Vector2(1, 0);
 			direction = Vector2.Normalize(direction);
 			

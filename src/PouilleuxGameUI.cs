@@ -2371,6 +2371,7 @@ namespace Soulfract
                 forceBlinking: participant.Npc.IsBlinking,
                 randomFeatureVariant: participant.Npc.RandomFeatureVariant,
                 randomFeatureColor: participant.Npc.RandomFeatureColor,
+                blendKey: participant,
                 shadowGroundOffset: 0f,
                 drawCarriedEntity: null,
                 drawMount: null);

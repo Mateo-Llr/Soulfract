@@ -249,13 +249,17 @@ namespace Soulfract
 		public static void DrawClassicHotbar(int selectedSlot)
 		{
 			const int slotCount = 10;
-			const int slotSize = 64;
-			const int gap = -12;
+			int slotSize = UIManager.ItemSlotSize;
+			int slotStep = UIManager.ItemSlotStep;
+			int itemSize = UIManager.ItemContentSize;
+			int itemOffset = (slotSize - itemSize) / 2;
+			int gap = slotStep - slotSize;
+			int panelPadding = UIManager.ScaleInt(10);
 			GetClassicHotbarLayout(slotCount, slotSize, gap, out int startX, out int startY, out int totalWidth);
 			var slots = Program.GetHotbarSlotsCached();
 
-			Raylib.DrawRectangleRounded(new Rectangle(startX - 10, startY - 10, totalWidth + 20, slotSize + 20), 0.12f, 6, new Color(12, 14, 18, 225));
-			Raylib.DrawRectangleRoundedLines(new Rectangle(startX - 10, startY - 10, totalWidth + 20, slotSize + 20), 0.12f, 6, 2, new Color(150, 125, 75, 210));
+			Raylib.DrawRectangleRounded(new Rectangle(startX - panelPadding, startY - panelPadding, totalWidth + panelPadding * 2, slotSize + panelPadding * 2), 0.12f, 6, new Color(12, 14, 18, 225));
+			Raylib.DrawRectangleRoundedLines(new Rectangle(startX - panelPadding, startY - panelPadding, totalWidth + panelPadding * 2, slotSize + panelPadding * 2), 0.12f, 6, 2, new Color(150, 125, 75, 210));
 
 			for (int drawPass = 0; drawPass < 2; drawPass++)
 			{
@@ -265,7 +269,7 @@ namespace Soulfract
 					if (selected != (drawPass == 1))
 						continue;
 
-					int x = startX + index * (slotSize + gap);
+					int x = startX + index * slotStep;
 					Rectangle slotRect = new Rectangle(x, startY, slotSize, slotSize);
 					Color fallbackColor = selected ? new Color(100, 110, 80, 255) : new Color(50, 53, 60, 255);
 					UIManager.DrawItemSlotBackground(
@@ -282,42 +286,40 @@ namespace Soulfract
 
 			for (int index = 0; index < slotCount; index++)
 			{
-				int x = startX + index * (slotSize + gap);
+				int x = startX + index * slotStep;
 				if (index < slots.Count && !slots[index].IsEmpty && slots[index].Item != null)
-					{
-						ItemRenderer.DrawItemCompact(slots[index].Item, x + 7, startY + 7, slotSize - 14);
-						if (slots[index].Count > 1)
-						{
-							string quantity = slots[index].Count.ToString();
-							int quantityWidth = FontManager.MeasureText(quantity, 14);
-							FontManager.DrawText(quantity, x + slotSize - quantityWidth - 4, startY + slotSize - 18, 14, Color.White);
-						}
-					}
+				{
+					ItemRenderer.DrawItemPadded(slots[index].Item, x + itemOffset, startY + itemOffset, itemSize, 6);
+					if (slots[index].Count > 1)
+						FontManager.DrawText(slots[index].Count.ToString(), x + itemOffset + itemSize - 18, startY + itemOffset + itemSize - 18, 14, Color.White);
+				}
 
-					string key = index == 9 ? "0" : (index + 1).ToString();
-					FontManager.DrawText(key, x + 4, startY + 3, 12, new Color(220, 215, 195, 220));
+				string key = index == 9 ? "0" : (index + 1).ToString();
+				FontManager.DrawText(key, x + 4, startY + 3, 12, new Color(220, 215, 195, 220));
 			}
 		}
 
 		public static Rectangle GetClassicHotbarBounds()
 		{
 			const int slotCount = 10;
-			const int slotSize = 64;
-			const int gap = -12;
+			int slotSize = UIManager.ItemSlotSize;
+			int gap = UIManager.ItemSlotStep - slotSize;
+			int panelPadding = UIManager.ScaleInt(10);
 			GetClassicHotbarLayout(slotCount, slotSize, gap, out int startX, out int startY, out int totalWidth);
-			return new Rectangle(startX - 10, startY - 10, totalWidth + 20, slotSize + 20);
+			return new Rectangle(startX - panelPadding, startY - panelPadding, totalWidth + panelPadding * 2, slotSize + panelPadding * 2);
 		}
 
 		public static bool TryGetClassicHotbarSlot(Vector2 mousePosition, out int slotIndex)
 		{
 			const int slotCount = 10;
-			const int slotSize = 64;
-			const int gap = -12;
+			int slotSize = UIManager.ItemSlotSize;
+			int slotStep = UIManager.ItemSlotStep;
+			int gap = slotStep - slotSize;
 			GetClassicHotbarLayout(slotCount, slotSize, gap, out int startX, out int startY, out _);
 
 			for (int index = 0; index < slotCount; index++)
 			{
-				int x = startX + index * (slotSize + gap);
+				int x = startX + index * slotStep;
 				if (Raylib.CheckCollisionPointRec(mousePosition, new Rectangle(x, startY, slotSize, slotSize)))
 				{
 					slotIndex = index;
@@ -333,7 +335,7 @@ namespace Soulfract
 		{
 			totalWidth = slotCount * slotSize + (slotCount - 1) * gap;
 			startX = (Raylib.GetScreenWidth() - totalWidth) / 2;
-			startY = Raylib.GetScreenHeight() - slotSize - 18;
+			startY = Raylib.GetScreenHeight() - slotSize - UIManager.ScaleInt(18);
 		}
 
         /// <summary>Icône d'info générique pour la grille sous la barre d'endurance

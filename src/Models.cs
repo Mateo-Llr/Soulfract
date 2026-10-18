@@ -2897,20 +2897,42 @@ public readonly struct ProjectileRenderTag
     public static class Renderer
     {
 		private static bool _mainDebugExpanded = true;
+		private static bool _performanceDebugExpanded;
 		private static bool _heldItemDebugExpanded;
 		private static bool _tileDebugExpanded;
 		private static Rectangle _mainDebugHeader;
+		private static Rectangle _performanceDebugHeader;
 		private static Rectangle _heldItemDebugHeader;
 		private static Rectangle _tileDebugHeader;
+		private static readonly Rectangle[] _debugOverlayToggleBounds = new Rectangle[5];
 
 		public static bool HandleDebugMenuInput()
 		{
 			if (!Raylib.IsMouseButtonPressed(MouseButton.Left)) return false;
 			Vector2 mouse = Raylib.GetMousePosition();
 
+			for (int i = 0; _mainDebugExpanded && i < _debugOverlayToggleBounds.Length; i++)
+			{
+				if (!Raylib.CheckCollisionPointRec(mouse, _debugOverlayToggleBounds[i])) continue;
+				switch (i)
+				{
+					case 0: DebugOverlaySettings.ToggleEntityHitboxes(); break;
+					case 1: DebugOverlaySettings.ToggleTileHitboxes(); break;
+					case 2: DebugOverlaySettings.ToggleAiDiagnostics(); break;
+					case 3: DebugOverlaySettings.ToggleBuildingZones(); break;
+					case 4: DebugOverlaySettings.ToggleVehicleAndAttackHitboxes(); break;
+				}
+				return true;
+			}
+
 			if (Raylib.CheckCollisionPointRec(mouse, _mainDebugHeader))
 			{
 				_mainDebugExpanded = !_mainDebugExpanded;
+				return true;
+			}
+			if (Raylib.CheckCollisionPointRec(mouse, _performanceDebugHeader))
+			{
+				_performanceDebugExpanded = !_performanceDebugExpanded;
 				return true;
 			}
 			if (Raylib.CheckCollisionPointRec(mouse, _heldItemDebugHeader))
@@ -3056,31 +3078,25 @@ public readonly struct ProjectileRenderTag
 
 
 		public static void DrawDebugMenu(Vector2 playerPos, float zoom, int npcCount, int animalCount, float dt, Camera2D camera, Item? heldItem = null)
-        {
-            int fps = Raylib.GetFPS();
-            float ms = dt * 1000f;
-            Color fpsColor = fps >= 55 ? Color.Green : fps >= 30 ? Color.Yellow : Color.Red;
+		{
 			int x = 10;
-            //  Panneau agrandi (310 -> 420 -> 460) pour loger les nouvelles lignes PERF
-            // (Chunks (stream) et Autre update) ajoutées sous "Grille tuiles".
-			const int panelWidth = 340;
-			const int expandedPanelHeight = 460;
+			const int panelWidth = 390;
+			const int expandedPanelHeight = 280;
 			const int collapsedPanelHeight = 28;
 			int panelHeight = _mainDebugExpanded ? expandedPanelHeight : collapsedPanelHeight;
 			_mainDebugHeader = new Rectangle(x - 4, 6, panelWidth, collapsedPanelHeight);
 			DrawDebugPanelFrame(x, 10, panelWidth, panelHeight, _mainDebugHeader, _mainDebugExpanded, "[F3] DEBUG");
 
 			int panelsTop = 10 + panelHeight + 10;
-			DrawHeldItemDebugPanel(heldItem, x, panelsTop, panelWidth, _heldItemDebugExpanded);
-			int tileTop = panelsTop + (_heldItemDebugExpanded ? 308 : 36);
+			DrawPerformanceDebugPanel(x, panelsTop, panelWidth, _performanceDebugExpanded, dt);
+			int heldItemTop = panelsTop + (_performanceDebugExpanded ? 596 : 36);
+			DrawHeldItemDebugPanel(heldItem, x, heldItemTop, panelWidth, _heldItemDebugExpanded);
+			int tileTop = heldItemTop + (_heldItemDebugExpanded ? 308 : 36);
 			DrawPlayerTileDebugPanel(x, tileTop, panelWidth, _tileDebugExpanded);
 			if (!_mainDebugExpanded) return;
 
-			int y = 38, dy = 18;
-            DebugLine(ref y, dy, $"FPS     : {fps}", fpsColor);
-            DebugLine(ref y, dy, $"Frame ms: {ms:F2} ms", Color.LightGray);
-            DebugLine(ref y, dy, "", Color.Blank);
-            DebugLine(ref y, dy, $"Pos     : ({playerPos.X:F0}, {playerPos.Y:F0})", Color.White);
+			int y = 38, dy = 16;
+		    DebugLine(ref y, dy, $"Pos     : ({playerPos.X:F0}, {playerPos.Y:F0})", Color.White);
 			int tileX = (int)Math.Floor(playerPos.X / Program.TileSize);
 			int tileY = (int)Math.Floor(playerPos.Y / Program.TileSize);
 			Biome currentBiome = World.GetBiomeAt(tileX, tileY);
@@ -3091,44 +3107,98 @@ public readonly struct ProjectileRenderTag
             DebugLine(ref y, dy, $"NPCs    : {npcCount}", Color.White);
             DebugLine(ref y, dy, $"Animaux : {animalCount}", Color.White);
             DebugLine(ref y, dy, "", Color.Blank);
+            DebugLine(ref y, dy, "── OVERLAYS MONDE ──────────", Color.Gold);
+            DrawDebugOverlayToggle(ref y, dy, 0, DebugOverlaySettings.EntityHitboxes, "Hitboxes des entités");
+            DrawDebugOverlayToggle(ref y, dy, 1, DebugOverlaySettings.TileHitboxes, "Hitboxes des tuiles / objets");
+            DrawDebugOverlayToggle(ref y, dy, 2, DebugOverlaySettings.AiDiagnostics, "Chemins et priorités IA");
+            DrawDebugOverlayToggle(ref y, dy, 3, DebugOverlaySettings.BuildingZones, "Zones des maisons");
+            DrawDebugOverlayToggle(ref y, dy, 4, DebugOverlaySettings.VehicleAndAttackHitboxes, "Véhicules + attaques (joueur/mobs)");
+        }
 
-			//  PERF : temps passé dans l'IA (Entity.Update) vs le rendu du monde (World.DrawWorld),
-			// pour voir d'un coup d'oeil laquelle des deux domine quand le FPS chute. Valeurs
-			// lissées (EMA) pour rester lisibles ; "instantané" (dernière frame) entre parenthèses.
+		private static void DrawPerformanceDebugPanel(int x, int top, int width, bool expanded, float dt)
+		{
+			const int headerHeight = 28;
+			const int expandedHeight = 584;
+			int height = expanded ? expandedHeight : headerHeight;
+			_performanceDebugHeader = new Rectangle(x - 4, top - 4, width, headerHeight);
+			DrawDebugPanelFrame(x, top, width, height, _performanceDebugHeader, expanded, "PERFORMANCES");
+			if (!expanded) return;
+
+			int fps = Raylib.GetFPS();
+			float frameMs = dt * 1000f;
+			Color fpsColor = fps >= 55 ? Color.Green : fps >= 30 ? Color.Yellow : Color.Red;
+			int y = top + headerHeight + 4;
+			const int dy = 16;
+			DebugLineAt(ref y, x, dy, $"FPS     : {fps}", fpsColor);
+			DebugLineAt(ref y, x, dy, $"Frame ms: {frameMs:F2} ms", Color.LightGray);
+			DebugLineAt(ref y, x, dy, "", Color.Blank);
+
 			float updateMs = PerfStats.GetSmoothedMs(PerfStats.Section.EntityUpdate);
 			float drawMs = PerfStats.GetSmoothedMs(PerfStats.Section.WorldDraw);
 			float tileGridMs = PerfStats.GetSmoothedMs(PerfStats.Section.TileGridFill);
 			float updateMsInstant = PerfStats.GetLastFrameMs(PerfStats.Section.EntityUpdate);
 			float drawMsInstant = PerfStats.GetLastFrameMs(PerfStats.Section.WorldDraw);
 			float tileGridMsInstant = PerfStats.GetLastFrameMs(PerfStats.Section.TileGridFill);
-			Color PerfColor(float v) => v >= 8f ? Color.Red : v >= 4f ? Color.Yellow : Color.LightGray;
-			DebugLine(ref y, dy, "── PERF ────────────────────", Color.Gold);
-			DebugLine(ref y, dy, $"IA (Update)  : {updateMs:F2} ms ({updateMsInstant:F2})", PerfColor(updateMs));
-			DebugLine(ref y, dy, $"Rendu (Draw) : {drawMs:F2} ms ({drawMsInstant:F2})", PerfColor(drawMs));
-			// Sous-poste du rendu : collecte des données par tuile (chunks) avant tout dessin GPU.
-			// Si ce chiffre représente une grosse part de "Rendu (Draw)" en dézoom, le goulot
-			// est bien côté lookups de chunk et pas côté DrawTexturePro.
-			DebugLine(ref y, dy, $"  Grille tuiles: {tileGridMs:F2} ms ({tileGridMsInstant:F2})", PerfColor(tileGridMs));
+			Color PerfColor(float value) => value >= 8f ? Color.Red : value >= 4f ? Color.Yellow : Color.LightGray;
+			DebugLineAt(ref y, x, dy, "── PERF ────────────────────", Color.Gold);
+			DebugLineAt(ref y, x, dy, $"IA (Update)  : {updateMs:F2} ms ({updateMsInstant:F2})", PerfColor(updateMs));
+			RenderPerfLine("Draw total", PerfStats.Section.FrameDraw);
+			DebugLineAt(ref y, x, dy, $"Monde (Draw) : {drawMs:F2} ms ({drawMsInstant:F2})", PerfColor(drawMs));
+			RenderPerfLine("Avant monde", PerfStats.Section.WorldPreDraw);
+			RenderPerfLine("Prépa. lumière", PerfStats.Section.LightGridPrepare);
+			RenderPerfLine("Prépa. World", PerfStats.Section.WorldDrawSetup);
+			DebugLineAt(ref y, x, dy, $"  Grille tuiles : {tileGridMs:F2} ms ({tileGridMsInstant:F2})", PerfColor(tileGridMs));
+			RenderPerfLine("Terrain/direct", PerfStats.Section.TerrainDraw);
+			RenderPerfLine("Préparation", PerfStats.Section.WorldRenderPrepare);
+			RenderPerfLine("Tri Y", PerfStats.Section.RenderItemSort);
+			RenderPerfLine("Dessin éléments", PerfStats.Section.RenderItemDraw);
+			RenderPerfLine("Squelettes entités*", PerfStats.Section.EntityRender);
+			RenderPerfLine("Reste World", PerfStats.Section.WorldDrawTail);
+			RenderPerfLine("  Debug F3", PerfStats.Section.WorldDebugOverlay);
+			RenderPerfLine("  Interactions", PerfStats.Section.InteractionPrompts);
+			RenderPerfLine("Effets monde", PerfStats.Section.WorldEffects);
+			RenderPerfLine("Éclairage écran", PerfStats.Section.ScreenLighting);
+			RenderPerfLine("Overlays écran", PerfStats.Section.ScreenOverlays);
+			DebugLineAt(ref y, x, dy, $"  Éléments triés : {PerfStats.RenderItemsThisFrame}", Color.White);
+			DebugLineAt(ref y, x, dy, $"  Entités dessinées : {PerfStats.EntitiesDrawnThisFrame} ({PerfStats.TopLevelEntityRenderCallsThisFrame} groupes)", Color.White);
+			DebugLineAt(ref y, x, dy, "  *inclus dans « Dessin éléments »", Color.Gray);
+			DebugLineAt(ref y, x, dy, "  Sous-mesures imbriquées : ne pas additionner", Color.Gray);
 
-			// Chargement/génération des chunks proches du joueur — suspect n°1 pour les pics de
-			// frame en dézoom ou en déplacement rapide (World.UpdateActiveChunks).
 			float chunkMs = PerfStats.GetSmoothedMs(PerfStats.Section.ChunkStreaming);
 			float chunkMsInstant = PerfStats.GetLastFrameMs(PerfStats.Section.ChunkStreaming);
-			DebugLine(ref y, dy, $"Chunks (stream): {chunkMs:F2} ms ({chunkMsInstant:F2})", PerfColor(chunkMs));
+			DebugLineAt(ref y, x, dy, $"Chunks (stream): {chunkMs:F2} ms ({chunkMsInstant:F2})", PerfColor(chunkMs));
+			RenderPerfLine("  Lecture chunk", PerfStats.Section.ChunkDiskLoad);
+			RenderPerfLine("  Génération", PerfStats.Section.ChunkGeneration);
+			RenderPerfLine("  Entités chunk", PerfStats.Section.ChunkEntityMerge);
+			RenderPerfLine("  Déchargement", PerfStats.Section.ChunkUnloadWork);
 
-			//  Tout ce qui reste dans UpdateGameplay et qui n'est pas encore mesuré séparément
-			// (crops, boats, campfires, UI, quêtes, particules...). Calculé par soustraction de
-			// GameplayUpdateTotal - EntityUpdate - ChunkStreaming. Un chiffre élevé ici indique où
-			// découper la prochaine section de mesure, pas un problème en soi.
 			float otherUpdateMs = PerfStats.GetOtherUpdateMs(smoothed: true);
 			float otherUpdateMsInstant = PerfStats.GetOtherUpdateMs(smoothed: false);
-			DebugLine(ref y, dy, $"Autre update : {otherUpdateMs:F2} ms ({otherUpdateMsInstant:F2})", PerfColor(otherUpdateMs));
-			DebugLine(ref y, dy, $"Entités tot. : {PerfStats.EntitiesTotal}", Color.White);
-			DebugLine(ref y, dy, $"  IA complète: {PerfStats.EntitiesFullAiUpdated}", Color.White);
-			DebugLine(ref y, dy, $"  Dessinées  : {PerfStats.EntitiesDrawnThisFrame}", Color.White);
-            DebugLine(ref y, dy, "", Color.Blank);
+			DebugLineAt(ref y, x, dy, $"Autre update : {otherUpdateMs:F2} ms ({otherUpdateMsInstant:F2})", PerfColor(otherUpdateMs));
+			DebugLineAt(ref y, x, dy, $"Entités tot. : {PerfStats.EntitiesTotal}", Color.White);
+			DebugLineAt(ref y, x, dy, $"  IA complète: {PerfStats.EntitiesFullAiUpdated}", Color.White);
 
-        }
+			void RenderPerfLine(string label, PerfStats.Section section)
+			{
+				float average = PerfStats.GetSmoothedMs(section);
+				float instant = PerfStats.GetLastFrameMs(section);
+				DebugLineAt(ref y, x, dy, $"  {label,-17}: {average:F2} ms ({instant:F2})", PerfColor(average));
+			}
+		}
+
+		private static void DrawDebugOverlayToggle(ref int y, int dy, int index, bool enabled, string label)
+		{
+			const int x = 18;
+			const int rowHeight = 16;
+			_debugOverlayToggleBounds[index] = new Rectangle(x, y, 360, rowHeight);
+			Raylib.DrawRectangle(x, y + 1, 12, 12, enabled
+				? new Color(50, 145, 80, 230)
+				: new Color(65, 65, 65, 230));
+			Raylib.DrawRectangleLines(x, y + 1, 12, 12, enabled
+				? new Color(135, 230, 155, 255)
+				: new Color(145, 145, 145, 255));
+			DebugLineAt(ref y, x + 19, dy, label, enabled ? Color.White : Color.Gray);
+		}
 
 		private static void DrawHeldItemDebugPanel(Item? item, int x, int top, int width, bool expanded)
 		{
@@ -3799,6 +3869,7 @@ public readonly struct ProjectileRenderTag
 		public float StuckOffsetY;
 		public float Angle;
 		public bool IsBullet = false;
+		public bool IsPlayerWeaponProjectile = false;
 		//  Vrai pour une flèche tirée par un monstre (ex : gobelin archer) sur le joueur.
 		// Change la cible de la vérification de collision : une flèche "hostile" ne touche
 		// que le joueur (jamais les autres entités), l'inverse d'une flèche du joueur.
@@ -3964,6 +4035,9 @@ public readonly struct ProjectileRenderTag
 						// Ajouter une notification si l'entité meurt
 						if (!entity.IsAlive)
 						{
+							if (IsPlayerWeaponProjectile)
+								entity.WasKilledByPlayerWeapon = true;
+
 							foreach (var (id, qty, meta) in GameData.GetAnimalDrops(entity.Species))
 							{
 								Program.GiveItemToPlayer(id, qty, entity.WorldPos, null, meta);
@@ -3987,7 +4061,7 @@ public readonly struct ProjectileRenderTag
 						if (!Raylib.CheckCollisionPointRec(checkPos, hitbox) || !Guid.TryParse(remoteEntity.NetId, out Guid netId))
 							continue;
 
-						NetworkManager.RequestEntityHit(netId, (int)Damage);
+						NetworkManager.RequestEntityHit(netId, (int)Damage, IsPlayerWeaponProjectile);
 						return true;
 					}
 				}
@@ -4072,6 +4146,9 @@ public readonly struct ProjectileRenderTag
 							isEnemy: SourceEntity == null);
 						if (!target.IsAlive)
 						{
+							if (IsPlayerWeaponProjectile)
+								target.WasKilledByPlayerWeapon = true;
+
 							foreach (var (id, quantity, metadata) in GameData.GetAnimalDrops(target.Species))
 								Program.GiveItemToPlayer(id, quantity, target.WorldPos, null, metadata);
 						}

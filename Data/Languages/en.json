@@ -336,6 +336,8 @@
     "item.description.wool":  "Soft and warm",
     "item.name.egg":  "Egg",
     "item.description.egg":  "Fresh in the morning",
+    "item.name.dodo_egg":  "Dodo egg",
+    "item.description.dodo_egg":  "An egg laid by a dodo",
     "item.name.milk":  "Milk",
     "item.description.milk":  "Nutritious and refreshing",
     "item.name.feather":  "Feather",
