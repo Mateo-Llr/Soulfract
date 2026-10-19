@@ -1,6 +1,19 @@
 {
   "recipes": [
     {
+      "id": 1041,
+      "resultId": "mace",
+      "resultName": "Masse",
+      "resultCount": 1,
+      "ingredients": [
+        [ "stick", 2 ],
+        [ "iron_ingot", 2 ],
+        [ "rock", 2 ]
+      ],
+      "station": "workbench",
+      "category": "weapons"
+    },
+    {
       "id": 1,
       "resultId": "plank",
       "resultName": "Planche",

@@ -4011,6 +4011,7 @@ public readonly struct ProjectileRenderTag
 					if (entity.Species == "human") continue;
 					if (entity.IsTamed) continue;
 					if (entity.IsPlayer) continue;
+					if (entity.IsInvulnerable) continue;
 					
 					Rectangle entityHitbox = World.GetEntityDamageHitbox(entity, ts);
 					if (Raylib.CheckCollisionPointRec(checkPos, entityHitbox))
@@ -4124,7 +4125,7 @@ public readonly struct ProjectileRenderTag
 				Vector2 checkPos = from + dir * (dist * t);
 
 				bool targetHit = TargetEntity != null
-					? Raylib.CheckCollisionPointRec(checkPos, targetHitbox)
+					? !TargetEntity.IsInvulnerable && Raylib.CheckCollisionPointRec(checkPos, targetHitbox)
 					: remoteTarget != null
 						? Raylib.CheckCollisionPointRec(checkPos, remoteHitbox)
 						: Vector2.DistanceSquared(checkPos, playerPos) <= hitRadius * hitRadius;

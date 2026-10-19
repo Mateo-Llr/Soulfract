@@ -600,7 +600,10 @@ namespace Soulfract
         // customScale suit SpeciesInfo.Scale comme les autres créatures (Worm dans species.json).
         public static void DrawWormBoss(Entity entity, float customScale = 1f)
         {
-            if (entity == null || !entity.WormHeadVisible) return;
+            if (entity == null) return;
+
+            DrawWormGroundMarks(entity);
+            if (!entity.WormHeadVisible) return;
 
             Texture2D headTex = GetWormTexture("head");
             Texture2D bodyTex = GetWormTexture("body");
@@ -613,6 +616,7 @@ namespace Soulfract
             float stagger = entity.WormSegmentStagger;
             float arcHeight = entity.WormArcHeight;
             int segmentCount = Entity.WM_SEGMENT_COUNT;
+            bool movingLeft = entry.X < exit.X;
 
             const float WORM_SIZE_MULTIPLIER = 1.0f;
             float scale = BASE_ENTITY_SCALE * customScale * WORM_SIZE_MULTIPLIER;
@@ -638,6 +642,23 @@ namespace Soulfract
                 _wormEntryParticlesSpawned[id] = spawnedDict;
             }
 
+            if (currentState == Entity.WormBossState.IntroEmerging
+                || currentState == Entity.WormBossState.IntroRoaring
+                || currentState == Entity.WormBossState.IntroDiving
+                || currentState == Entity.WormBossState.SurfaceEmerging)
+            {
+                DrawWormCurledPose(entity, headTex, bodyTex, scale, entity.WormSurfacePoint);
+                return;
+            }
+
+            if (currentState == Entity.WormBossState.SurfaceRecover
+                || currentState == Entity.WormBossState.HitStagger
+                || currentState == Entity.WormBossState.Retreat)
+            {
+                DrawWormCurledPose(entity, headTex, bodyTex, scale, entity.WormSurfacePoint);
+                return;
+            }
+
             // -------------------------------------------------------------
             // NOUVELLE GESTION DES OMBRES
             // -------------------------------------------------------------
@@ -652,9 +673,11 @@ namespace Soulfract
                 Vector2 segPos = WormArcPos(exit, entry, arcHeight, t);
                 float heightAboveGround = groundPos.Y - segPos.Y;
                 float heightNorm = Math.Clamp(heightAboveGround / arcHeight, 0f, 1f);
+                float edgeFade = Math.Clamp(Math.Min(t, 1f - t) / 0.12f, 0f, 1f);
+                edgeFade = edgeFade * edgeFade * (3f - 2f * edgeFade);
 
                 // Opacité : plus le segment est haut, plus l'ombre est transparente
-                byte alpha = (byte)(180 * (1f - heightNorm * 0.85f)); // on ne descend pas en dessous de ~27
+                byte alpha = (byte)(180 * (1f - heightNorm * 0.85f) * edgeFade);
                 // Taille de l'ombre augmentée pour qu'elles se touchent
                 float shadowRadiusX = 16f + heightNorm * 18f; // 16 à 34
                 float shadowRadiusY = 8f + heightNorm * 12f;  // 8 à 20
@@ -667,9 +690,6 @@ namespace Soulfract
                     new Color((byte)0, (byte)0, (byte)0, alpha)
                 );
             }
-
-            // Direction du déplacement (1 = droite, -1 = gauche)
-            float moveDir = MathF.Sign(entry.X - exit.X);
 
             // Dessine la queue -> corps -> tête, dans cet ordre.
             for (int i = segmentCount - 1; i >= 0; i--)
@@ -691,6 +711,10 @@ namespace Soulfract
 
                 Vector2 segPos = WormArcPos(exit, entry, arcHeight, t);
                 float angleDeg = WormArcAngleDeg(exit, entry, arcHeight, t);
+                if (movingLeft)
+                    angleDeg -= 180f;
+                float edgeFade = Math.Clamp(Math.Min(t, 1f - t) / 0.12f, 0f, 1f);
+                edgeFade = edgeFade * edgeFade * (3f - 2f * edgeFade);
 
                 bool isHead = i == 0;
                 bool isTail = i == segmentCount - 1;
@@ -700,21 +724,111 @@ namespace Soulfract
                 float w = tex.Width * scale;
                 float h = tex.Height * scale;
 
-                Rectangle src;
-                if (moveDir < 0)
-                {
-                    src = new Rectangle(tex.Width, 0, tex.Width, -tex.Height);
-                }
-                else
-                {
-                    src = new Rectangle(0, 0, tex.Width, tex.Height);
-                }
-
+                Rectangle src = movingLeft
+                    ? new Rectangle(tex.Width, 0, -tex.Width, tex.Height)
+                    : new Rectangle(0, 0, tex.Width, tex.Height);
                 Rectangle dst = new Rectangle(segPos.X, segPos.Y, w, h);
                 Vector2 origin = new Vector2(w / 2f, h / 2f);
-
-                Raylib.DrawTexturePro(tex, src, dst, origin, angleDeg, entity.Tint);
+                Color tint = new(entity.Tint.R, entity.Tint.G, entity.Tint.B,
+                    (byte)(entity.Tint.A * edgeFade));
+                Raylib.DrawTexturePro(tex, src, dst, origin, angleDeg, tint);
             }
+        }
+
+        private static void DrawWormGroundMarks(Entity entity)
+        {
+            foreach (Entity.WormGroundMark mark in entity.WormGroundMarks)
+            {
+                float fade = Math.Clamp(1f - mark.Age / mark.Lifetime, 0f, 1f);
+                Vector2 ground = World.GetEntityGroundPosition(mark.Position);
+                float pulse = 0.88f + MathF.Sin(mark.Age * 7f) * 0.12f;
+                float radius = mark.Radius * pulse;
+                byte alpha = (byte)(fade * (mark.Type == Entity.WormGroundMarkType.Crater ? 150 : 190));
+
+                switch (mark.Type)
+                {
+                    case Entity.WormGroundMarkType.Wake:
+                        Raylib.DrawEllipse((int)ground.X, (int)ground.Y, radius, radius * 0.32f,
+                            new Color(94, 66, 38, (int)alpha));
+                        Raylib.DrawEllipse((int)ground.X, (int)(ground.Y - 2f), radius * 0.72f, radius * 0.18f,
+                            new Color(139, 101, 55, (int)(alpha * 0.68f)));
+                        break;
+
+                    case Entity.WormGroundMarkType.Telegraph:
+                        Raylib.DrawEllipse((int)ground.X, (int)ground.Y, radius, radius * 0.46f,
+                            new Color(74, 52, 35, (int)(alpha * 0.3f)));
+                        Raylib.DrawCircleLines((int)ground.X, (int)ground.Y, radius,
+                            new Color(211, 163, 89, (int)alpha));
+                        Raylib.DrawCircleLines((int)ground.X, (int)ground.Y, radius * 0.78f,
+                            new Color(160, 111, 57, (int)(alpha * 0.75f)));
+                        for (int i = 0; i < 4; i++)
+                        {
+                            float angle = mark.Rotation + i * MathF.PI / 2f;
+                            Vector2 start = ground + new Vector2(MathF.Cos(angle), MathF.Sin(angle) * 0.5f) * radius * 0.83f;
+                            Vector2 end = ground + new Vector2(MathF.Cos(angle), MathF.Sin(angle) * 0.5f) * radius * 1.12f;
+                            Raylib.DrawLineEx(start, end, 2f, new Color(220, 184, 120, (int)(alpha * 0.8f)));
+                        }
+                        break;
+
+                    case Entity.WormGroundMarkType.Crater:
+                        Raylib.DrawEllipse((int)ground.X, (int)(ground.Y + 2f), radius, radius * 0.52f,
+                            new Color(82, 58, 37, (int)alpha));
+                        Raylib.DrawEllipse((int)ground.X, (int)ground.Y, radius * 0.76f, radius * 0.34f,
+                            new Color(35, 29, 24, (int)(alpha * 0.9f)));
+                        Raylib.DrawCircleLines((int)ground.X, (int)ground.Y, radius * 0.84f,
+                            new Color(160, 119, 70, (int)(alpha * 0.65f)));
+                        for (int i = 0; i < 5; i++)
+                        {
+                            float angle = mark.Rotation + i * MathF.Tau / 5f;
+                            Vector2 start = ground + new Vector2(MathF.Cos(angle), MathF.Sin(angle) * 0.42f) * radius * 0.78f;
+                            Vector2 end = ground + new Vector2(MathF.Cos(angle + 0.13f), MathF.Sin(angle + 0.13f) * 0.42f) * radius * 1.15f;
+                            Raylib.DrawLineEx(start, end, 1.5f, new Color(166, 124, 74, (int)(alpha * 0.75f)));
+                        }
+                        break;
+                }
+            }
+        }
+
+        private static void DrawWormCurledPose(Entity entity, Texture2D headTex, Texture2D bodyTex, float scale, Vector2 surfacePoint)
+        {
+            Vector2 ground = World.GetEntityGroundPosition(surfacePoint);
+            Entity.WormIntroSegmentPose[] poses = entity.GetWormIntroSegmentPoses();
+            Raylib.DrawEllipse((int)ground.X, (int)ground.Y + 3, 24f, 7f, new Color(42, 27, 18, 220));
+
+            for (int i = poses.Length - 1; i >= 0; i--)
+            {
+                if (!poses[i].Visible)
+                    continue;
+
+                Vector2 position = World.GetEntityGroundPosition(poses[i].Position);
+                Vector2 before = World.GetEntityGroundPosition(poses[Math.Max(0, i - 1)].Position);
+                Vector2 after = World.GetEntityGroundPosition(poses[Math.Min(poses.Length - 1, i + 1)].Position);
+                Vector2 tangent = i == 0
+                    ? position - after
+                    : i == poses.Length - 1 ? before - position : before - after;
+                float angle = tangent.LengthSquared() > 0.001f
+                    ? MathF.Atan2(tangent.Y, tangent.X) * (180f / MathF.PI)
+                    : -90f;
+
+                byte alpha = entity.Tint.A;
+
+                Texture2D texture = i == 0 ? headTex : bodyTex;
+                if (texture.Id == 0)
+                    continue;
+
+                float width = texture.Width * scale;
+                float height = texture.Height * scale;
+                Rectangle source = new Rectangle(0, 0, texture.Width, texture.Height);
+                Rectangle destination = new Rectangle(position.X, position.Y, width, height);
+                Color tint = entity.DamageFlash > 0f
+                    ? new Color(255, 255, 255, (int)alpha)
+                    : new Color(entity.Tint.R, entity.Tint.G, entity.Tint.B, alpha);
+                Raylib.DrawTexturePro(texture, source, destination,
+                    new Vector2(width / 2f, height / 2f), angle, tint);
+            }
+
+            Raylib.DrawEllipse((int)ground.X, (int)ground.Y + 3, 24f, 7f, new Color(42, 27, 18, 230));
+            Raylib.DrawEllipse((int)ground.X, (int)ground.Y, 29f, 4f, new Color(104, 70, 38, 220));
         }
 
         private static SpeciesFeatureRenderCache GetSpeciesFeatureRenderCache(string speciesKey)
@@ -1017,6 +1131,9 @@ namespace Soulfract
             const float LOD_ZOOM_THRESHOLD = 0.75f;
             bool lowDetail = _currentZoomLevel > 0f && _currentZoomLevel < LOD_ZOOM_THRESHOLD;
 
+            bool isKnockedOutAnimation = string.Equals(anim, "stunned", StringComparison.OrdinalIgnoreCase);
+            if (isKnockedOutAnimation)
+                anim = "sleep";
             bool isSleepingAnimation = string.Equals(anim, "sleep", StringComparison.OrdinalIgnoreCase);
             string speciesKey = ResolveRenderSpecies(speciesName).ToLowerInvariant();
             bool isHumanoid = SpeciesData.IsHumanoid(speciesKey);
@@ -2337,6 +2454,33 @@ namespace Soulfract
 
             if (!mountDrawn && drawMount != null)
                 drawMount();
+
+            if (isKnockedOutAnimation)
+            {
+                float entityScale = customScale * (SpeciesData.GetSpeciesInfo(speciesKey)?.Scale ?? 1f);
+                Vector2 headPosition = partIndexMap.TryGetValue(headPartName, out int knockoutHeadIndex)
+                    ? globalPositions[knockoutHeadIndex]
+                    : pos;
+                Vector2 orbitCenter = headPosition - new Vector2(0f, 7f * entityScale);
+                float orbitRadiusX = 20f * entityScale;
+                float orbitRadiusY = 5f * entityScale;
+                float time = (float)Raylib.GetTime();
+
+                for (int i = 0; i < 3; i++)
+                {
+                    float angle = time * 1.8f + i * (MathF.Tau / 3f);
+                    float depth = MathF.Sin(angle);
+                    float depthScale = MathHelper.Lerp(0.68f, 1f, (depth + 1f) * 0.5f);
+                    Vector2 starCenter = orbitCenter + new Vector2(
+                        MathF.Cos(angle) * orbitRadiusX,
+                        depth * orbitRadiusY);
+                    float starRadius = Math.Max(12f * entityScale, 7f / Math.Clamp(_currentZoomLevel, 0.5f, 1f)) * depthScale;
+                    byte alpha = (byte)Math.Clamp(155f + (depth + 1f) * 50f, 0f, 255f);
+                    var starColor = new Color((byte)255, (byte)213, (byte)70, alpha);
+                    DrawKnockoutStar(starCenter, starRadius, angle * 180f / MathF.PI + time * 45f,
+                        starColor, new Color((byte)100, (byte)65, (byte)18, alpha));
+                }
+            }
             }
             finally
             {
@@ -2357,6 +2501,27 @@ namespace Soulfract
                 ArrayPool<bool>.Shared.Return(computed);
                 PerfStats.EndEntityRender(measureEntityRender, entityRenderStart);
             }
+        }
+
+        private static void DrawKnockoutStar(Vector2 center, float radius, float rotationDegrees, Color color, Color outline)
+        {
+            float rotation = rotationDegrees * MathF.PI / 180f - MathF.PI / 2f;
+            float innerRadius = radius * 0.44f;
+            Span<Vector2> points = stackalloc Vector2[10];
+
+            for (int i = 0; i < points.Length; i++)
+            {
+                float angle = rotation + i * MathF.PI / 5f;
+                float pointRadius = (i & 1) == 0 ? radius : innerRadius;
+                points[i] = center + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * pointRadius;
+            }
+
+            for (int i = 0; i < points.Length; i++)
+            {
+                Raylib.DrawTriangle(center, points[i], points[(i + 1) % points.Length], color);
+                Raylib.DrawLineEx(points[i], points[(i + 1) % points.Length], Math.Max(1.5f, radius * 0.13f), outline);
+            }
+
         }
 
         public static float GetVisualTopY(

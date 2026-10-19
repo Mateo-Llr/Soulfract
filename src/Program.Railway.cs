@@ -328,7 +328,7 @@ namespace Soulfract
             foreach (Entity entity in GetEntities())
             {
                 if (!entity.IsAlive || entity.IsPlayer || entity.CarriedByConnectionId != -1
-                    || cooldowns.ContainsKey(entity))
+                    || entity.IsInvulnerable || cooldowns.ContainsKey(entity))
                     continue;
 
                 Rectangle entityHitbox = World.GetEntityCollisionHitbox(entity.VisualWorldPos, entity.Species, TileSize);

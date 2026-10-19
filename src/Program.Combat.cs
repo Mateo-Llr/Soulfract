@@ -612,6 +612,9 @@ namespace Soulfract
 			foreach (var rp in NetworkManager.GetRemotePlayersAsLocalPlayers())
 			{
 				if (!rp.Connected || !rp.PvpEnabled) continue; // la cible doit aussi avoir activé le PVP
+				if (rp.Underground != World.IsUnderground || rp.IsInDungeon != World.IsInDungeon
+					|| (World.IsInDungeon && rp.DungeonInstanceId != World.CurrentDungeonInstanceId))
+					continue;
 				Rectangle damageHitbox = World.GetEntityDamageHitbox(rp.Position, rp.SpeciesOverride ?? "human", ts);
 				Vector2 closestPoint;
 				if (Raylib.CheckCollisionPointRec(attackOrigin, damageHitbox))

@@ -189,10 +189,27 @@ namespace Soulfract
 		// directement LoadChunkFromSave, qui sait déjà reconstruire un ChunkData complet
 		// (objets, sol, cultures, PNJ...) à partir d'un ChunkSaveData — exactement la même
 		// structure que celle utilisée pour les sauvegardes sur disque.
-		public static void ReceiveChunkFromNetwork(int chunkX, int chunkY, ChunkSaveData data, bool underground)
+		public static void ReceiveChunkFromNetwork(int chunkX, int chunkY, ChunkSaveData data, bool underground, bool isInDungeon = false, int dungeonInstanceId = -1)
 		{
+			if (isInDungeon && !_dungeonInstances.ContainsKey(dungeonInstanceId))
+				throw new InvalidDataException($"Chunk reçu pour une instance de donjon inconnue ({dungeonInstanceId}).");
+
 			bool saved = _isUnderground;
+			bool savedIsInDungeon = _isInDungeon;
+			int savedDungeonInstanceId = _currentDungeonInstanceId;
+			var savedDungeonChunks = _activeDungeonChunks;
 			_isUnderground = underground;
+			_isInDungeon = isInDungeon;
+			_currentDungeonInstanceId = isInDungeon ? dungeonInstanceId : -1;
+			if (isInDungeon)
+			{
+				if (!_dungeonChunksByInstance.TryGetValue(dungeonInstanceId, out var instanceChunks))
+				{
+					instanceChunks = new Dictionary<(int chunkX, int chunkY), ChunkData>();
+					_dungeonChunksByInstance[dungeonInstanceId] = instanceChunks;
+				}
+				_activeDungeonChunks = instanceChunks;
+			}
 			try
 			{
 				LoadChunkFromSave(data);
@@ -201,6 +218,9 @@ namespace Soulfract
 			finally
 			{
 				_isUnderground = saved;
+				_isInDungeon = savedIsInDungeon;
+				_currentDungeonInstanceId = savedDungeonInstanceId;
+				_activeDungeonChunks = savedDungeonChunks;
 			}
 		}
 
@@ -642,6 +662,8 @@ namespace Soulfract
             }
 
             Console.WriteLine($" Boss du donjon #{instanceId} vaincu, sortie débloquée !");
+			if (NetworkManager.IsHost)
+				NetworkManager.BroadcastDungeonState(instanceId);
         }
 
 		public static void SaveAllActiveChunks()
@@ -758,17 +780,41 @@ namespace Soulfract
         //  MULTIJOUEUR : permet au host de s'assurer qu'un chunk précis est chargé
         // (génération si besoin) pour répondre à la demande d'un client, sans perturber
         // l'état _isUnderground du joueur qui héberge la partie.
-        public static void EnsureChunkLoadedForNetwork(int chunkX, int chunkY, bool underground, float currentTime, List<Entity> globalEntities)
+        public static bool EnsureChunkLoadedForNetwork(int chunkX, int chunkY, bool underground, float currentTime, List<Entity> globalEntities, bool isInDungeon = false, int dungeonInstanceId = -1)
         {
+			if (isInDungeon && !_dungeonInstances.ContainsKey(dungeonInstanceId))
+				return false;
+
             bool saved = _isUnderground;
-            _isUnderground = underground;
+			bool savedIsInDungeon = _isInDungeon;
+			int savedDungeonInstanceId = _currentDungeonInstanceId;
+			var savedDungeonChunks = _activeDungeonChunks;
             try
             {
+				_isUnderground = underground;
+				_isInDungeon = isInDungeon;
+				_currentDungeonInstanceId = isInDungeon ? dungeonInstanceId : -1;
+				if (isInDungeon)
+				{
+					var instance = _dungeonInstances[dungeonInstanceId];
+					if (!_dungeonChunksByInstance.TryGetValue(dungeonInstanceId, out var instanceChunks))
+					{
+						instanceChunks = new Dictionary<(int chunkX, int chunkY), ChunkData>();
+						_dungeonChunksByInstance[dungeonInstanceId] = instanceChunks;
+					}
+					_activeDungeonChunks = instanceChunks;
+					if (!instance.Generated)
+						RestoreDungeonPlane(dungeonInstanceId);
+				}
                 LoadOrGenerateChunk(chunkX, chunkY, currentTime, globalEntities);
+				return true;
             }
             finally
             {
                 _isUnderground = saved;
+				_isInDungeon = savedIsInDungeon;
+				_currentDungeonInstanceId = savedDungeonInstanceId;
+				_activeDungeonChunks = savedDungeonChunks;
             }
         }
 
@@ -777,6 +823,34 @@ namespace Soulfract
             var dict = underground ? _caveChunks : _chunks;
             return dict.TryGetValue((chunkX, chunkY), out var c) ? c : null;
         }
+
+		public static ChunkData? GetChunkRaw(int chunkX, int chunkY, bool underground, bool isInDungeon, int dungeonInstanceId)
+		{
+			if (!isInDungeon)
+				return GetChunkRaw(chunkX, chunkY, underground);
+			return _dungeonChunksByInstance.TryGetValue(dungeonInstanceId, out var chunks)
+				&& chunks.TryGetValue((chunkX, chunkY), out var chunk)
+					? chunk
+					: null;
+		}
+
+		public static bool SetSharedDungeonPlane(bool underground, bool isInDungeon, int dungeonInstanceId)
+		{
+			if (isInDungeon && (!_dungeonInstances.ContainsKey(dungeonInstanceId)
+				|| !_dungeonChunksByInstance.ContainsKey(dungeonInstanceId)))
+				return false;
+
+			_isUnderground = underground;
+			_isInDungeon = isInDungeon;
+			_currentDungeonInstanceId = isInDungeon ? dungeonInstanceId : -1;
+			if (isInDungeon)
+				_activeDungeonChunks = _dungeonChunksByInstance[dungeonInstanceId];
+			else
+				_activeDungeonChunks = new Dictionary<(int chunkX, int chunkY), ChunkData>();
+			return true;
+		}
+
+		public static bool IsDungeonInstanceKnown(int instanceId) => _dungeonInstances.ContainsKey(instanceId);
 
 		public static bool IsChunkLoaded(int chunkX, int chunkY)
         {

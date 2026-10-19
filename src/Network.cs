@@ -82,6 +82,8 @@ namespace Soulfract
         //  NOUVEAU : équipement complet (toutes les zones + couleurs)
         public EquipData Equip { get; set; } = new EquipData();
         public bool Underground { get; set; }
+        public bool IsInDungeon { get; set; }
+        public int DungeonInstanceId { get; set; } = -1;
 
         //  PVP : si vrai, ce joueur ne doit pas être localisable par les autres
         // (pseudo + barre de vie masqués au-dessus de sa tête).
@@ -102,6 +104,8 @@ namespace Soulfract
         public float AnimProg { get; set; }
         public int HP { get; set; }
         public int MaxHP { get; set; }
+        public float Concussion { get; set; }
+        public bool CanBeTamedByPlayer { get; set; } = true;
         public float Scale { get; set; } = 1f;
         public float DamageFlash { get; set; } = 0f;
         public bool IsTamed { get; set; }
@@ -159,6 +163,7 @@ namespace Soulfract
         public string NetId { get; set; } = "";
         public int Damage { get; set; }
         public bool IsPlayerWeapon { get; set; }
+        public int Concussion { get; set; }
     }
 
     // Dégâts infligés par une entité (IA) à un joueur client spécifique - envoyé par le host
@@ -370,6 +375,10 @@ namespace Soulfract
         // même temps que les autres, sans attendre la prochaine diffusion périodique.
         public string WeatherType { get; set; } = "clear";
         public List<PlayerTransform> Roster { get; set; } = new();
+        public List<DungeonInstanceNetworkData> Dungeons { get; set; } = new();
+        public bool IsInDungeon { get; set; }
+        public bool Underground { get; set; }
+        public int DungeonInstanceId { get; set; } = -1;
         //  MULTIJOUEUR : personnage sauvegardé du joueur qui rejoint (position, stats,
         // inventaire, équipement, apparence), s'il a déjà visité ce monde. Null la
         // première fois : le client applique alors son comportement de bienvenue habituel.
@@ -462,6 +471,8 @@ namespace Soulfract
         public int ChunkX { get; set; }
         public int ChunkY { get; set; }
         public bool Underground { get; set; }
+        public bool IsInDungeon { get; set; }
+        public int DungeonInstanceId { get; set; } = -1;
     }
 
     public class ChunkDataMsg
@@ -469,7 +480,49 @@ namespace Soulfract
         public int ChunkX { get; set; }
         public int ChunkY { get; set; }
         public bool Underground { get; set; }
+        public bool IsInDungeon { get; set; }
+        public int DungeonInstanceId { get; set; } = -1;
+        public List<DungeonInstanceNetworkData> Dungeons { get; set; } = new();
         public ChunkSaveData Data { get; set; } = new();
+    }
+
+    public class DungeonInstanceNetworkData
+    {
+        public int Id { get; set; }
+        public int OriginX { get; set; }
+        public int OriginY { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public int EntryX { get; set; }
+        public int EntryY { get; set; }
+        public int RestSpawnX { get; set; }
+        public int RestSpawnY { get; set; }
+        public int ExitDoorX { get; set; }
+        public int ExitDoorY { get; set; }
+        public bool BossDefeated { get; set; }
+        public int Seed { get; set; }
+    }
+
+    public class DungeonTransitionRequestMsg
+    {
+        public int TileX { get; set; }
+        public int TileY { get; set; }
+    }
+
+    public class DungeonTransitionMsg
+    {
+        public bool IsInDungeon { get; set; }
+        public bool Underground { get; set; }
+        public int DungeonInstanceId { get; set; } = -1;
+        public float PosX { get; set; }
+        public float PosY { get; set; }
+        public List<DungeonInstanceNetworkData> Dungeons { get; set; } = new();
+    }
+
+    public class DungeonStateMsg
+    {
+        public List<DungeonInstanceNetworkData> Dungeons { get; set; } = new();
+        public ChunkDataMsg? ExitChunk { get; set; }
     }
 
     //  MULTIJOUEUR : paquet unique envoyé à un client qui vient de rejoindre, juste après
@@ -636,6 +689,7 @@ namespace Soulfract
     {
         public int ConnectionId;
         public NetEnvelope Envelope = new();
+        public long QueueBytes;
     }
 
     // Représente une connexion active côté host (un client connecté) ou côté client (le host).
@@ -645,8 +699,13 @@ namespace Soulfract
         public TcpClient Client = null!;
         public NetworkStream Stream = null!;
         public Thread? ReaderThread;
-        public bool Disconnected = false;
+        public Thread? WriterThread;
+        public readonly BlockingCollection<byte[]> Outgoing = new(new ConcurrentQueue<byte[]>(), 64);
+        public long OutgoingBytes;
+        public int DisconnectionQueued;
+        public volatile bool Disconnected = false;
         public DateTime LastActivity = DateTime.UtcNow; // pour heartbeat
+        public DateTime LastReceivedActivity = DateTime.UtcNow;
         public int ErrorCount = 0; // nombre d'erreurs consécutives
         public string VoiceToken = "";
 
@@ -722,8 +781,10 @@ namespace Soulfract
         // ---- Sécurité et robustesse ----
         private const int COMPRESSION_THRESHOLD = 4096; // octets : on compresse au-delà
         private const int MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 Mo (réduit pour éviter les abus)
-        private const int MAX_INCOMING_QUEUE = 10000; // nombre max de messages en attente
-        private const int MAX_INCOMING_MESSAGES_PER_FRAME = 4;
+        private const int MAX_INCOMING_QUEUE = 4096;
+        private const long MAX_INCOMING_QUEUE_BYTES = 64L * 1024 * 1024;
+        private const long MAX_OUTGOING_QUEUE_BYTES = 16L * 1024 * 1024;
+        private const int MAX_INCOMING_MESSAGES_PER_FRAME = 64;
         private const int NETWORK_TIMEOUT_MS = 5000; // timeout lecture/écriture (5s)
         private const int HEARTBEAT_INTERVAL_MS = 5000; // intervalle entre les heartbeats
 
@@ -764,13 +825,16 @@ namespace Soulfract
         // ---- Réception ----
         private static readonly ConcurrentQueue<IncomingMessage> _incoming = new();
         private static readonly ConcurrentQueue<int> _disconnections = new();
+        private static int _incomingQueueCount;
+        private static long _incomingQueueBytes;
 
         // ---- INTERPOLATION : états des joueurs distants (utilisé par TOUS, hôte comme client) ----
         private static readonly ConcurrentDictionary<int, InterpolatedState<PlayerTransform>> _remotePlayerStates = new();
         private static readonly ConcurrentDictionary<string, InterpolatedState<EntityDto>> _remoteEntityStates = new();
 
         // ---- Chunks en attente (côté client) ----
-        private static readonly HashSet<(int, int, bool)> _pendingChunkRequests = new();
+        private static readonly Dictionary<(int, int, bool, bool, int), double> _pendingChunkRequests = new();
+        private const double CHUNK_REQUEST_RETRY_INTERVAL = 5.0;
 
         // ---- Items au sol (côté client : copie reçue du host) ----
         private static List<GroundItemDto> _remoteGroundItems = new();
@@ -840,9 +904,10 @@ namespace Soulfract
             // Fermer la connexion et nettoyer
             if (_clients.TryRemove(connectionId, out var conn))
             {
+                WaitForOutgoing(conn, 250);
+                SignalDisconnect(conn);
                 _lastInstrumentNoteTime.Remove(connectionId);
                 VoiceChat.RemovePeer(connectionId);
-                try { conn.Client.Close(); } catch { }
                 string name = conn.LastTransform?.Name ?? $"Joueur {connectionId}";
                 Broadcast("Left", new PlayerLeftMsg { Id = connectionId, Name = name });
                 _remotePlayerStates.TryRemove(connectionId, out _);
@@ -962,6 +1027,18 @@ namespace Soulfract
             }
         }
 
+        private static (bool Underground, bool IsInDungeon, int DungeonInstanceId) GetPlayerPlane(int connectionId)
+        {
+            if (connectionId == 0)
+                return (World.IsUnderground, World.IsInDungeon, World.CurrentDungeonInstanceId);
+            if (_clients.TryGetValue(connectionId, out var connection) && connection.LastTransform != null)
+            {
+                var player = connection.LastTransform;
+                return (player.Underground, player.IsInDungeon, player.DungeonInstanceId);
+            }
+            return (false, false, -1);
+        }
+
         public static void JoinHostAsync(string ip, int port, string playerName)
         {
             Disconnect();
@@ -1026,6 +1103,7 @@ namespace Soulfract
                 var hello = BuildLocalTransform(playerName);
                 WriteFramed(conn.Stream, Encelope("Hello", hello));
 
+                StartWriter(conn);
                 conn.ReaderThread = new Thread(() => ReadLoop(conn)) { IsBackground = true };
                 conn.ReaderThread.Start();
 
@@ -1097,6 +1175,7 @@ namespace Soulfract
                         PlayerGuid = Program.LocalPlayerGuid,
                         Data = Program.BuildGuestSaveData()
                     });
+                    WaitForOutgoing(_hostConnection, 250);
                 }
                 catch { /* best-effort : on ne bloque pas la déconnexion si ça échoue */ }
             }
@@ -1122,14 +1201,14 @@ namespace Soulfract
 
             foreach (var kv in _clients)
             {
-                try { kv.Value.Client.Close(); } catch { }
+                SignalDisconnect(kv.Value);
             }
             _clients.Clear();
             _lastInstrumentNoteTime.Clear();
 
             if (_hostConnection != null)
             {
-                try { _hostConnection.Client.Close(); } catch { }
+                SignalDisconnect(_hostConnection);
                 _hostConnection = null;
             }
 
@@ -1139,14 +1218,15 @@ namespace Soulfract
             _myId = 0;
             _remotePlayerStates.Clear();
             _remoteEntityStates.Clear();
-            _pendingChunkRequests.Clear();
+            lock (_pendingChunkRequests)
+                _pendingChunkRequests.Clear();
             _remoteGroundItems.Clear();
             _lastGroundItemsPayload = null;
             _lastEntityPayload = null;
             _lastEnergyPayload = null;
             _lastLocalStatePayload = null;
             _lastRosterPayload = null;
-            while (_incoming.TryDequeue(out _)) { }
+            while (TryDequeueIncoming(out _)) { }
             while (_disconnections.TryDequeue(out _)) { }
             ConnectionStatus = "";
         }
@@ -1193,6 +1273,7 @@ namespace Soulfract
                     int id = Interlocked.Increment(ref _nextClientId) - 1;
                     var conn = new NetConnection { Id = id, Client = tcp, Stream = tcp.GetStream(), LastActivity = DateTime.UtcNow };
                     _clients[id] = conn;
+                    StartWriter(conn);
                     conn.ReaderThread = new Thread(() => ReadLoop(conn)) { IsBackground = true };
                     conn.ReaderThread.Start();
                 }
@@ -1218,6 +1299,7 @@ namespace Soulfract
                     }
                     receivedAnything = true;
                     conn.LastActivity = DateTime.UtcNow;
+                    conn.LastReceivedActivity = conn.LastActivity;
                     conn.ErrorCount = 0; // réinitialise le compteur d'erreurs
 
                     // Désérialisation protégée
@@ -1233,13 +1315,11 @@ namespace Soulfract
                     }
                     if (env == null) continue;
 
-                    // Limiter la taille de la file d'attente pour éviter l'explosion mémoire
-                    if (_incoming.Count >= MAX_INCOMING_QUEUE)
+                    if (!TryQueueIncoming(conn.Id, env, json.Length * 2L))
                     {
-                        // On supprime les messages les plus anciens
-                        while (_incoming.TryDequeue(out _)) { }
+                        Console.WriteLine($" File réseau saturée : déconnexion du client {conn.Id}.");
+                        break;
                     }
-                    _incoming.Enqueue(new IncomingMessage { ConnectionId = conn.Id, Envelope = env });
                 }
             }
             catch (SocketException sockEx)
@@ -1260,8 +1340,65 @@ namespace Soulfract
             }
             finally
             {
-                conn.Disconnected = true;
-                _disconnections.Enqueue(conn.Id);
+                SignalDisconnect(conn);
+            }
+        }
+
+        private static bool TryQueueIncoming(int connectionId, NetEnvelope envelope, long queueBytes)
+        {
+            long totalBytes = Interlocked.Add(ref _incomingQueueBytes, queueBytes);
+            if (totalBytes > MAX_INCOMING_QUEUE_BYTES)
+            {
+                Interlocked.Add(ref _incomingQueueBytes, -queueBytes);
+                return false;
+            }
+
+            int totalCount = Interlocked.Increment(ref _incomingQueueCount);
+            if (totalCount > MAX_INCOMING_QUEUE)
+            {
+                Interlocked.Decrement(ref _incomingQueueCount);
+                Interlocked.Add(ref _incomingQueueBytes, -queueBytes);
+                return false;
+            }
+
+            _incoming.Enqueue(new IncomingMessage
+            {
+                ConnectionId = connectionId,
+                Envelope = envelope,
+                QueueBytes = queueBytes
+            });
+            return true;
+        }
+
+        private static bool TryDequeueIncoming(out IncomingMessage message)
+        {
+            if (!_incoming.TryDequeue(out message!))
+                return false;
+
+            Interlocked.Decrement(ref _incomingQueueCount);
+            Interlocked.Add(ref _incomingQueueBytes, -message.QueueBytes);
+            return true;
+        }
+
+        private static void SignalDisconnect(NetConnection connection)
+        {
+            connection.Disconnected = true;
+            if (Interlocked.Exchange(ref connection.DisconnectionQueued, 1) != 0)
+                return;
+
+            try { connection.Outgoing.CompleteAdding(); } catch (InvalidOperationException) { }
+            try { connection.Client.Close(); } catch { }
+            _disconnections.Enqueue(connection.Id);
+        }
+
+        private static void WaitForOutgoing(NetConnection connection, int timeoutMs)
+        {
+            long deadline = Environment.TickCount64 + timeoutMs;
+            while (Interlocked.Read(ref connection.OutgoingBytes) > 0 &&
+                   !connection.Disconnected &&
+                   Environment.TickCount64 < deadline)
+            {
+                Thread.Sleep(5);
             }
         }
 
@@ -1318,7 +1455,6 @@ namespace Soulfract
         private static void WriteFramed(NetworkStream stream, byte[] packet)
         {
             stream.Write(packet, 0, packet.Length);
-            stream.Flush();
         }
 
         /// <summary>
@@ -1346,14 +1482,20 @@ namespace Soulfract
                     using var inputStream = new MemoryStream(payload);
                     using var gzip = new GZipStream(inputStream, CompressionMode.Decompress);
                     using var outputStream = new MemoryStream();
-                    gzip.CopyTo(outputStream);
+                    byte[] chunk = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = gzip.Read(chunk, 0, chunk.Length)) > 0)
+                    {
+                        if (outputStream.Length + bytesRead > MAX_MESSAGE_SIZE)
+                            return null;
+                        outputStream.Write(chunk, 0, bytesRead);
+                    }
                     byte[] decompressed = outputStream.ToArray();
                     return Encoding.UTF8.GetString(decompressed);
                 }
-                else
-                {
-                    return Encoding.UTF8.GetString(payload);
-                }
+                if (flag != 0 || payload.Length > MAX_MESSAGE_SIZE)
+                    return null;
+                return Encoding.UTF8.GetString(payload);
             }
             catch (Exception)
             {
@@ -1398,14 +1540,12 @@ namespace Soulfract
             {
                 try
                 {
-                    WriteFramed(conn.Stream, Encelope(type, payload));
-                    conn.LastActivity = DateTime.UtcNow;
+                    QueuePacket(conn, BuildFramedPacket(Encelope(type, payload)));
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($" Erreur d'envoi réseau ({type}, client {connectionId}) : {ex.Message}");
-                    conn.Disconnected = true;
-                    _disconnections.Enqueue(connectionId);
+                    SignalDisconnect(conn);
                 }
             }
         }
@@ -1417,21 +1557,74 @@ namespace Soulfract
 
         private static void BroadcastRaw(string raw, int exceptConnectionId = -1)
         {
-            byte[] packet = BuildFramedPacket(raw);
+            byte[] packet;
+            try
+            {
+                packet = BuildFramedPacket(raw);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" Erreur de préparation d'un message diffusé : {ex.Message}");
+                return;
+            }
+
             foreach (var kv in _clients)
             {
                 if (kv.Key == exceptConnectionId || kv.Value.Disconnected) continue;
                 try
                 {
-                    WriteFramed(kv.Value.Stream, packet);
-                    kv.Value.LastActivity = DateTime.UtcNow;
+                    QueuePacket(kv.Value, packet);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    kv.Value.Disconnected = true;
-                    _disconnections.Enqueue(kv.Key);
+                    Console.WriteLine($" Erreur d'envoi réseau (diffusion, client {kv.Key}) : {ex.Message}");
+                    SignalDisconnect(kv.Value);
                 }
             }
+        }
+
+        private static void StartWriter(NetConnection connection)
+        {
+            connection.WriterThread = new Thread(() =>
+            {
+                try
+                {
+                    foreach (byte[] packet in connection.Outgoing.GetConsumingEnumerable())
+                    {
+                        try
+                        {
+                            WriteFramed(connection.Stream, packet);
+                            connection.LastActivity = DateTime.UtcNow;
+                        }
+                        finally
+                        {
+                            Interlocked.Add(ref connection.OutgoingBytes, -packet.Length);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (!connection.Disconnected)
+                        Console.WriteLine($" Erreur d'écriture réseau (connexion {connection.Id}) : {ex.Message}");
+                    SignalDisconnect(connection);
+                }
+            })
+            {
+                IsBackground = true
+            };
+            connection.WriterThread.Start();
+        }
+
+        private static void QueuePacket(NetConnection connection, byte[] packet)
+        {
+            long queuedBytes = Interlocked.Add(ref connection.OutgoingBytes, packet.Length);
+            if (queuedBytes > MAX_OUTGOING_QUEUE_BYTES || !connection.Outgoing.TryAdd(packet))
+            {
+                Interlocked.Add(ref connection.OutgoingBytes, -packet.Length);
+                throw new IOException("La file d'envoi réseau est saturée.");
+            }
+
+            connection.LastActivity = DateTime.UtcNow;
         }
 
         private static void BroadcastIfChanged(string type, object payload, ref string? previousPayload)
@@ -1452,12 +1645,12 @@ namespace Soulfract
             if (_hostConnection == null || _hostConnection.Disconnected) return;
             try
             {
-                WriteFramed(_hostConnection.Stream, raw);
-                _hostConnection.LastActivity = DateTime.UtcNow;
+                QueuePacket(_hostConnection, BuildFramedPacket(raw));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _hostConnection.Disconnected = true;
+                Console.WriteLine($" Erreur d'envoi réseau vers l'hôte : {ex.Message}");
+                SignalDisconnect(_hostConnection);
             }
         }
 
@@ -1481,9 +1674,7 @@ namespace Soulfract
                     // Si la dernière activité est trop ancienne, on considère la connexion morte
                     if ((now - conn.LastActivity).TotalMilliseconds > HEARTBEAT_INTERVAL_MS * 3)
                     {
-                        conn.Disconnected = true;
-                        _disconnections.Enqueue(conn.Id);
-                        try { conn.Client.Close(); } catch { }
+                        SignalDisconnect(conn);
                     }
                 }
             }
@@ -1491,7 +1682,11 @@ namespace Soulfract
             // Côté client : envoyer un ping périodique
             if (_isClient && _hostConnection != null && !_hostConnection.Disconnected)
             {
-                if ((now - _lastHeartbeatSend).TotalMilliseconds > HEARTBEAT_INTERVAL_MS)
+                if ((now - _hostConnection.LastReceivedActivity).TotalMilliseconds > HEARTBEAT_INTERVAL_MS * 3)
+                {
+                    SignalDisconnect(_hostConnection);
+                }
+                else if ((now - _lastHeartbeatSend).TotalMilliseconds > HEARTBEAT_INTERVAL_MS)
                 {
                     _lastHeartbeatSend = now;
                     try
@@ -1502,7 +1697,7 @@ namespace Soulfract
                     catch
                     {
                         // Si l'envoi échoue, on marque la connexion comme morte
-                        _hostConnection.Disconnected = true;
+                        SignalDisconnect(_hostConnection);
                     }
                 }
             }
@@ -1566,7 +1761,7 @@ namespace Soulfract
 
             // 2. Traiter les messages reçus
             for (int processed = 0;
-                processed < MAX_INCOMING_MESSAGES_PER_FRAME && _incoming.TryDequeue(out var msg);
+                processed < MAX_INCOMING_MESSAGES_PER_FRAME && TryDequeueIncoming(out var msg);
                 processed++)
             {
                 try { Dispatch(msg); }
@@ -1728,6 +1923,8 @@ namespace Soulfract
                 res.EqLegs = curr.EqLegs;
                 res.Equip = curr.Equip;
                 res.Underground = curr.Underground; // ← AJOUTER CETTE LIGNE
+                res.IsInDungeon = curr.IsInDungeon;
+                res.DungeonInstanceId = curr.DungeonInstanceId;
                 res.PvpEnabled = curr.PvpEnabled;
                 // Interpoler les positions
                 res.PosX = MathHelper.Lerp(prev.PosX, curr.PosX, t);
@@ -1751,6 +1948,8 @@ namespace Soulfract
                 res.AnimProg = curr.AnimProg;
                 res.HP = curr.HP;
                 res.MaxHP = curr.MaxHP;
+                res.Concussion = curr.Concussion;
+                res.CanBeTamedByPlayer = curr.CanBeTamedByPlayer;
                 res.Scale = curr.Scale;
                 res.DamageFlash = curr.DamageFlash;
                 res.IsTamed = curr.IsTamed;
@@ -1860,6 +2059,8 @@ namespace Soulfract
                 HP = Program.playerHP,
                 MaxHP = Program.playerMaxHP,
                 Underground = World.IsUnderground,
+                IsInDungeon = World.IsInDungeon,
+                DungeonInstanceId = World.CurrentDungeonInstanceId,
                 PvpEnabled = Program.LocalPvpEnabled
             };
 
@@ -2046,6 +2247,7 @@ namespace Soulfract
                     if (_hostConnection != null)
                     {
                         _hostConnection.LastActivity = DateTime.UtcNow;
+                        _hostConnection.LastReceivedActivity = _hostConnection.LastActivity;
                     }
                     break;
 
@@ -2140,9 +2342,10 @@ namespace Soulfract
                     {
                         var pvpReq = Deserialize<PvpHitReqMsg>(msg.Envelope.J);
                         int attackerConnId = msg.ConnectionId;
+                        bool samePlane = GetPlayerPlane(attackerConnId) == GetPlayerPlane(pvpReq.TargetId);
                         //  Le host revalide que les DEUX joueurs ont bien le PVP activé avant
                         // d'appliquer les dégâts, pour ne pas se fier uniquement au client.
-                        if (pvpReq.Damage > 0 && GetPvpEnabledFor(attackerConnId) && GetPvpEnabledFor(pvpReq.TargetId))
+                        if (pvpReq.Damage > 0 && samePlane && GetPvpEnabledFor(attackerConnId) && GetPvpEnabledFor(pvpReq.TargetId))
                         {
                             Program.DamagePlayerTarget(pvpReq.Damage, pvpReq.TargetId == 0 ? -1 : pvpReq.TargetId);
                         }
@@ -2251,6 +2454,15 @@ namespace Soulfract
                     break;
                 case "ChunkData":
                     if (_isClient) HandleChunkData(Deserialize<ChunkDataMsg>(msg.Envelope.J));
+                    break;
+                case "DungeonTransitionReq":
+                    if (_isHost) HandleDungeonTransitionRequest(msg.ConnectionId, Deserialize<DungeonTransitionRequestMsg>(msg.Envelope.J));
+                    break;
+                case "DungeonTransition":
+                    if (_isClient) Program.OnNetworkDungeonTransition(Deserialize<DungeonTransitionMsg>(msg.Envelope.J));
+                    break;
+                case "DungeonState":
+                    if (_isClient) HandleDungeonState(Deserialize<DungeonStateMsg>(msg.Envelope.J));
                     break;
                 case "WorldAction":
                     HandleWorldAction(msg.ConnectionId, Deserialize<WorldActionMsg>(msg.Envelope.J));
@@ -2397,9 +2609,29 @@ namespace Soulfract
         {
             hello.Id = connectionId;
             string voiceToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+            var hostTransform = BuildLocalTransform(Program.LocalPlayerName);
 
             //  MULTIJOUEUR : ce joueur a-t-il déjà un personnage sauvegardé sur ce monde ?
             var restore = Program.TryGetNetworkPlayerRecord(hello.PlayerGuid);
+            if (restore == null)
+            {
+                hello.PosX = hostTransform.PosX + 60;
+                hello.PosY = hostTransform.PosY + 60;
+                hello.Underground = hostTransform.Underground;
+                hello.IsInDungeon = hostTransform.IsInDungeon;
+                hello.DungeonInstanceId = hostTransform.DungeonInstanceId;
+            }
+            else if (restore.Underground != hostTransform.Underground
+                || restore.IsInDungeon != hostTransform.IsInDungeon
+                || restore.DungeonInstanceId != hostTransform.DungeonInstanceId)
+            {
+                restore.PosX = hostTransform.PosX + 60;
+                restore.PosY = hostTransform.PosY + 60;
+                restore.Underground = hostTransform.Underground;
+                restore.IsInDungeon = hostTransform.IsInDungeon;
+                restore.DungeonInstanceId = hostTransform.DungeonInstanceId;
+            }
+
             if (restore != null)
             {
                 // On corrige tout de suite la position/l'apparence connues du host, pour que
@@ -2416,6 +2648,9 @@ namespace Soulfract
                 hello.HairStyle = restore.HairStyle;
                 hello.BeardStyle = restore.BeardStyle;
                 hello.Equip = NetworkManagerEquipDataFromSave(restore.Equipment);
+                hello.Underground = restore.Underground;
+                hello.IsInDungeon = restore.IsInDungeon;
+                hello.DungeonInstanceId = restore.DungeonInstanceId;
             }
 
             if (_clients.TryGetValue(connectionId, out var conn))
@@ -2430,7 +2665,7 @@ namespace Soulfract
             state.Previous = hello;
             state.ReceiveTime = Raylib.GetTime();
 
-            var roster = new List<PlayerTransform> { BuildLocalTransform(Program.LocalPlayerName) };
+            var roster = new List<PlayerTransform> { hostTransform };
             foreach (var kv in _clients)
             {
                 if (kv.Key == connectionId) continue;
@@ -2447,6 +2682,10 @@ namespace Soulfract
                 WorldName = World.CurrentSaveName,
                 GameTime = Program.GetGameTime(),
                 WeatherType = Program.GetCurrentWeatherType(),
+                Dungeons = World.GetDungeonInstancesForNetwork(),
+                IsInDungeon = World.IsInDungeon,
+                Underground = World.IsUnderground,
+                DungeonInstanceId = World.CurrentDungeonInstanceId,
                 Roster = roster,
                 Restore = restore
             });
@@ -2465,7 +2704,9 @@ namespace Soulfract
         {
             float spawnX = restore?.PosX ?? (hostTransform.PosX + 60);
             float spawnY = restore?.PosY ?? (hostTransform.PosY + 60);
-            bool underground = restore?.Underground ?? false;
+            bool underground = World.IsUnderground;
+            bool isInDungeon = World.IsInDungeon;
+            int dungeonInstanceId = World.CurrentDungeonInstanceId;
 
             int ts = Program.TileSize;
             int spawnChunkX = (int)Math.Floor(spawnX / (World.CHUNK_SIZE * ts));
@@ -2476,13 +2717,22 @@ namespace Soulfract
             {
                 for (int y = spawnChunkY - INITIAL_SYNC_CHUNK_RADIUS; y <= spawnChunkY + INITIAL_SYNC_CHUNK_RADIUS; y++)
                 {
-                    World.EnsureChunkLoadedForNetwork(x, y, underground, now, Program.entities);
-                    var data = SaveSystem.BuildChunkSaveDataForNetwork(x, y, underground);
+                    World.EnsureChunkLoadedForNetwork(x, y, underground, now, Program.entities, isInDungeon, dungeonInstanceId);
+                    var data = SaveSystem.BuildChunkSaveDataForNetwork(x, y, underground, isInDungeon, dungeonInstanceId);
                     if (data != null)
                     {
                         SendTo(connectionId, "WorldSync", new WorldSyncMsg
                         {
-                            Chunks = { new ChunkDataMsg { ChunkX = x, ChunkY = y, Underground = underground, Data = data } }
+                            Chunks = { new ChunkDataMsg
+                            {
+                                ChunkX = x,
+                                ChunkY = y,
+                                Underground = underground,
+                                IsInDungeon = isInDungeon,
+                                DungeonInstanceId = dungeonInstanceId,
+                                Dungeons = World.GetDungeonInstancesForNetwork(x, y, underground, isInDungeon, dungeonInstanceId),
+                                Data = data
+                            } }
                         });
                     }
                 }
@@ -2540,7 +2790,10 @@ namespace Soulfract
         private static void HandleWorldSync(WorldSyncMsg sync)
         {
             foreach (var chunk in sync.Chunks)
-                World.ReceiveChunkFromNetwork(chunk.ChunkX, chunk.ChunkY, chunk.Data, chunk.Underground);
+            {
+                World.ApplyDungeonInstancesFromNetwork(chunk.Dungeons);
+                World.ReceiveChunkFromNetwork(chunk.ChunkX, chunk.ChunkY, chunk.Data, chunk.Underground, chunk.IsInDungeon, chunk.DungeonInstanceId);
+            }
 
             if (!sync.IsFinalPart) return;
 
@@ -2564,8 +2817,13 @@ namespace Soulfract
         // ---- Chunks ----
         private static void HandleChunkRequest(int connectionId, ChunkRequestMsg req)
         {
-            World.EnsureChunkLoadedForNetwork(req.ChunkX, req.ChunkY, req.Underground, (float)Raylib.GetTime(), Program.entities);
-            var data = SaveSystem.BuildChunkSaveDataForNetwork(req.ChunkX, req.ChunkY, req.Underground);
+            if (req.IsInDungeon && (req.DungeonInstanceId < 0 || !World.IsDungeonInstanceKnown(req.DungeonInstanceId)))
+                return;
+            if (!World.EnsureChunkLoadedForNetwork(req.ChunkX, req.ChunkY, req.Underground,
+                (float)Raylib.GetTime(), Program.entities, req.IsInDungeon, req.DungeonInstanceId))
+                return;
+            var data = SaveSystem.BuildChunkSaveDataForNetwork(req.ChunkX, req.ChunkY, req.Underground,
+                req.IsInDungeon, req.DungeonInstanceId);
             if (data != null)
             {
                 SendTo(connectionId, "ChunkData", new ChunkDataMsg
@@ -2573,27 +2831,172 @@ namespace Soulfract
                     ChunkX = req.ChunkX,
                     ChunkY = req.ChunkY,
                     Underground = req.Underground,
+                    IsInDungeon = req.IsInDungeon,
+                    DungeonInstanceId = req.DungeonInstanceId,
+                    Dungeons = World.GetDungeonInstancesForNetwork(req.ChunkX, req.ChunkY,
+                        req.Underground, req.IsInDungeon, req.DungeonInstanceId),
                     Data = data
                 });
             }
         }
 
-        private static void HandleChunkData(ChunkDataMsg msg)
+        private static void HandleDungeonTransitionRequest(int connectionId, DungeonTransitionRequestMsg request)
         {
-            _pendingChunkRequests.Remove((msg.ChunkX, msg.ChunkY, msg.Underground));
-            World.ReceiveChunkFromNetwork(msg.ChunkX, msg.ChunkY, msg.Data, msg.Underground);
+            if (!_clients.TryGetValue(connectionId, out var connection) || connection.LastTransform == null)
+                return;
+
+            PlayerTransform player = connection.LastTransform;
+            bool entering = World.IsDungeonEntrance(request.TileX, request.TileY);
+            bool exiting = World.IsDungeonReturnPortal(request.TileX, request.TileY);
+            if (entering == exiting)
+                return;
+
+            Vector2 portalPos = new((request.TileX + 0.5f) * Program.TileSize, (request.TileY + 0.5f) * Program.TileSize);
+            Vector2 playerPos = new(player.PosX, player.PosY);
+            float maxDistance = Program.TileSize * 3f;
+            if (Vector2.DistanceSquared(playerPos, portalPos) > maxDistance * maxDistance)
+                return;
+
+            if (entering)
+            {
+                if (player.IsInDungeon || !player.Underground)
+                    return;
+            }
+            else if (!player.IsInDungeon || player.DungeonInstanceId != World.CurrentDungeonInstanceId)
+            {
+                return;
+            }
+
+            Program.ApplyNetworkDungeonTransitionRequest(request.TileX, request.TileY, entering);
         }
 
-        public static void RequestChunk(int chunkX, int chunkY, bool underground)
+        public static void RequestDungeonTransition(int tileX, int tileY)
         {
             if (!_isClient) return;
-            var key = (chunkX, chunkY, underground);
+            SendToHost("DungeonTransitionReq", new DungeonTransitionRequestMsg { TileX = tileX, TileY = tileY });
+        }
+
+        public static void BroadcastDungeonTransition()
+        {
+            if (!_isHost) return;
+            Vector2 pos = Program.GetPlayerPosition();
+            var message = new DungeonTransitionMsg
+            {
+                IsInDungeon = World.IsInDungeon,
+                Underground = World.IsUnderground,
+                DungeonInstanceId = World.CurrentDungeonInstanceId,
+                PosX = pos.X,
+                PosY = pos.Y,
+                Dungeons = World.GetDungeonInstancesForNetwork()
+            };
+
+            foreach (var connection in _clients.Values)
+            {
+                var transform = connection.LastTransform;
+                if (transform == null) continue;
+                transform.PosX = pos.X;
+                transform.PosY = pos.Y;
+                transform.Underground = message.Underground;
+                transform.IsInDungeon = message.IsInDungeon;
+                transform.DungeonInstanceId = message.DungeonInstanceId;
+                var state = _remotePlayerStates.GetOrAdd(connection.Id, _ => new InterpolatedState<PlayerTransform>());
+                state.Previous = transform;
+                state.Current = transform;
+                state.ReceiveTime = Raylib.GetTime();
+            }
+
+            Broadcast("DungeonTransition", message);
+        }
+
+        public static void BroadcastDungeonState(int instanceId)
+        {
+            if (!_isHost) return;
+
+            var dungeons = World.GetDungeonInstancesForNetwork(isInDungeon: true, dungeonInstanceId: instanceId);
+            if (dungeons.Count == 0)
+            {
+                Console.WriteLine($"Impossible de synchroniser le donjon #{instanceId} : instance inconnue.");
+                return;
+            }
+
+            var dungeon = dungeons[0];
+            int chunkX = (int)Math.Floor((double)dungeon.ExitDoorX / World.CHUNK_SIZE);
+            int chunkY = (int)Math.Floor((double)dungeon.ExitDoorY / World.CHUNK_SIZE);
+            if (!World.EnsureChunkLoadedForNetwork(chunkX, chunkY, underground: true,
+                (float)Raylib.GetTime(), Program.entities, isInDungeon: true, dungeonInstanceId: instanceId))
+            {
+                Console.WriteLine($"Impossible de charger la sortie du donjon #{instanceId} pour la synchronisation.");
+                return;
+            }
+
+            var data = SaveSystem.BuildChunkSaveDataForNetwork(chunkX, chunkY, isUnderground: true,
+                isInDungeon: true, dungeonInstanceId: instanceId);
+            if (data == null)
+            {
+                Console.WriteLine($"Chunk de sortie introuvable pour le donjon #{instanceId}.");
+                return;
+            }
+
+            Broadcast("DungeonState", new DungeonStateMsg
+            {
+                Dungeons = dungeons,
+                ExitChunk = new ChunkDataMsg
+                {
+                    ChunkX = chunkX,
+                    ChunkY = chunkY,
+                    Underground = true,
+                    IsInDungeon = true,
+                    DungeonInstanceId = instanceId,
+                    Data = data
+                }
+            });
+        }
+
+        private static void HandleChunkData(ChunkDataMsg msg)
+        {
+            var key = (msg.ChunkX, msg.ChunkY, msg.Underground, msg.IsInDungeon, msg.DungeonInstanceId);
             lock (_pendingChunkRequests)
             {
-                if (_pendingChunkRequests.Contains(key)) return;
-                _pendingChunkRequests.Add(key);
+                if (!_pendingChunkRequests.Remove(key))
+                    return;
             }
-            SendToHost("ChunkReq", new ChunkRequestMsg { ChunkX = chunkX, ChunkY = chunkY, Underground = underground });
+            World.ApplyDungeonInstancesFromNetwork(msg.Dungeons);
+            World.ReceiveChunkFromNetwork(msg.ChunkX, msg.ChunkY, msg.Data, msg.Underground, msg.IsInDungeon, msg.DungeonInstanceId);
+        }
+
+        private static void HandleDungeonState(DungeonStateMsg msg)
+        {
+            World.ApplyDungeonInstancesFromNetwork(msg.Dungeons);
+            if (msg.ExitChunk is not { IsInDungeon: true, Data: not null } chunk)
+            {
+                Console.WriteLine("État de donjon reçu sans chunk de sortie valide.");
+                return;
+            }
+
+            World.ReceiveChunkFromNetwork(chunk.ChunkX, chunk.ChunkY, chunk.Data,
+                chunk.Underground, chunk.IsInDungeon, chunk.DungeonInstanceId);
+        }
+
+        public static void RequestChunk(int chunkX, int chunkY, bool underground, bool isInDungeon = false, int dungeonInstanceId = -1)
+        {
+            if (!_isClient) return;
+            var key = (chunkX, chunkY, underground, isInDungeon, isInDungeon ? dungeonInstanceId : -1);
+            double now = Raylib.GetTime();
+            lock (_pendingChunkRequests)
+            {
+                if (_pendingChunkRequests.TryGetValue(key, out double lastRequestedAt)
+                    && now - lastRequestedAt < CHUNK_REQUEST_RETRY_INTERVAL)
+                    return;
+                _pendingChunkRequests[key] = now;
+            }
+            SendToHost("ChunkReq", new ChunkRequestMsg
+            {
+                ChunkX = chunkX,
+                ChunkY = chunkY,
+                Underground = underground,
+                IsInDungeon = isInDungeon,
+                DungeonInstanceId = isInDungeon ? dungeonInstanceId : -1
+            });
         }
 
         // ---- Actions sur le monde ----
@@ -2759,6 +3162,8 @@ namespace Soulfract
                     AnimProg = e.AnimProgress,
                     HP = e.CurrentHP,
                     MaxHP = e.MaxHP,
+                    Concussion = e.Concussion,
+                    CanBeTamedByPlayer = e.CanBeTamedByPlayer,
                     Scale = e.Scale,
                     IsTamed = e.IsTamed,
                     OwnerName = e.OwnerName ?? "",
@@ -2832,14 +3237,15 @@ namespace Soulfract
             });
         }
 
-        public static void RequestEntityHit(Guid netId, int damage, bool isPlayerWeapon = false)
+        public static void RequestEntityHit(Guid netId, int damage, bool isPlayerWeapon = false, int concussion = 0)
         {
             if (!_isClient) return;
             SendToHost("EntityHit", new EntityHitMsg
             {
                 NetId = netId.ToString(),
                 Damage = damage,
-                IsPlayerWeapon = isPlayerWeapon
+                IsPlayerWeapon = isPlayerWeapon,
+                Concussion = concussion
             });
         }
 
@@ -3001,7 +3407,10 @@ namespace Soulfract
             foreach (var kv in _clients)
             {
                 var t = kv.Value.LastTransform;
-                if (t != null) list.Add((kv.Key, new Vector2(t.PosX, t.PosY)));
+                if (t != null && t.Underground == World.IsUnderground
+                    && t.IsInDungeon == World.IsInDungeon
+                    && (!World.IsInDungeon || t.DungeonInstanceId == World.CurrentDungeonInstanceId))
+                    list.Add((kv.Key, new Vector2(t.PosX, t.PosY)));
             }
             return list;
         }
@@ -3140,6 +3549,7 @@ namespace Soulfract
             if (e == null || !e.IsAlive) { Fail(); return; }
             if (e.IsTamed) { Fail(); return; }
             if (e.IsSpiritAnimal) { Fail(); return; }
+            if (!e.CanBeTamedByPlayer) { Fail(); return; }
             if (e.CarriedByConnectionId != -1) { Fail(); return; } // portée par quelqu'un
             if (!TryGetConnectionPos(connectionId, out var playerPos)) { Fail(); return; }
             if (Vector2.DistanceSquared(playerPos, e.WorldPos) > (Program.TileSize * 2.5f) * (Program.TileSize * 2.5f)) { Fail(); return; }
@@ -3147,6 +3557,7 @@ namespace Soulfract
 
             e.IsTamed = true;
             e.Behavior = "tamed";
+            e.WakeFromTaming();
             e.OwnerName = (_clients.TryGetValue(connectionId, out var conn) && conn.LastTransform != null)
                 ? conn.LastTransform.Name
                 : $"Joueur {connectionId}";
@@ -3187,6 +3598,7 @@ namespace Soulfract
             var e = Program.entities.FirstOrDefault(x => x.NetId == guid);
             if (e == null || !e.IsAlive) return;
             if (e.CarriedByConnectionId != -1) return; // on ne frappe pas une créature en train d'être portée
+            if (e.IsInvulnerable) return;
 
             Vector2 attackerPos = Vector2.Zero;
             if (_clients.TryGetValue(connectionId, out var conn) && conn.LastTransform != null)
@@ -3195,6 +3607,7 @@ namespace Soulfract
             }
 
             e.CurrentHP = Math.Max(0, e.CurrentHP - msg.Damage);
+            e.ApplyConcussion(Math.Clamp(msg.Concussion, 0, Math.Max(0, e.MaxHP * 2)));
             e.OnHit(attackerPos, attackerConnectionId: connectionId); // la peur/riposte suit le client qui a frappé
 
             //  Écarte l'animal de l'attaquant (le client qui a envoyé le coup), pour reproduire
@@ -4081,6 +4494,8 @@ namespace Soulfract
                     HeadAngle = p.HeadAngle,
                     LookWorldPos = new Vector2(p.LookX, p.LookY),
                     Underground = p.Underground,
+                    IsInDungeon = p.IsInDungeon,
+                    DungeonInstanceId = p.DungeonInstanceId,
                     PvpEnabled = p.PvpEnabled
                 };
 

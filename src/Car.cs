@@ -207,6 +207,7 @@ namespace Soulfract
                     // Ignorer le conducteur
                     if (entity == Driver) continue;
                     if (!entity.IsAlive) continue;
+                    if (entity.IsInvulnerable) continue;
 
                     Rectangle entityRect = World.GetEntityDamageHitbox(entity, Program.TileSize);
                     if (IntersectOrientedRectangleWithAABB(carCorners, entityRect))

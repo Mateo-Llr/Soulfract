@@ -169,6 +169,7 @@ namespace Soulfract
                     Value = item.value,
                     HealAmount = item.healAmount,
                     AttackBonus = item.attackBonus,
+                    ConcussionBonus = item.concussionBonus,
                     MiningPower = item.miningPower > 0 ? item.miningPower : 1f,
                     ToolKind = ParseToolType(item.toolType),
                     WaterCapacity = item.waterCapacity > 0 ? item.waterCapacity : 0,
@@ -743,6 +744,16 @@ namespace Soulfract
             return 0;
         }
 
+        public static int GetConcussion(string itemName)
+        {
+            if (!TryGetItemByName(itemName, out var itemData))
+                return 0;
+
+            return itemData.ConcussionBonus > 0
+                ? itemData.ConcussionBonus
+                : itemData.Type == ItemType.Weapon ? 1 : 0;
+        }
+
         public static ToolType GetToolType(string itemName)
         {
             if (TryGetItemByName(itemName, out var itemData))
@@ -857,6 +868,7 @@ namespace Soulfract
             public float hungerRestore { get; set; } = 0f;
             public float thirstRestore { get; set; } = 0f;
             public int attackBonus { get; set; }
+            public int concussionBonus { get; set; }
             public float miningPower { get; set; } = 1f;
             public string toolType { get; set; } = "";
             public int waterCapacity { get; set; } = 0;
@@ -945,6 +957,7 @@ namespace Soulfract
         public float HungerRestore;
         public float ThirstRestore;
         public int AttackBonus;
+        public int ConcussionBonus;
         public float MiningPower;
         public ToolType ToolKind;
         public int WaterCapacity;
@@ -1007,6 +1020,7 @@ namespace Soulfract
             Value = 0;
             HealAmount = 0;
             AttackBonus = 0;
+            ConcussionBonus = 0;
             MiningPower = 1f;
             ToolKind = ToolType.None;
             WaterCapacity = 0;

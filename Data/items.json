@@ -285,9 +285,20 @@
     {
       "id": "baseball_bat",
       "type": "weapon",
-      "attackBonus": 12,
+      "attackBonus": 11,
+      "concussionBonus": 8,
       "stackSize": 15,
       "value": 25,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "mace",
+      "type": "weapon",
+      "textureName": "baseball_bat",
+      "attackBonus": 1,
+      "concussionBonus": 5,
+      "stackSize": 1,
+      "value": 30,
       "rarity": "uncommon"
     },
     {

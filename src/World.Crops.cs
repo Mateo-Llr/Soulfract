@@ -94,6 +94,89 @@ namespace Soulfract
             return true;
         }
 
+		public static List<DungeonInstanceNetworkData> GetDungeonInstancesForNetwork(
+			int? chunkX = null, int? chunkY = null, bool underground = false, bool isInDungeon = false, int dungeonInstanceId = -1)
+		{
+			IEnumerable<DungeonInstance> instances = _dungeonInstances.Values;
+			if (isInDungeon)
+			{
+				instances = instances.Where(instance => instance.Id == dungeonInstanceId);
+			}
+			else if (chunkX.HasValue && chunkY.HasValue && underground)
+			{
+				instances = instances.Where(instance =>
+					FloorDiv(instance.EntryPos.x, CHUNK_SIZE) == chunkX.Value
+					&& FloorDiv(instance.EntryPos.y, CHUNK_SIZE) == chunkY.Value);
+			}
+			else if (chunkX.HasValue && chunkY.HasValue)
+			{
+				instances = Enumerable.Empty<DungeonInstance>();
+			}
+
+			return instances.OrderBy(instance => instance.Id).Select(instance => new DungeonInstanceNetworkData
+			{
+				Id = instance.Id,
+				OriginX = instance.OriginX,
+				OriginY = instance.OriginY,
+				Width = instance.Width,
+				Height = instance.Height,
+				EntryX = instance.EntryPos.x,
+				EntryY = instance.EntryPos.y,
+				RestSpawnX = instance.RestSpawnTile.x,
+				RestSpawnY = instance.RestSpawnTile.y,
+				ExitDoorX = instance.ExitDoorTile.x,
+				ExitDoorY = instance.ExitDoorTile.y,
+				BossDefeated = instance.BossDefeated,
+				Seed = instance.Seed
+			}).ToList();
+		}
+
+		public static void ApplyDungeonInstancesFromNetwork(IEnumerable<DungeonInstanceNetworkData> instances, bool replace = false)
+		{
+			if (replace)
+			{
+				_dungeonInstances.Clear();
+				_dungeonPortals.Clear();
+				_dungeonChunksByInstance.Clear();
+			}
+
+			foreach (DungeonInstanceNetworkData data in instances)
+			{
+				if (data.Id < 0 || data.Width <= 0 || data.Height <= 0)
+					continue;
+
+				_dungeonInstances[data.Id] = new DungeonInstance
+				{
+					Id = data.Id,
+					OriginX = data.OriginX,
+					OriginY = data.OriginY,
+					Width = data.Width,
+					Height = data.Height,
+					EntryPos = (data.EntryX, data.EntryY),
+					RestSpawnTile = (data.RestSpawnX, data.RestSpawnY),
+					ExitDoorTile = (data.ExitDoorX, data.ExitDoorY),
+					Generated = true,
+					BossDefeated = data.BossDefeated,
+					Seed = data.Seed
+				};
+				_dungeonPortals[(data.EntryX, data.EntryY)] = new DungeonPortalInfo
+				{
+					Kind = DungeonPortalKind.Entrance,
+					InstanceId = data.Id
+				};
+				if (data.BossDefeated)
+				{
+					_dungeonPortals[(data.ExitDoorX, data.ExitDoorY)] = new DungeonPortalInfo
+					{
+						Kind = DungeonPortalKind.ReturnExit,
+						InstanceId = data.Id
+					};
+				}
+				_dungeonChunksByInstance.TryAdd(data.Id, new Dictionary<(int chunkX, int chunkY), ChunkData>());
+				_nextDungeonInstanceId = Math.Max(_nextDungeonInstanceId, data.Id + 1);
+			}
+		}
+
 		public static bool IsFarmlandWet(int x, int y)
 		{
 			return _farmlandMoisture.TryGetValue((x, y), out float time) && time > 0f;
@@ -583,16 +666,6 @@ namespace Soulfract
 			int groundId = GetGroundTileIdAt(x, y);
 			if (groundId != 27 && groundId != 29) return;
 
-			//  Si la terre est sèche (27), on la rend humide automatiquement avant de planter
-			// pour que la graine puisse pousser
-			if (groundId == 27)
-			{
-				// Rendre la terre humide automatiquement
-				SetGroundTile_Apply(x, y, 29);
-				_farmlandMoisture[(x, y)] = FARMLAND_DRYING_TIME;
-				// On ne notifie pas le joueur ici car le message est déjà envoyé par Program.cs
-			}
-			
 			AddPlacedObject_Apply(x, y, cropTileId);
 			
 			var chunk = GetChunkAt(x, y);

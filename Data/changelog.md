@@ -1418,6 +1418,25 @@
 - [FIXED] Lumières des esprits synchronisées avec l'altitude du terrain et la pose lissée, y compris pour les entités reçues en multijoueur
 - [PERF] Diagnostic F3 du rendu étendu aux temps Draw total, préparation lumineuse, phases internes de World.DrawWorld, effets monde et overlays écran
 
+### 19 octobre
+
+- [CHANGED] Planter une graine n'humidifie plus la terre ; il faut arroser la culture après la plantation pour qu'elle pousse
+- [CHANGED] La fertilisation des cultures est possible uniquement sur un sol humide
+- [ADDED] Jauge de commotion pour les entités : les coups de masse assomment sans tuer, avec étoiles, récupération progressive, affichage et synchronisation multijoueur
+- [CHANGED] Les créatures naturellement hostiles doivent être assommées pour être apprivoisées ; les créatures neutres ne le peuvent plus lorsqu'elles sont en mode attaque
+- [CHANGED] L'apprivoisement réveille immédiatement l'animal et met fin à sa torpeur
+- [PERF] Écritures réseau déplacées hors de la boucle de jeu, sérialisées et limitées par connexion pour éviter les blocages liés aux clients lents
+- [FIXED] File de réception plafonnée en mémoire sans vider les messages des autres joueurs lorsqu'un client surcharge le réseau
+- [FIXED] Déconnexion détectée si l'hôte ne répond plus aux heartbeats ; décompression des paquets bornée pour prévenir les allocations excessives
+- [FIXED] Les demandes de chunks sans réponse sont réémises pendant l'exploration ; les réponses en double ou inattendues ne remplacent plus l'état local du monde
+- [ADDED] Donjons partagés et autoritaires côté hôte : synchronisation des transitions, chunks, progression du boss et accès des joueurs selon leur plan
+- [CHANGED] Le Worm se déplace sous terre avec un sillage visible, télégraphie ses attaques et laisse des cratères temporaires
+- [ADDED] Fenêtre de vulnérabilité en surface après les attaques du Worm, avec réaction aux coups et replongée anticipée
+- [CHANGED] Rendu des phases du Worm enrichi de poses courbées, de monticules d'alerte et de débris à l'émergence
+- [FIXED] Sortie et replongée du Worm animées segment par segment sans fondu, avec mouvements amortis sous la surface
+- [FIXED] La tête du Worm suit désormais réellement sa courbe d'émergence et entraîne chaque segment avant la replongée
+- [FIXED] Les segments du Worm restent cachés tant qu'ils sont sous la surface et réapparaissent lorsqu'il ressort
+
 ---
 
 # Potentiels ajouts futurs

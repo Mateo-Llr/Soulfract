@@ -154,6 +154,7 @@ namespace Soulfract
 			{
 				if (!entity.IsAlive) continue;
 				if (entity.Species == "human") continue; // Ne pas blesser le joueur (optionnel)
+				if (entity.IsInvulnerable) continue;
 				
 				// Calculer la distance entre l'explosion et l'entité
                 Vector2 entityGroundPosition = World.GetEntityGroundPosition(entity.VisualWorldPos);

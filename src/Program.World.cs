@@ -1075,6 +1075,8 @@ namespace Soulfract
 				{
 					if (!p.Connected) continue;
 					if (p.Underground != World.IsUnderground) continue;
+					if (p.IsInDungeon != World.IsInDungeon
+						|| (World.IsInDungeon && p.DungeonInstanceId != World.CurrentDungeonInstanceId)) continue;
 
 					Vector2 screenPos = Raylib.GetWorldToScreen2D(p.Position, camera);
 					bool onScreen = screenPos.X >= 0 && screenPos.X <= screenW && screenPos.Y >= 0 && screenPos.Y <= screenH;

@@ -124,6 +124,7 @@ namespace Soulfract
                 if (!entity.IsAlive) continue;
                 if (entity.Species == "human") continue;
                 if (entity.IsTamed) continue;
+                if (entity.IsInvulnerable) continue;
                 float distSq = Vector2.DistanceSquared(entity.WorldPos, center);
                 if (distSq < radiusSq)
                 {
@@ -177,6 +178,7 @@ namespace Soulfract
                 if (!entity.IsAlive) continue;
                 if (entity.Species == "human") continue;
                 if (entity.IsTamed) continue;
+                if (entity.IsInvulnerable) continue;
                 Rectangle hitbox = World.GetEntityDamageHitbox(entity, Program.TileSize);
                 hitbox.X -= 10f;
                 hitbox.Y -= 10f;
@@ -453,7 +455,7 @@ namespace Soulfract
                 float bestDist = 200f;
                 foreach (var e in entities)
                 {
-                    if (!e.IsAlive || e.Species == "human" || e.IsTamed) continue;
+                    if (!e.IsAlive || e.Species == "human" || e.IsTamed || e.IsInvulnerable) continue;
                     float d = Vector2.Distance(Position, e.WorldPos);
                     if (d < bestDist)
                     {
@@ -485,7 +487,7 @@ namespace Soulfract
 
             foreach (var e in entities)
             {
-                if (!e.IsAlive || e.Species == "human" || e.IsTamed) continue;
+                if (!e.IsAlive || e.Species == "human" || e.IsTamed || e.IsInvulnerable) continue;
                 Rectangle damageHitbox = World.GetEntityDamageHitbox(e, Program.TileSize);
                 if (Raylib.CheckCollisionCircleRec(Position, Math.Max(4f, Size * 0.6f), damageHitbox))
                 {

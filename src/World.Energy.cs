@@ -286,6 +286,12 @@ namespace Soulfract
 			if (chunksDict.ContainsKey(chunkKey))
 				return;
 
+			if (NetworkManager.IsClient)
+			{
+				NetworkManager.RequestChunk(chunkX, chunkY, _isUnderground, _isInDungeon, _currentDungeonInstanceId);
+				return;
+			}
+
 			// Donjon : jamais de réseau, jamais de sauvegarde générique, jamais de génération de
 			// grotte procédurale — un chunk de donjon manquant (en dehors de la zone déjà peinte
 			// par le générateur) est simplement un chunk de roche vide, tout comme ses voisins.
@@ -331,15 +337,6 @@ namespace Soulfract
 				return;
 			}
 
-			//  MULTIJOUEUR : un client ne génère JAMAIS le monde lui-même (cela diverge
-			// inévitablement des objets/cultures/PNJ déjà modifiés côté host). Il demande
-			// le chunk authoritaire au host et attend la réponse (voir ReceiveChunkFromNetwork).
-			if (NetworkManager.IsClient)
-			{
-				NetworkManager.RequestChunk(chunkX, chunkY, _isUnderground);
-				return;
-			}
-			
 			ChunkData? chunk = null;
 			
 			if (!string.IsNullOrEmpty(CurrentSaveName))

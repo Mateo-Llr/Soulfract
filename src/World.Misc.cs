@@ -2415,7 +2415,20 @@ namespace Soulfract
 		// Hitbox de dégâts : plus grande, centrée sur le corps pour les attaques et les impacts.
         public static Rectangle GetEntityDamageHitbox(Entity entity, int ts)
         {
-			return GetEntityDamageHitbox(entity.VisualWorldPos, entity.Species, ts, entity.Scale);
+            if (entity.IsWorm)
+            {
+                Vector2 dimensions = GetEntityDimensions(entity.Species)
+                    * Math.Clamp(entity.Scale, 0.25f, 4f);
+                Vector2 damageDimensions = new(dimensions.X * 2f, dimensions.Y * 5.5f);
+                Vector2 center = entity.WormHitboxCenter;
+                return new Rectangle(
+                    center.X - damageDimensions.X / 2f,
+                    center.Y - damageDimensions.Y / 2f,
+                    damageDimensions.X,
+                    damageDimensions.Y);
+            }
+
+        	return GetEntityDamageHitbox(entity.VisualWorldPos, entity.Species, ts, entity.Scale);
         }
 
 		//  MULTIJOUEUR : variante utilisable côté client, où l'on n'a que la position/espèce

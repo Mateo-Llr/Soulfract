@@ -1474,6 +1474,12 @@ namespace Soulfract
                 _ => "type"
             });
 
+            if (data.ConcussionBonus > 0)
+            {
+                detailLines.Add(string.Format(Localization.Get("item.tooltip.concussion"), data.ConcussionBonus));
+                detailIconKeys.Add("damage");
+            }
+
             if (data.IsSeed)
             {
                 detailLines.Add(string.Format(Localization.Get("item.tooltip.seed"), data.GrowthTime, data.GrowthStages));

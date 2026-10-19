@@ -81,6 +81,8 @@ uniform float uCausticStrength;
 uniform float uTileSize;     // taille d'une tuile en pixels monde
 uniform float uArtPixels;    // pixels d'art par tuile (grille de quantification)
 uniform float uFoamWidth;    // largeur max de la mousse, en tuiles
+uniform int uTrailCount;
+uniform int uEntityTrailCount;
 
 uniform vec2  uCamTarget;
 uniform vec2  uCamOffset;
@@ -238,7 +240,7 @@ void main()
     // on obtient deux lignes qui s'ecartent en V et s'estompent, sans cercles isoles.
     float wake = 0.0;
     float hw = 0.55 / uArtPixels;
-    for (int i = 0; i < 23; i++)
+    for (int i = 0; i < uTrailCount - 1; i++)
     {
         vec3 a = uTrail[i];
         vec3 b = uTrail[i + 1];
@@ -257,7 +259,7 @@ void main()
     color = mix(color, uColorFoam, wake * 0.9);
 
     float entityWake = 0.0;
-    for (int i = 0; i < 24; i++)
+    for (int i = 0; i < uEntityTrailCount; i++)
     {
         vec4 point = uEntityTrail[i];
         if (point.z < 0.0) continue;
@@ -269,7 +271,7 @@ void main()
         entityWake = max(entityWake, ring);
     }
 
-    for (int i = 0; i < 23; i++)
+    for (int i = 0; i < uEntityTrailCount - 1; i++)
     {
         vec4 point = uEntityTrail[i];
         vec4 nextPoint = uEntityTrail[i + 1];
@@ -306,6 +308,8 @@ void main()
 		private static int _waterLocTileSize;
 		private static int _waterLocArtPixels;
 		private static int _waterLocFoamWidth;
+		private static int _waterLocTrailCount;
+		private static int _waterLocEntityTrailCount;
 		private static int _waterLocCamTarget;
 		private static int _waterLocCamOffset;
 		private static int _waterLocCamZoom;
@@ -433,6 +437,8 @@ void main()
 			_waterLocTileSize = Raylib.GetShaderLocation(_waterShader, "uTileSize");
 			_waterLocArtPixels = Raylib.GetShaderLocation(_waterShader, "uArtPixels");
 			_waterLocFoamWidth = Raylib.GetShaderLocation(_waterShader, "uFoamWidth");
+			_waterLocTrailCount = Raylib.GetShaderLocation(_waterShader, "uTrailCount");
+			_waterLocEntityTrailCount = Raylib.GetShaderLocation(_waterShader, "uEntityTrailCount");
 			_waterLocCamTarget = Raylib.GetShaderLocation(_waterShader, "uCamTarget");
 			_waterLocCamOffset = Raylib.GetShaderLocation(_waterShader, "uCamOffset");
 			_waterLocCamZoom = Raylib.GetShaderLocation(_waterShader, "uCamZoom");
@@ -519,16 +525,21 @@ void main()
 				Raylib.SetShaderValue(_waterShader, _waterLocTileSize, (float)ts, ShaderUniformDataType.Float);
 
 			// Du plus récent (index 0) au plus ancien : le shader relie les points consécutifs.
+			int trailCount = 0;
 			for (int k = 0; k < WaterMaxRipples; k++)
 			{
 				if (_waterLocRipple[k] == -1) continue;
 				int idx = ((_rippleNext - 1 - k) % WaterMaxRipples + WaterMaxRipples) % WaterMaxRipples;
 				float age = (currentTime - _rippleBirth[idx]) / WaterRippleLifetime;
-				Vector3 r = (age >= 0f && age < 1f)
+				bool isActive = age >= 0f && age < 1f;
+				if (isActive) trailCount = k + 1;
+				Vector3 r = isActive
 					? new Vector3(_rippleCenter[idx].X, _rippleCenter[idx].Y, age)
 					: new Vector3(0f, 0f, -1f);
 				Raylib.SetShaderValue(_waterShader, _waterLocRipple[k], r, ShaderUniformDataType.Vec3);
 			}
+			if (_waterLocTrailCount != -1)
+				Raylib.SetShaderValue(_waterShader, _waterLocTrailCount, trailCount, ShaderUniformDataType.Int);
 
 			var activeEntityTrails = _entityWaterTrails
 				.Where(entry => entry.Value.Count > 0)
@@ -537,6 +548,7 @@ void main()
 				.ToList();
 			int entityTrailSlots = Math.Max(1, WaterMaxRipples / Math.Max(1, activeEntityTrails.Count));
 			int entityTrailIndex = 0;
+			int entityTrailCount = 0;
 			for (int group = 0; group < activeEntityTrails.Count && entityTrailIndex < WaterMaxRipples; group++)
 			{
 				List<EntityWaterRipple> trail = activeEntityTrails[group].Value;
@@ -545,7 +557,9 @@ void main()
 				{
 					EntityWaterRipple ripple = trail[trail.Count - 1 - sample];
 					float age = (currentTime - ripple.Birth) / WaterRippleLifetime;
-					Vector4 value = age >= 0f && age < 1f
+					bool isActive = age >= 0f && age < 1f;
+					if (isActive) entityTrailCount = entityTrailIndex + 1;
+					Vector4 value = isActive
 						? new Vector4(ripple.Position.X, ripple.Position.Y, age, group)
 						: new Vector4(0f, 0f, -1f, group);
 					if (_waterLocEntityRipple[entityTrailIndex] != -1)
@@ -553,6 +567,8 @@ void main()
 					entityTrailIndex++;
 				}
 			}
+			if (_waterLocEntityTrailCount != -1)
+				Raylib.SetShaderValue(_waterShader, _waterLocEntityTrailCount, entityTrailCount, ShaderUniformDataType.Int);
 			for (; entityTrailIndex < WaterMaxRipples; entityTrailIndex++)
 			{
 				if (_waterLocEntityRipple[entityTrailIndex] != -1)

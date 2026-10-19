@@ -234,6 +234,7 @@
     {
       "name": "Goblin",
       "type": "biped",
+      "preferredFoodId": "milk",
       "isHumanoid": true,
       "scale": 1.0,
       "speed": 160,

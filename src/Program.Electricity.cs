@@ -246,6 +246,9 @@ namespace Soulfract
 			World.Reset();
 			World.CurrentSaveName = "";
 			_currentSaveName = ""; // un client ne sauvegarde jamais le monde partagé sur disque
+			World.ApplyDungeonInstancesFromNetwork(welcome.Dungeons, replace: true);
+			if (!World.SetSharedDungeonPlane(welcome.Underground, welcome.IsInDungeon, welcome.DungeonInstanceId))
+				Console.WriteLine($" État de donjon invalide reçu à la connexion (instance {welcome.DungeonInstanceId}).");
 
 			_gameTime = welcome.GameTime;
 			_totalPlayTime = 0;

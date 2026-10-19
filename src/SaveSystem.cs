@@ -179,6 +179,7 @@ namespace Soulfract
             RestoreRandomFeatures(entity, entityData);
             entity.EnsureHumanEyeColor();
             entity.SetHealthSilently(entityData.CurrentHP, entityData.MaxHP);
+            entity.SetConcussionSilently(entityData.Concussion, entityData.IsKnockedOut);
             entity.IsBoss = entityData.IsBoss || string.Equals(entityData.Species, "ogre", StringComparison.OrdinalIgnoreCase) || string.Equals(entityData.Species, "khamsin", StringComparison.OrdinalIgnoreCase) || (string.Equals(entityData.Species, "genie", StringComparison.OrdinalIgnoreCase) && !string.Equals(entityData.CustomName, "Illusion du Génie", StringComparison.OrdinalIgnoreCase));
             entity.IsSpiritAnimal = entityData.IsSpiritAnimal;
             entity.SpiritTotemTileX = entityData.SpiritTotemTileX;
@@ -1963,6 +1964,8 @@ namespace Soulfract
                             ?? new Dictionary<string, ColorSave>(),
                         CurrentHP = e.CurrentHP,
                         MaxHP = e.MaxHP,
+                        Concussion = e.Concussion,
+                        IsKnockedOut = e.IsKnockedOut,
                         IsBoss = e.IsBoss,
                         IsSpiritAnimal = e.IsSpiritAnimal,
                         SpiritTotemTileX = e.SpiritTotemTileX,
@@ -2043,6 +2046,8 @@ namespace Soulfract
                                 ?? new Dictionary<string, ColorSave>(),
                             CurrentHP = pet.CurrentHP,
                             MaxHP = pet.MaxHP,
+                            Concussion = pet.Concussion,
+                            IsKnockedOut = pet.IsKnockedOut,
                             IsBoss = pet.IsBoss,
                             Behavior = pet.Behavior ?? "tamed",
                             VisionRange = pet.VisionRange,
@@ -2130,7 +2135,12 @@ namespace Soulfract
         // sans toucher au disque. Retourne null si le chunk n'est pas (encore) chargé.
         public static ChunkSaveData? BuildChunkSaveDataForNetwork(int chunkX, int chunkY, bool isUnderground)
         {
-            var chunk = World.GetChunkRaw(chunkX, chunkY, isUnderground);
+            return BuildChunkSaveDataForNetwork(chunkX, chunkY, isUnderground, false, -1);
+        }
+
+        public static ChunkSaveData? BuildChunkSaveDataForNetwork(int chunkX, int chunkY, bool isUnderground, bool isInDungeon, int dungeonInstanceId)
+        {
+            var chunk = World.GetChunkRaw(chunkX, chunkY, isUnderground, isInDungeon, dungeonInstanceId);
             if (chunk == null) return null;
             return BuildChunkSaveData(chunkX, chunkY, chunk);
         }
@@ -2741,6 +2751,7 @@ namespace Soulfract
                     RestoreRandomFeatures(entity, entityData);
                     entity.EnsureHumanEyeColor();
                     entity.SetHealthSilently(entityData.CurrentHP, entityData.MaxHP);
+                    entity.SetConcussionSilently(entityData.Concussion, entityData.IsKnockedOut);
                     entity.IsBoss = entityData.IsBoss || string.Equals(entityData.Species, "ogre", StringComparison.OrdinalIgnoreCase) || string.Equals(entityData.Species, "khamsin", StringComparison.OrdinalIgnoreCase) || (string.Equals(entityData.Species, "genie", StringComparison.OrdinalIgnoreCase) && !string.Equals(entityData.CustomName, "Illusion du Génie", StringComparison.OrdinalIgnoreCase));
                     entity.IsSpiritAnimal = entityData.IsSpiritAnimal;
                     entity.SpiritTotemTileX = entityData.SpiritTotemTileX;
@@ -3168,6 +3179,8 @@ namespace Soulfract
         public float PosY { get; set; }
         public float Facing { get; set; } = 1f;
         public bool Underground { get; set; }
+        public bool IsInDungeon { get; set; }
+        public int DungeonInstanceId { get; set; } = -1;
         public int HP { get; set; } = 20;
         public int MaxHP { get; set; } = 20;
         public float Stamina { get; set; } = 100f;
@@ -3639,6 +3652,8 @@ namespace Soulfract
         public Dictionary<string, ColorSave> RandomFeatureColors { get; set; } = new();
         public int CurrentHP { get; set; }
         public int MaxHP { get; set; }
+        public float Concussion { get; set; }
+        public bool IsKnockedOut { get; set; }
         public bool IsBoss { get; set; } = false;
         public bool IsSpiritAnimal { get; set; }
         public int SpiritTotemTileX { get; set; } = int.MinValue;

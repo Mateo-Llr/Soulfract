@@ -205,6 +205,8 @@ namespace Soulfract
 			public int? EyeStyleOverride = null;
 			public Color? EyeColorOverride = null;
 				public bool Underground = false;
+			public bool IsInDungeon = false;
+			public int DungeonInstanceId = -1;
 			//  Santé et équipement visibles sur l'avatar distant
 			public int HP = 20;
 			public int MaxHP = 20;
@@ -936,6 +938,8 @@ namespace Soulfract
 				PosY = _playerPos.Y,
 				Facing = _playerFacing,
 				Underground = World.IsUnderground,
+				IsInDungeon = World.IsInDungeon,
+				DungeonInstanceId = World.CurrentDungeonInstanceId,
 				HP = playerHP,
 				MaxHP = playerMaxHP,
 				Stamina = playerStamina,
@@ -966,7 +970,7 @@ namespace Soulfract
 		// réseau habituel.
 		public static void ApplyGuestSaveData(GuestPlayerSaveData data)
 		{
-			World.IsUnderground = data.Underground;
+			World.SetSharedDungeonPlane(data.Underground, data.IsInDungeon, data.DungeonInstanceId);
 			_playerPos = new Vector2(data.PosX, data.PosY);
 			_playerFacing = data.Facing;
 			_smoothedCameraTarget = GetPlayerCameraTarget(_playerPos);

@@ -80,6 +80,61 @@ namespace Soulfract
 				Weather.SetWeather(normalized);
 		}
 
+		public static bool ApplyNetworkDungeonTransitionRequest(int tileX, int tileY, bool entering)
+		{
+			if (!NetworkManager.IsHost
+				|| (entering && !World.IsDungeonEntrance(tileX, tileY))
+				|| (!entering && (!World.IsInDungeon || !World.IsDungeonReturnPortal(tileX, tileY))))
+				return false;
+
+			World.SaveAllActiveChunks();
+			SaveCurrentGame();
+			World.ClearAllEntities(entities);
+			entities.Clear();
+
+			bool moved;
+			Vector2 spawnPos;
+			if (entering)
+			{
+				World.SetSharedDungeonPlane(underground: true, isInDungeon: false, dungeonInstanceId: -1);
+				moved = World.TryEnterDungeon(tileX, tileY, out spawnPos);
+			}
+			else
+			{
+				moved = World.TryExitDungeon(tileX, tileY, out spawnPos);
+			}
+
+			if (!moved) return false;
+
+			SetPlayerPosition(spawnPos);
+			_playerFacing = 1f;
+			_cameraNeedsImmediateCenter = true;
+			World.UpdateActiveChunks(_playerPos, (float)Raylib.GetTime(), entities);
+			NetworkManager.BroadcastDungeonTransition();
+			return true;
+		}
+
+		public static void OnNetworkDungeonTransition(DungeonTransitionMsg transition)
+		{
+			if (!float.IsFinite(transition.PosX) || !float.IsFinite(transition.PosY))
+				return;
+
+			World.ApplyDungeonInstancesFromNetwork(transition.Dungeons);
+			if (!World.SetSharedDungeonPlane(transition.Underground, transition.IsInDungeon, transition.DungeonInstanceId))
+			{
+				Console.WriteLine($" État de transition de donjon invalide reçu (instance {transition.DungeonInstanceId}).");
+				return;
+			}
+
+			World.ClearAllEntities(entities);
+			entities.Clear();
+			SetPlayerPosition(new Vector2(transition.PosX, transition.PosY));
+			_playerFacing = 1f;
+			_smoothedCameraTarget = GetPlayerCameraTarget(_playerPos);
+			_cameraNeedsImmediateCenter = true;
+			World.UpdateActiveChunks(_playerPos, (float)Raylib.GetTime(), entities);
+		}
+
 		private static void CheckFirewallBeforeHosting(int port)
 		{
 			try
