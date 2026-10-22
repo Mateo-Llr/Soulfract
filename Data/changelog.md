@@ -1437,6 +1437,13 @@
 - [FIXED] La tête du Worm suit désormais réellement sa courbe d'émergence et entraîne chaque segment avant la replongée
 - [FIXED] Les segments du Worm restent cachés tant qu'ils sont sous la surface et réapparaissent lorsqu'il ressort
 
+### 22 octobre
+
+- [CHANGED] Réorganisation des fichiers du jeu, bien plus organisé
+- [ADDED] Shader de dissolution pour les corps morts : effacement progressif par bruit procédural avec halo de braise, utilisé par Corpse.Draw pendant sa fenêtre de disparition, avec fallback au fondu d'alpha si le shader est indisponible
+- [CHANGED] Corpse.Draw() : la dissolution gère la disparition du corps au lieu d'un simple fondu d'alpha ; l'ombre au sol s'efface légèrement plus vite que la silhouette pour éviter qu'elle "flotte" sous un corps déjà à moitié évaporé
+- [ADDED] EntityRenderer : ajout de BeginDissolveShader / EndDissolveShader avec uniforms de progression, temps, caméra et hauteur d'écran
+
 ---
 
 # Potentiels ajouts futurs

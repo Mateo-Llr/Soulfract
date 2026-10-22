@@ -1,4 +1,4 @@
-// Program.OptionsMenu.cs
+// OptionsMenu.cs
 // Menu d'options : refonte complète du rendu (anciennement DrawOptionsMenu dans Program.Core.cs).
 //
 // Principes :
