@@ -7,7 +7,8 @@
 //  - Chaque pièce du squelette est un CORPS RIGIDE (centre de masse + angle + inertie).
 //    Les pièces sont reliées par de vraies ARTICULATIONS (un point commun au parent et
 //    à l'enfant, avec une plage d'angle), posées au niveau visuel de l'épaule, du coude,
-//    de la hanche, du genou, du cou... et non plus sur le coin haut-gauche des textures.
+//    de la hanche, du genou, du cou... c'est-à-dire sur l'ancrage de chaque pièce (centre de
+//    sa texture), le même point que celui utilisé par le rendu des entités vivantes.
 //  - Le corps bascule sous l'effet de la gravité (avec une petite aide pour qu'il finisse
 //    bien couché), les membres sont d'abord raides puis se relâchent et s'affalent.
 //    Chaque mort est différente : sens, vitesse de chute, élan des membres, raideur.
@@ -20,10 +21,12 @@
 //  rotation de chaque pièce du squelette sont fournies par la physique au lieu d'être
 //  calculées par l'animation.
 //
-//  CONVENTION (identique à l'ancienne version) : le moteur de rendu place une texture par
-//  son COIN HAUT-GAUCHE et la fait tourner autour de son CENTRE. La physique travaille
-//  donc sur le centre de masse de la zone visible, et ne convertit en "coin haut-gauche"
-//  qu'au moment de transmettre la pose au rendu (SyncOutput).
+//  CONVENTION : le moteur de rendu (EntityRenderer.DrawEntity) place chaque texture par son
+//  CENTRE et la fait tourner autour de ce même centre (origin = taille / 2). La position
+//  d'une pièce du squelette est donc le centre de sa texture. La physique travaille sur le
+//  centre de masse de la zone visible, et ne convertit en "centre de texture" qu'au moment
+//  de transmettre la pose au rendu (SyncOutput). Les articulations sont posées sur ce même
+//  centre de texture (voir JointAtTextureCenter), pas sur un bord ni dans un coin.
 using Raylib_cs;
 using System;
 using System.Collections.Generic;
@@ -35,10 +38,10 @@ namespace Soulfract
     {
         // ==================== CONSTANTES ====================
         /// <summary>Durée de vie d'un corps au sol (en secondes).</summary>
-        public const float DefaultLifetime = 20f;
+        public const float DefaultLifetime = 4f;
 
         private const float Gravity = 1500f;
-        private const float FadeDuration = 1.5f;      // fondu avant disparition
+        private const float FadeDuration = 2.5f;      // fondu avant disparition
         private const float Rad2Deg = 180f / MathF.PI;
         private const float Deg2Rad = MathF.PI / 180f;
 
@@ -71,6 +74,14 @@ namespace Soulfract
 
         private const float RootMass = 4.5f;
 
+        // --- Articulations ---
+        //  true  : l'articulation est posée sur l'ANCRAGE du squelette de la pièce, c'est-à-dire
+        //          le CENTRE de sa texture : exactement le point autour duquel le rendu vivant
+        //          fait tourner la pièce, et l'endroit où BasePos la rattache à son parent.
+        //  false : ancien comportement, l'articulation est déplacée sur le bord visible de la
+        //          pièce (haut du bras, bas de la tête...), donc décentrée / dans un coin.
+        private const bool JointAtTextureCenter = true;
+
         // --- Déplacement dans le PLAN DU SOL (jeu top-down) ---
         //  Le sol est le plan écran (X, Y). L'axe Y de l'écran est la PROFONDEUR (nord/sud) :
         //  une poussée vers le haut de l'écran fait glisser le corps vers le nord, elle ne le
@@ -82,6 +93,17 @@ namespace Soulfract
         private const float MaxPushSpeed = 450f;      // px/s : vitesse de glissement maximale
         private const float MaxLift = 220f;           // px/s : petit sursaut vertical maximal
         private const float LimbKick = 2.5f;          // rad/s : les membres ballottent quand on pousse
+
+        // --- MOMENTUM conservé à la mort (vitesse de course, knockback...) ---
+        //  Le corps garde la vitesse qu'avait la créature vivante : il continue sur son élan
+        //  au lieu de s'arrêter net. Plafond plus haut que MaxPushSpeed (qui ne limite que les
+        //  poussées ultérieures), et frottement réduit juste après la mort : le corps
+        //  roule / glisse d'abord, puis le frottement du sol revient progressivement.
+        //  Exemple (frottement x0.3 -> 540 px/s²) : 300 px/s -> ~80 px de glissade.
+        private const float MaxMomentumSpeed = 900f;  // px/s : vitesse maximale transmise à la mort
+        private const float CarryFrictionScale = 0.3f; // part du frottement du sol juste après la mort
+        private const float CarryDuration = 0.8f;      // s : durée du retour au frottement normal
+        private const float MinLaunchSpeed = 12f;      // px/s : en dessous, pas d'élan (corps immobile)
 
         // ==================== IDENTITÉ / RENDU ====================
         public string Species = "human";
@@ -156,6 +178,7 @@ namespace Soulfract
         // Glissement dans le plan du sol (translation rigide de tout le corps).
         private Vector2 _planarVel;       // px/s
         private Vector2 _planarOffset;    // déplacement cumulé depuis la création (filet de sécurité)
+        private bool _carryMomentum;      // le corps est mort en mouvement : frottement réduit au début
 
         // Chute / bascule
         private float _fallSign = 1f;
@@ -193,6 +216,9 @@ namespace Soulfract
         /// (direction du coup, vitesse de la créature). Il fait GLISSER le corps dans le
         /// plan du sol (X et Y écran), sans le lancer en l'air. S'il est non nul, il décide
         /// aussi du sens de la chute.
+        /// <paramref name="momentum"/> (px/s, optionnel) : vitesse de la créature AVANT sa mort
+        /// (course, déplacement, knockback en cours). Elle s'ajoute à <paramref name="impulse"/> :
+        /// le corps garde son élan au lieu de s'arrêter net.
         /// </summary>
         public static Corpse? Create(
             string species,
@@ -214,7 +240,8 @@ namespace Soulfract
             Texture2D underwearTexture,
             Texture2D eyesTexture,
             Texture2D mouthTexture,
-            Vector2 impulse = default)
+            Vector2 impulse = default,
+            Vector2 momentum = default)
         {
             string speciesKey = ResolveSkeletonKey(species);
             if (!SpeciesData.Skeletons.TryGetValue(speciesKey, out var skeleton) || skeleton.Count == 0)
@@ -248,7 +275,7 @@ namespace Soulfract
             speciesScale *= customScale;
             corpse.SpeciesScale = speciesScale;
 
-            corpse.Build(anim, frame, prog, facing, drawPos, impulse);
+            corpse.Build(anim, frame, prog, facing, drawPos, impulse + momentum);
             return corpse;
         }
 
@@ -382,19 +409,27 @@ namespace Soulfract
             }
 
             // ---------- 4) ARTICULATIONS ----------
-            //  Le point d'attache est placé sur l'extrémité visible de la pièce qui touche
-            //  son parent (haut d'un bras / d'une jambe, bas de la tête). Il est ensuite
-            //  exprimé dans le repère des DEUX pièces : à l'instant 0, l'erreur de
-            //  l'articulation est exactement nulle (aucun saut visuel).
+            //  Le point d'attache est placé sur l'ancrage de la pièce (centre de sa texture,
+            //  cf. JointAtTextureCenter). Il est ensuite exprimé dans le repère des DEUX
+            //  pièces : à l'instant 0, l'erreur de l'articulation est exactement nulle
+            //  (aucun saut visuel).
             for (int i = 0; i < count; i++)
             {
                 int p = _parent[i];
                 if (p < 0) continue;
 
                 bool welded = (anchors[i] - anchors[p]).Length() < 1.5f;
-                Vector2 jointWorld = welded
-                    ? _com[i]
-                    : _com[i] + RotRad(ChooseAttachLocal(i, p, skeleton[i].Name), _ang[i]);
+                Vector2 jointWorld;
+                if (JointAtTextureCenter || welded)
+                {
+                    //  Centre de la texture (= ancrage du squelette). Même formule que SyncOutput :
+                    //  l'articulation coïncide avec le pivot du rendu, rien n'est décalé vers un coin.
+                    jointWorld = _com[i] + RotRad(_texCenterLocal[i], _ang[i]);
+                }
+                else
+                {
+                    jointWorld = _com[i] + RotRad(ChooseAttachLocal(i, p, skeleton[i].Name), _ang[i]);
+                }
 
                 _jointA[i] = RotRad(jointWorld - _com[i], -_ang[i]);
                 _jointB[i] = RotRad(jointWorld - _com[p], -_ang[p]);
@@ -440,7 +475,9 @@ namespace Soulfract
             // ---------- 6) CHUTE ----------
             //  Sens : celui du coup s'il y en a un, sinon celui où la créature regarde
             //  (avec une chance sur cinq de tomber en arrière).
-            bool hasImpulse = impulse.LengthSquared() > 1f;
+            //  'impulse' contient ici le total : coup reçu + vitesse que la créature avait en vie.
+            bool hasImpulse = impulse.LengthSquared() > MinLaunchSpeed * MinLaunchSpeed;
+            float speedFrac = Math.Clamp(impulse.Length() / MaxPushSpeed, 0f, 2f);
             if (hasImpulse && MathF.Abs(impulse.X) > 1f)
                 _fallSign = impulse.X > 0f ? 1f : -1f;
             else
@@ -460,12 +497,12 @@ namespace Soulfract
             {
                 _hasLanded = true;
                 pivot = FindToppleBase();
-                w0 = _fallSign * Rand(1.6f, 2.8f);
+                w0 = _fallSign * Rand(1.6f, 2.8f) * (1f + 0.5f * speedFrac);   // plus vite = bascule plus vive
             }
             else
             {
                 pivot = _com[root];
-                w0 = _fallSign * Rand(0.4f, 1.4f);
+                w0 = _fallSign * Rand(0.4f, 1.4f) * (1f + 0.5f * speedFrac);
             }
 
             for (int i = 0; i < count; i++)
@@ -474,11 +511,12 @@ namespace Soulfract
                 _vel[i] = new Vector2(-r.Y, r.X) * w0;
                 _angVel[i] = w0;
 
-                if (i != root) _angVel[i] += Rand(-2.2f, 2.2f);   // les membres partent chacun de leur côté
+                if (i != root) _angVel[i] += Rand(-2.2f, 2.2f) * (1f + speedFrac);   // les membres partent chacun de leur côté (et fouettent plus si le corps allait vite)
             }
 
             // L'élan de la mort glisse sur le sol (top-down) : jamais de vitesse verticale.
-            _planarVel = hasImpulse ? ClampLength(impulse, MaxPushSpeed) : Vector2.Zero;
+            _planarVel = hasImpulse ? ClampLength(impulse, MaxMomentumSpeed) : Vector2.Zero;
+            _carryMomentum = hasImpulse;
 
             SyncOutput();
         }
@@ -740,7 +778,12 @@ namespace Soulfract
             float speed = _planarVel.Length();
             if (speed <= 0f) return;
 
-            float decel = (_touching ? PlanarFriction : PlanarAirDrag) * dt;
+            //  Juste après la mort, le frottement est réduit puis remonte jusqu'à sa valeur normale.
+            float friction = PlanarFriction;
+            if (_carryMomentum)
+                friction *= CarryFrictionScale + (1f - CarryFrictionScale) * Math.Clamp(_simTime / CarryDuration, 0f, 1f);
+
+            float decel = (_touching ? friction : PlanarAirDrag) * dt;
             if (speed <= decel) { _planarVel = Vector2.Zero; return; }
             _planarVel *= (speed - decel) / speed;
         }
@@ -1020,8 +1063,8 @@ namespace Soulfract
         // ==================== POSE TRANSMISE AU RENDU ====================
 
         /// <summary>
-        /// Convertit l'état physique (centres de masse + angles) en pose de rendu : coin
-        /// haut-gauche de la texture (avant rotation) et rotation en degrés.
+        /// Convertit l'état physique (centres de masse + angles) en pose de rendu : CENTRE
+        /// de la texture (pivot du rendu) et rotation en degrés.
         /// </summary>
         private void SyncOutput()
         {
@@ -1062,7 +1105,7 @@ namespace Soulfract
                 float gain = wanted - Vector2.Dot(_planarVel, dir);   // vitesse réellement ajoutée
                 if (gain > 0f)
                 {
-                    _planarVel = ClampLength(_planarVel + dir * gain, MaxPushSpeed);
+                    _planarVel = ClampLength(_planarVel + dir * gain, MathF.Max(MaxPushSpeed, _planarVel.Length()));
 
                     // Les membres ballottent un peu (seulement si la poussée apporte vraiment
                     // de la vitesse, sinon une poussée continue ferait trembler le corps).
@@ -1342,7 +1385,7 @@ namespace Soulfract
         /// Crée un corps à partir d'une entité morte. <paramref name="impulse"/> (optionnel) :
         /// élan de la mort en px/s (direction du coup, vitesse de la créature...).
         /// </summary>
-        public static Corpse? SpawnFromEntity(Entity entity, Vector2 drawPos, float groundY, Vector2 impulse = default)
+        public static Corpse? SpawnFromEntity(Entity entity, Vector2 drawPos, float groundY, Vector2 impulse = default, Vector2 momentum = default)
         {
             if (entity.IsWorm) return null;   // rendu segmenté dédié (pas de squelette)
 
@@ -1366,7 +1409,8 @@ namespace Soulfract
                 underwearTexture: Program.LeafUnderpantsTexture,
                 eyesTexture: EntityRenderer.GetEyesTextureForSpecies(entity.Species),
                 mouthTexture: Program.GetMouthTextureFor(entity),
-                impulse: impulse));
+                impulse: impulse,
+                momentum: momentum));
         }
 
         /// <summary>
@@ -1374,7 +1418,7 @@ namespace Soulfract
         /// connu envoyé par l'hôte (le client ne simule pas les entités, mais il doit
         /// pouvoir voir les corps au sol comme l'hôte).
         /// </summary>
-        public static Corpse? SpawnFromDto(EntityDto dto, Vector2 drawPos, float groundY)
+        public static Corpse? SpawnFromDto(EntityDto dto, Vector2 drawPos, float groundY, Vector2 momentum = default)
         {
             if (string.IsNullOrEmpty(dto.Species)) return null;
 
@@ -1401,12 +1445,13 @@ namespace Soulfract
                 isPlayer: false,
                 underwearTexture: Program.LeafUnderpantsTexture,
                 eyesTexture: EntityRenderer.GetEyesTextureForSpecies(dto.Species),
-                mouthTexture: default));
+                mouthTexture: default,
+                momentum: momentum));
         }
 
         /// <summary>Crée le corps du joueur au moment de sa mort.</summary>
         public static Corpse? SpawnPlayer(Vector2 drawPos, float groundY, float facing,
-            string anim, int frame, float prog, Vector2 impulse = default)
+            string anim, int frame, float prog, Vector2 impulse = default, Vector2 momentum = default)
         {
             string species = string.IsNullOrWhiteSpace(Program.PlayerMorphSpecies)
                 ? "human"
@@ -1435,13 +1480,14 @@ namespace Soulfract
                 underwearTexture: human ? Program.LeafUnderpantsTexture : new Texture2D(),
                 eyesTexture: human ? Program.EyesTexture : EntityRenderer.GetEyesTextureForSpecies(species),
                 mouthTexture: human ? Program.MouthTexture : default,
-                impulse: impulse));
+                impulse: impulse,
+                momentum: momentum));
         }
 
         /// <summary>
         /// MULTIJOUEUR : crée le corps d'un joueur distant mort (vu par les clients).
         /// </summary>
-        public static Corpse? SpawnRemotePlayer(Program.LocalPlayer rp)
+        public static Corpse? SpawnRemotePlayer(Program.LocalPlayer rp, Vector2 momentum = default)
         {
             string species = string.IsNullOrWhiteSpace(rp.SpeciesOverride) ? "human" : rp.SpeciesOverride;
             bool human = string.Equals(species, "human", StringComparison.OrdinalIgnoreCase);
@@ -1474,7 +1520,8 @@ namespace Soulfract
                 isPlayer: false,
                 underwearTexture: human ? Program.LeafUnderpantsTexture : new Texture2D(),
                 eyesTexture: human ? Program.EyesTexture : EntityRenderer.GetEyesTextureForSpecies(species),
-                mouthTexture: human ? Program.MouthTexture : default));
+                mouthTexture: human ? Program.MouthTexture : default,
+                momentum: momentum));
         }
 
         private static Corpse? Register(Corpse? corpse)

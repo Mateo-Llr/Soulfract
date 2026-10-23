@@ -817,6 +817,16 @@ namespace Soulfract
 				}
 			}
 
+			//  Sélection "sous la souris" : même sélecteur que l'apprivoisement (FindAnimalUnderMouse), qui
+			// tient compte du sprite réellement affiché. Mesurer la distance curseur -> WorldPos (position au
+			// sol) rate les animaux dès que le sprite est grand : le curseur est sur le corps, bien au-dessus.
+			if (!viewport.HasValue)
+			{
+				var hovered = FindAnimalUnderMouse(camera);
+				if (hovered != null && hovered.IsAlive && SpeciesData.IsPortable(hovered.Species) && MountedAnimal != hovered)
+					closest = hovered;
+			}
+
 			if (closest == null) return false;
 
 			// Vérifier que le joueur est assez proche de la créature elle-même
@@ -861,6 +871,13 @@ namespace Soulfract
 				}
 			}
 
+			if (!viewport.HasValue)
+			{
+				var hovered = FindAnimalUnderMouseClient(camera);
+				if (hovered != null && hovered.HP > 0 && !hovered.IsCarried && SpeciesData.IsPortable(hovered.Species))
+					closest = hovered;
+			}
+
 			if (closest == null) return false;
 			if (Vector2.Distance(playerPos, new Vector2(closest.PosX, closest.PosY)) > ts * 2.5f) return false;
 			if (!Guid.TryParse(closest.NetId, out var netId)) return false;
@@ -874,10 +891,10 @@ namespace Soulfract
 		// Essaie de ramasser un meuble, sinon une créature portable, sous le curseur.
 		private static bool TryPickupFurnitureOrCreature(Vector2 playerPos, Camera2D camera, Rectangle? viewport = null, int playerIndex = 0)
 		{
-			if (NetworkManager.IsClient)
-				return TryPickupCreatureClient(playerPos, camera, viewport);
-			if (TryPickupFurniture(playerPos, camera, viewport, playerIndex)) return true;
-			return TryPickupCreature(playerPos, camera, viewport, playerIndex);
+		if (NetworkManager.IsClient)
+			return TryPickupCreatureClient(playerPos, camera, viewport);
+		if (TryPickupCreature(playerPos, camera, viewport, playerIndex)) return true;
+		return TryPickupFurniture(playerPos, camera, viewport, playerIndex);
 		}
 
 		//  MULTIJOUEUR : point d'entrée utilisé par l'IA des entités pour infliger des dégâts

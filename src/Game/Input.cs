@@ -88,6 +88,7 @@ namespace Soulfract
 		if (KeyBindings.IsPressed(GameAction.ReloadData) && _gameState == GameState.Playing && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen && !QuestDialogUI.IsOpen)
 			{
 				ReloadData();
+				ReloadTextures();
 			}
 			
 			// Carte (M)
@@ -878,7 +879,8 @@ namespace Soulfract
 			// Ramasser un meuble ou une créature portable (F)
 			if (KeyBindings.IsPressed(GameAction.Drop) && !ChatSystem.IsOpen && PlayerCurrentCar == null)
 			{
-				TryPickupFurnitureOrCreature(inputPosition, inputCamera, inputViewport, inputPlayerIndex);
+				//  'inputPosition' est la position de la SOURIS : le ramassage attend celle du JOUEUR (portée).
+				TryPickupFurnitureOrCreature(_playerPos, inputCamera, inputViewport, inputPlayerIndex);
 			}
 			
 			// Touches de hotbar (1-9, 0) - uniquement si menu radial fermé

@@ -39,7 +39,7 @@
         {
           "name": "llegbottom",
           "baseX": 0,
-          "baseY": -5,
+          "baseY": -6,
           "baseRot": 0,
           "parent": "llegtop"
         },
@@ -53,7 +53,7 @@
         {
           "name": "rlegbottom",
           "baseX": 0,
-          "baseY": -5,
+          "baseY": -6,
           "baseRot": 0,
           "parent": "rlegtop"
         },
@@ -321,7 +321,7 @@
         {
           "name": "llegbottom",
           "baseX": 0,
-          "baseY": -5,
+          "baseY": -6,
           "baseRot": 0,
           "parent": "llegtop"
         },
@@ -335,7 +335,7 @@
         {
           "name": "rlegbottom",
           "baseX": 0,
-          "baseY": -5,
+          "baseY": -6,
           "baseRot": 0,
           "parent": "rlegtop"
         },
@@ -419,7 +419,7 @@
         {
           "name": "llegbottom",
           "baseX": 0,
-          "baseY": -5,
+          "baseY": -6,
           "baseRot": 0,
           "parent": "llegtop"
         },
@@ -433,7 +433,7 @@
         {
           "name": "rlegbottom",
           "baseX": 0,
-          "baseY": -5,
+          "baseY": -6,
           "baseRot": 0,
           "parent": "rlegtop"
         },

@@ -1073,6 +1073,20 @@ public readonly struct ProjectileRenderTag
 		// quand plusieurs silhouettes (chapeau, lunettes, boucles d'oreilles...) se chevauchent.
 		private static readonly Dictionary<string, Image> EquipmentImageCache = new(StringComparer.OrdinalIgnoreCase);
 
+		public static void ClearTextureCaches()
+		{
+			foreach (var kv in EquipmentTextureCache)
+				if (kv.Value.Id != 0) Raylib.UnloadTexture(kv.Value);
+			EquipmentTextureCache.Clear();
+
+			foreach (var kv in EquipmentImageCache)
+				if (kv.Value.Width > 0 && kv.Value.Height > 0) Raylib.UnloadImage(kv.Value);
+			EquipmentImageCache.Clear();
+
+			EquipmentTextureSetCache.Clear();
+			MissingEquipmentTexturePaths.Clear();
+		}
+
 		public const int BELT_SLOTS = 10;
 
 		//  Charge (ou récupère depuis le cache GPU partagé) la texture d'équipement située à

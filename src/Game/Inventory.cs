@@ -1639,6 +1639,56 @@ namespace Soulfract
 			}
 			return true;
 		}
+		public static void ReloadTextures()
+		{
+			try
+			{
+				var missingTextures = new List<string>();
+				var stats = new LoadStats();
+
+				Equipment.ClearTextureCaches();
+				EntityRenderer.ClearEquipmentCache();
+				_networkEquipmentCache.Clear();
+				_networkEntityEquipmentCache.Clear();
+				_networkFullEquipmentCache.Clear();
+
+				equipment.LoadEquipmentTextures();
+
+				foreach (var entity in entities)
+				{
+					entity?.Equipment?.LoadEquipmentTextures();
+				}
+
+				foreach (var (_, _, chunk) in World.GetAllChunks())
+				{
+					if (chunk?.ArmorStands == null) continue;
+					foreach (var stand in chunk.ArmorStands.Values)
+						stand.Equipment.LoadEquipmentTextures();
+				}
+
+				LoadGuiTextures(missingTextures, stats);
+				WorldTileRegistry.LoadTextures(tileTextures, missingTexture);
+				World.LoadBannerTextures();
+				WorldTileRegistry.LoadDecorations(missingTexture);
+				WorldTileRegistry.LoadConnectionTextures(missingTexture);
+				LoadBiomeBorderTextures();
+				LoadCharacterTextures(missingTextures, stats);
+				LoadEquipmentTextures(missingTextures);
+				LoadGameUiAssets(missingTextures);
+				HudRenderer.LoadTextures();
+				LoadItems(missingTextures, stats);
+				LoadAnimals(missingTextures, stats);
+				LoadCarTextures();
+
+				PrintSummary(missingTextures, stats);
+				AddNotification(new Notification(" Textures rechargées.", new Color(100, 255, 100, 255), 2.5f));
+			}
+			catch (Exception ex)
+			{
+				AddNotification(new Notification($" Erreur textures : {ex.Message}", Color.Red, 4f));
+				Console.WriteLine($"Erreur ReloadTextures : {ex}");
+			}
+		}
 
 		public static void ReloadData()
 		{
