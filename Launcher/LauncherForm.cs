@@ -1633,9 +1633,7 @@ internal sealed class LauncherForm : Form
             || path.Equals("Data/keybindings.json", StringComparison.OrdinalIgnoreCase)
             || path.Equals("Data/servers.json", StringComparison.OrdinalIgnoreCase)
             || path.Equals("Data/player_characters.json", StringComparison.OrdinalIgnoreCase)
-            || path.Equals("Data/character_animations.json", StringComparison.OrdinalIgnoreCase)
-            || path.Equals("Data/worldobjects.json", StringComparison.OrdinalIgnoreCase)
-            || path.Equals("Data/structures.json", StringComparison.OrdinalIgnoreCase);
+            || path.Equals("Data/character_animations.json", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsGameRunning()
