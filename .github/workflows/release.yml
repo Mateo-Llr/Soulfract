@@ -39,19 +39,39 @@ jobs:
             -o publish/game
 
       - name: Publish self-contained launcher
-        run: >-
-          dotnet publish Launcher/SoulfractLauncher.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:DebugType=None -p:DebugSymbols=false
-          -o publish/launcher
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          dotnet publish Launcher/SoulfractLauncher.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None -p:DebugSymbols=false -p:Version=$version `
+            -o publish/launcher
 
       - name: Publish native self-updating bootstrapper
-        run: >-
-          dotnet publish Bootstrapper/SoulfractBootstrapper.csproj
-          -c Release -r win-x64
-          -p:PublishAot=true -p:StripSymbols=true
-          -o publish/bootstrapper
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          dotnet publish Bootstrapper/SoulfractBootstrapper.csproj -c Release -r win-x64 `
+            -p:PublishAot=true -p:StripSymbols=true -p:Version=$version `
+            -o publish/bootstrapper
+
+      - name: Validate published binary versions
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $expectedFileVersion = ($version -split '-')[0] + '.0'
+          $binaries = @(
+            'publish/game/Soulfract.exe',
+            'publish/launcher/SoulfractLauncher.exe',
+            'publish/bootstrapper/SoulfractBootstrapper.exe'
+          )
+          foreach ($path in $binaries) {
+            $versionInfo = (Get-Item $path).VersionInfo
+            $productVersion = ($versionInfo.ProductVersion -split '\+')[0]
+            if ($productVersion -ne $version -or $versionInfo.FileVersion -ne $expectedFileVersion) {
+              throw "$path porte ProductVersion=$productVersion et FileVersion=$($versionInfo.FileVersion), attendu $version / $expectedFileVersion"
+            }
+          }
 
       - name: Package game
         shell: pwsh

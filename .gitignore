@@ -29,3 +29,6 @@ Data/player_characters.json
 Data/character_animations.json
 
 tools/
+!tools/
+tools/*
+!tools/release.py
