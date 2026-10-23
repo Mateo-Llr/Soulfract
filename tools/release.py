@@ -32,6 +32,7 @@ REPO = "Mateo-Llr/Soulfract"
 API_BASE = f"https://api.github.com/repos/{REPO}"
 GITHUB_ACCOUNT = "Mateo-Llr"
 VERSION_RE = re.compile(r"^v?\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$")
+PRERELEASE_RE = re.compile(r"-(?:alpha|beta|rc)(?:[.-]?\d|$)", re.IGNORECASE)
 
 
 def log(msg, level="INFO"):
@@ -228,7 +229,7 @@ def create_or_update_release(token, tag, name, body, commit_sha):
         "tag_name": tag,
         "name": name,
         "draft": False,
-        "prerelease": "-" in tag,
+        "prerelease": bool(PRERELEASE_RE.search(tag)),
     }
 
     headers = _auth_headers(token)
@@ -484,7 +485,7 @@ def main():
     else:
         state = "a échoué" if workflow_ok is False else "n'a pas été détecté / a expiré"
         log(f"Le workflow {state}. Consultez l'onglet Actions sur GitHub.", "ERR")
-        log("Le build local de secours ne génère PAS l'archive différentielle (delta).", "WARN")
+        log("Le build local de secours ne reproduit pas exactement le workflow GitHub Actions.", "WARN")
         if not confirm("Publier quand même avec un build local de secours ?"):
             log("Arrêt. Corrigez le workflow, supprimez le tag et relancez.", "WARN")
             sys.exit(1)
