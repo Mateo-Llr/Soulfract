@@ -855,13 +855,9 @@ namespace Soulfract
 					var tileData = WorldTileRegistry.GetTile(objectId);
 					if (tileData != null && tileData.IsArmorStand == true)
 					{
-						int height = World.GetHeightAt(tileX, tileY);
-						float yOffset = -height * ts / 4;
 						float objX = tileX * ts + ts/2f;
-						float objY = tileY * ts + yOffset + ts/2f;
-						int playerHeight = GetPlayerGroundHeight(_playerPos);
-						float playerYOffset = -playerHeight * ts / 4;
-						Vector2 playerVisualPos = new Vector2(_playerPos.X, _playerPos.Y + playerYOffset);
+						float objY = tileY * ts + ts/2f;
+						Vector2 playerVisualPos = GetPlayerVisualPosition(_playerPos);
 						if (Vector2.DistanceSquared(playerVisualPos, new Vector2(objX, objY)) < (ts * 2f) * (ts * 2f))
 						{
 							var chunk = World.GetChunkAt(tileX, tileY);

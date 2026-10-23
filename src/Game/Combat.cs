@@ -220,11 +220,10 @@ namespace Soulfract
 							continue;
 					}
 
-					int height = World.GetHeightAt(tileX, tileY);
 					int drawWidth = ts * (tileData.Size?.Width ?? 1);
 					int drawHeight = ts * (tileData.Size?.Height ?? 1);
 					float drawX = tileX * ts + (tileData.Size != null ? tileData.DrawOffset?.X ?? 0 : 0);
-					float drawY = tileY * ts - height * ts / 4f;
+					float drawY = tileY * ts;
 					if (tileData.Size != null)
 						drawY = drawY - drawHeight + ts;
 					Vector2 renderedPlantCenter = new(drawX + drawWidth / 2f, drawY + drawHeight / 2f);

@@ -155,6 +155,10 @@ namespace Soulfract
 			new SpawnableObject { Id = 48, Weight = 20, Biomes = new[] { "Forest" }, RequiredGroundId = 44 },
 			new SpawnableObject { Id = 2, Weight = 12, Biomes = new[] { "Forest" }, RequiredGroundId = 44 },
 			new SpawnableObject { Id = 15, Weight = 18, Biomes = new[] { "Forest", "DarkForest" }, RequiredGroundId = 44 },  // Champignon
+			new SpawnableObject { Id = 209, Weight = 8, Biomes = new[] { "Forest" }, RequiredGroundId = 44 }, // Bolet
+			new SpawnableObject { Id = 211, Weight = 10, Biomes = new[] { "Forest", "DarkForest" }, RequiredGroundId = 44 }, // Girolle
+			new SpawnableObject { Id = 212, Weight = 6, Biomes = new[] { "Forest", "DarkForest" }, RequiredGroundId = 44 }, // Nebularis
+			new SpawnableObject { Id = 210, Weight = 6, Biomes = new[] { "Forest" }, RequiredGroundId = 44 }, // Amanite tue-mouches
 			
 			// Forêt de bouleau (ID 1)
 			new SpawnableObject { Id = 4, Weight = 30, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 },
@@ -162,12 +166,20 @@ namespace Soulfract
 			new SpawnableObject { Id = 2, Weight = 20, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 },
 			new SpawnableObject { Id = 13, Weight = 15, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 },
 			new SpawnableObject { Id = 15, Weight = 16, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 },  // Champignon
+			new SpawnableObject { Id = 209, Weight = 8, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 }, // Bolet
+			new SpawnableObject { Id = 211, Weight = 10, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 }, // Girolle
+			new SpawnableObject { Id = 212, Weight = 6, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 }, // Nebularis
+			new SpawnableObject { Id = 210, Weight = 6, Biomes = new[] { "BirchForest" }, RequiredGroundId = 1 }, // Amanite tue-mouches
 			
 			// Forêt sombre (ID 44)
 			new SpawnableObject { Id = 45, Weight = 55, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 },
 			new SpawnableObject { Id = 4, Weight = 25, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 },
 			new SpawnableObject { Id = 48, Weight = 20, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 },
 			new SpawnableObject { Id = 2, Weight = 12, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 },
+			new SpawnableObject { Id = 209, Weight = 8, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 }, // Bolet
+			new SpawnableObject { Id = 211, Weight = 10, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 }, // Girolle
+			new SpawnableObject { Id = 212, Weight = 6, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 }, // Nebularis
+			new SpawnableObject { Id = 210, Weight = 6, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 }, // Amanite tue-mouches
 			new SpawnableObject { Id = 15, Weight = 10, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 },  // Champignon
 			new SpawnableObject { Id = 45, Weight = 55, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 },
 			new SpawnableObject { Id = 4, Weight = 25, Biomes = new[] { "DarkForest" }, RequiredGroundId = 44 },
@@ -187,6 +199,10 @@ namespace Soulfract
 			new SpawnableObject { Id = 45, Weight = 35, Biomes = new[] { "Taiga" }, RequiredGroundId = 47 },
 			new SpawnableObject { Id = 4, Weight = 20, Biomes = new[] { "Taiga" }, RequiredGroundId = 47 },
 			new SpawnableObject { Id = 15, Weight = 15, Biomes = new[] { "Taiga" }, RequiredGroundId = 47 },
+			new SpawnableObject { Id = 209, Weight = 8, Biomes = new[] { "Taiga" }, RequiredGroundId = 47 }, // Bolet
+			new SpawnableObject { Id = 211, Weight = 10, Biomes = new[] { "Taiga" }, RequiredGroundId = 47 }, // Girolle
+			new SpawnableObject { Id = 212, Weight = 6, Biomes = new[] { "Taiga" }, RequiredGroundId = 47 }, // Nebularis
+			new SpawnableObject { Id = 210, Weight = 6, Biomes = new[] { "Taiga" }, RequiredGroundId = 47 }, // Amanite tue-mouches
 			
 			// Toundra (ID 43)
 			new SpawnableObject { Id = 4, Weight = 25, Biomes = new[] { "Tundra" }, RequiredGroundId = 43 },

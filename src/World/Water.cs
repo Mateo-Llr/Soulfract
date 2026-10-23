@@ -339,8 +339,30 @@ void main()
 		// Doit rester aligné sur OCEAN_THRESHOLD de WorldGeneration.cs (0.32f). Copié ici car la constante
 		// d'origine n'est pas accessible depuis cette classe.
 		private const float WaterShallowElevation = 0.32f;
-		// Élévation à partir de laquelle l'eau est au plus sombre (océan profond ~0.15 dans WorldGeneration).
-		private const float WaterDeepElevation = 0.10f;
+		// Doit rester aligné sur DEEP_OCEAN_THRESHOLD de WorldGeneration.cs.
+		private const float WaterDeepElevation = 0.15f;
+
+		private static float GetWaterDepthFactor(float elevation)
+		{
+			float normalizedDepth = Math.Clamp((WaterShallowElevation - elevation) /
+				(WaterShallowElevation - WaterDeepElevation), 0f, 1f);
+			return MathF.Sqrt(normalizedDepth);
+		}
+
+        /// <summary>
+        /// Profondeur normalisée de l'eau à une position monde (0 = bord peu profond,
+        /// 1 = eau profonde). Partagée avec le rendu des entités pour synchroniser
+        /// leur immersion avec le dégradé de profondeur utilisé par le shader de l'eau.
+        /// </summary>
+        public static float GetWaterDepthFactorAtWorldPosition(Vector2 worldPosition)
+        {
+            int tileSize = Program.TileSize;
+            if (tileSize <= 0) return 0f;
+            int tileX = (int)MathF.Floor(worldPosition.X / tileSize);
+            int tileY = (int)MathF.Floor(worldPosition.Y / tileSize);
+            float elevation = GetClimateAt(tileX, tileY).elevation;
+            return GetWaterDepthFactor(elevation);
+        }
 
 		// ───────────────────────── ONDULATIONS ──────────────────────────
 		private static readonly Vector2[] _rippleCenter = new Vector2[WaterMaxRipples];
@@ -494,11 +516,7 @@ void main()
 			// ── Émission des ondulations derrière le joueur ──
 			if (isPlayerInWater)
 			{
-				// Le sprite du joueur ET les tuiles d'eau sont dessinés remontés de (hauteur * ts / 4)
-				// (voir DrawWorld : playerYOffset / drawY). Sans cette correction, l'ondulation était
-				// émise dans la grille "à plat" donc trop bas à l'écran.
-				int liftPx = Program.GetPlayerGroundHeight(playerPos) * ts / 4;
-				Vector2 feet = new Vector2(playerPos.X, playerPos.Y + Program.FeetOffsetY - liftPx + WaterRippleYOffsetPx);
+				Vector2 feet = new Vector2(playerPos.X, playerPos.Y + Program.FeetOffsetY + WaterRippleYOffsetPx);
 				bool spawn = !_hasLastRipple;
 				if (!spawn)
 				{
@@ -615,10 +633,7 @@ void main()
 				trail.RemoveAll(ripple => currentTime - ripple.Birth >= WaterRippleLifetime);
 
 				Vector2 worldPos = entity.WorldPos;
-				int tileX = (int)MathF.Floor(worldPos.X / tileSize);
-				int tileY = (int)MathF.Floor(worldPos.Y / tileSize);
-				float lift = GetHeightAt(tileX, tileY) * tileSize / 4f;
-				Vector2 feet = new(worldPos.X, worldPos.Y + Program.FeetOffsetY - lift + WaterRippleYOffsetPx);
+				Vector2 feet = new(worldPos.X, worldPos.Y + Program.FeetOffsetY + WaterRippleYOffsetPx);
 				bool spawn = trail.Count == 0;
 				if (!spawn)
 				{
@@ -652,8 +667,7 @@ void main()
 
 			EnsureWaterWhitePixelLoaded();
 
-			float depthFactor = (WaterShallowElevation - elevation) / (WaterShallowElevation - WaterDeepElevation);
-			depthFactor = Math.Clamp(depthFactor, 0f, 1f);
+			float depthFactor = GetWaterDepthFactor(elevation);
 			byte depthByte = (byte)(depthFactor * 255f);
 
 			// R = profondeur, G/B = masques de rivage, A = opacité (voir en-tête).

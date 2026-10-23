@@ -37,9 +37,7 @@ namespace Soulfract
 						_heightCache.Remove((cx, cy));
 						_caveHeightCache.Remove((cx, cy));
 
-						int height = GetHeightAt(cx, cy);
-						float yOffset = -height * ts / 4;
-						float groundTop = cy * ts + yOffset + ts;
+						float groundTop = cy * ts + ts;
 						float playerY = groundTop - Program.FeetOffsetY;
 						return new Vector2(cx * ts + ts / 2f, playerY);
 					}
@@ -49,9 +47,7 @@ namespace Soulfract
 				_heightCache.Remove((tileX, tileY));
 				_caveHeightCache.Remove((tileX, tileY));
 
-				int heightFallback = GetHeightAt(tileX, tileY);
-				float yOffsetFallback = -heightFallback * ts / 4;
-				float groundTopFallback = tileY * ts + yOffsetFallback + ts;
+				float groundTopFallback = tileY * ts + ts;
 				float playerYFallback = groundTopFallback - Program.FeetOffsetY;
 				return new Vector2(tileX * ts + ts / 2f, playerYFallback);
 			}
@@ -66,18 +62,14 @@ namespace Soulfract
 				var groundTile = WorldTileRegistry.GetTile(groundId);
 				if (groundTile != null && groundTile.Walkable && GetObjectIdAt(nx, ny) == 0)
 				{
-					int height = GetHeightAt(nx, ny);
-					float yOffset = -height * ts / 4;
-					float groundTop = ny * ts + yOffset + ts;
+					float groundTop = ny * ts + ts;
 					float playerY = groundTop - Program.FeetOffsetY;
 					return new Vector2(nx * ts + ts / 2f, playerY);
 				}
 			}
 
 			// Fallback : spawn sur la tuile elle‑même (cas extrême)
-			int heightExit = GetHeightAt(tileX, tileY);
-			float yOffsetExit = -heightExit * ts / 4;
-			float exitTop = tileY * ts + yOffsetExit + ts;
+			float exitTop = tileY * ts + ts;
 			float playerYExit = exitTop - Program.FeetOffsetY;
 			return new Vector2(tileX * ts + ts / 2f, playerYExit);
 		}
@@ -133,10 +125,8 @@ namespace Soulfract
 					if (Random.Shared.NextDouble() > 0.2) continue;
 
 					// Position monde de la tuile
-					int height = GetHeightAt(x, y);
-					float yOffset = -height * ts / 4;
 					float worldX = x * ts + ts / 2f;
-					float worldY = y * ts + yOffset + ts / 2f;
+					float worldY = y * ts + ts / 2f;
 
 					// Légère variation aléatoire
 					worldX += (float)(Random.Shared.NextDouble() - 0.5) * ts * 0.5f;
@@ -261,8 +251,7 @@ namespace Soulfract
                         for (int ty = Math.Max(tileMinY, minY - pad); ty <= Math.Min(tileMaxY, maxY + pad); ty++)
                         {
                             if (blocked.Contains((tx, ty))) continue;
-                            int cellHeight = GetHeightAt(tx, ty);
-                            int cellBaseY = ty * ts - (cellHeight * ts / 4);
+                            int cellBaseY = ty * ts;
                             Rectangle tileRect = new Rectangle(tx * ts, cellBaseY, ts, ts);
                             if (Raylib.CheckCollisionRecs(tileRect, objRect))
                                 blocked.Add((tx, ty));

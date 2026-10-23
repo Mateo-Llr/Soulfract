@@ -252,7 +252,6 @@ namespace Soulfract
 			int slotSize = UIManager.ItemSlotSize;
 			int slotStep = UIManager.ItemSlotStep;
 			int itemSize = UIManager.ItemContentSize;
-			int itemOffset = (slotSize - itemSize) / 2;
 			int gap = slotStep - slotSize;
 			int panelPadding = UIManager.ScaleInt(10);
 			GetClassicHotbarLayout(slotCount, slotSize, gap, out int startX, out int startY, out int totalWidth);
@@ -287,12 +286,8 @@ namespace Soulfract
 			for (int index = 0; index < slotCount; index++)
 			{
 				int x = startX + index * slotStep;
-				if (index < slots.Count && !slots[index].IsEmpty && slots[index].Item != null)
-				{
-					ItemRenderer.DrawItemPadded(slots[index].Item, x + itemOffset, startY + itemOffset, itemSize, 6);
-					if (slots[index].Count > 1)
-						FontManager.DrawText(slots[index].Count.ToString(), x + itemOffset + itemSize - 18, startY + itemOffset + itemSize - 18, 14, Color.White);
-				}
+				if (index < slots.Count)
+					UIManager.DrawInventorySlotContents(slots[index], new Rectangle(x, startY, slotSize, slotSize), itemSize);
 
 				string key = index == 9 ? "0" : (index + 1).ToString();
 				FontManager.DrawText(key, x + 4, startY + 3, 12, new Color(220, 215, 195, 220));

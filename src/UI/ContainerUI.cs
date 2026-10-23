@@ -18,7 +18,6 @@ namespace Soulfract
         private static int SLOT_SIZE => UIManager.ItemSlotSize;
         private static int SLOT_STEP => UIManager.ItemSlotStep;
         private static int ITEM_SIZE => UIManager.ItemContentSize;
-        private static int ITEM_OFFSET => (SLOT_SIZE - ITEM_SIZE) / 2;
         private static int HEADER_HEIGHT => UIManager.ScaleInt(45);
         private static int CLOSE_BTN_SIZE => UIManager.ScaleInt(28);
         private static int PANEL_TOP_MARGIN => UIManager.ScaleInt(25);
@@ -591,14 +590,11 @@ public static ContainerInventoryData? GetCurrentContainer(int playerIndex = 0) =
         {
             bool pressed = isHovered && Raylib.IsMouseButtonDown(MouseButton.Left);
             Color fallbackColor = isHovered ? COLOR_SLOT_HOVER : COLOR_SLOT_NORMAL;
-            UIManager.DrawItemSlotBackground(new Rectangle(x, y, SLOT_SIZE, SLOT_SIZE), isHovered, pressed, fallbackColor, borderUp, borderDown, borderLeft, borderRight);
-            
-            if (!slot.IsEmpty && slot.Item != null)
-			{
-                ItemRenderer.DrawItemPadded(slot.Item, x + ITEM_OFFSET, y + ITEM_OFFSET, ITEM_SIZE, 6);
-				if (slot.Count > 1)
-                    Raylib.DrawText(slot.Count.ToString(), x + ITEM_OFFSET + ITEM_SIZE - 18, y + ITEM_OFFSET + ITEM_SIZE - 18, 14, Color.White);
+            UIManager.DrawInventorySlot(slot, new Rectangle(x, y, SLOT_SIZE, SLOT_SIZE), isHovered, pressed,
+                fallbackColor, borderUp, borderDown, borderLeft, borderRight, ITEM_SIZE);
 
+            if (!slot.IsEmpty && slot.Item != null)
+            {
                 if (isCampfire && GameData.TryGetItemByName(slot.Item.Name, out var data) &&
                     (data.Cookable || slot.Item.HasMeta("cookStage")))
                 {

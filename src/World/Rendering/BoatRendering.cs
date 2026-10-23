@@ -38,10 +38,8 @@ namespace Soulfract
 						int boatTileX = (int)(boatWorldPos.X / ts);
 						int boatTileY = (int)(boatWorldPos.Y / ts);
 						if (!Program.IsTileLit(boatTileX, boatTileY)) continue;
-						int boatHeight = GetHeightAt(boatTileX, boatTileY);
-						float boatYOffset = -boatHeight * ts / 4;
 						float boatDrawX = boatWorldPos.X - ts/2f;
-						float boatDrawY = boatWorldPos.Y - ts/2f + boatYOffset;
+						float boatDrawY = boatWorldPos.Y - ts/2f;
 						if (!ctx.IsWorldRectVisible(boatDrawX, boatDrawY, ts, ts))
 							continue;
 					
@@ -140,11 +138,8 @@ namespace Soulfract
 						int tileX = (int)(tileWorldPos.X / ts);
 						int tileY = (int)(tileWorldPos.Y / ts);
 						if (!Program.IsTileLit(tileX, tileY)) continue;
-						int height = GetHeightAt(tileX, tileY);
-						float yOffset = -height * ts / 4;
-					
 						float drawX = tileWorldPos.X - ts/2f;
-						float drawY = tileWorldPos.Y - ts/2f + yOffset;
+						float drawY = tileWorldPos.Y - ts/2f;
 						int drawW = ts, drawH = ts;
 						int offX = 0, offY = 0;
 					
@@ -162,7 +157,7 @@ namespace Soulfract
 						if (!ctx.IsWorldRectVisible(drawX + offX, drawY + offY, drawW, drawH))
 							continue;
 					
-						float sortY = tileWorldPos.Y + yOffset;
+						float sortY = tileWorldPos.Y;
 					
 						var capturedBoat = boat;
 						var capturedRelX = relX;

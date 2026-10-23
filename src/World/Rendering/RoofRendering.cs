@@ -22,7 +22,6 @@ namespace Soulfract
 				int startY = ctx.startY;
 				int width = ctx.width;
 				int heightTiles = ctx.heightTiles;
-				int[,] heights = ctx.heights;
 				int[,] overlayIds = ctx.overlayIds;
 				int[,] roofHeights = ctx.roofHeights;
 				var renderItems = _renderItemsPool;
@@ -40,9 +39,8 @@ namespace Soulfract
 						if (overlayId == 0 || (_isPlayerIndoors && overlayId != 123)) continue;
 						var overlayTileData = WorldTileRegistry.GetTile(overlayId);
 						if (overlayTileData == null) continue;
-						int height = heights[ix, iy];
 						float wx = worldX * ts;
-						float wy = worldY * ts - (height * ts / 4);
+						float wy = worldY * ts;
 						int roofHeightTiles = roofHeights[ix, iy];
 						// Décalage vertical proportionnel à la hauteur DE CETTE TUILE (plafonnée au
 						// faîtage) : c'est ce qui donne la perspective en pente au lieu d'un toit plat.

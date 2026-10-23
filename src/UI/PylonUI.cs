@@ -117,9 +117,7 @@ namespace Soulfract
                 if (objectId == 105) // ID du pylône
                 {
                     int ts = Program.TileSize;
-                    int height = World.GetHeightAt(x, y);
-                    float yOffset = -height * ts / 4;
-                    Vector2 worldPos = new Vector2(x * ts + ts / 2f, y * ts + yOffset + ts / 2f);
+                    Vector2 worldPos = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f);
                     
                     // Trouver un nom (optionnel : utiliser la position ou un nom personnalisé plus tard)
                     string name = $"Pylône ({x}, {y})";
@@ -261,11 +259,7 @@ namespace Soulfract
             int ts = Program.TileSize;
             int tileX = (int)(targetPos.X / ts);
             int tileY = (int)(targetPos.Y / ts);
-            int height = World.GetHeightAt(tileX, tileY);
-            float yOffset = -height * ts / 4;
-            
-            // Placer le joueur légèrement au-dessus du sol
-            float playerY = tileY * ts + yOffset + ts / 2f;
+            float playerY = tileY * ts + ts / 2f;
             targetPos = new Vector2(tileX * ts + ts / 2f, playerY - Program.FeetOffsetY);
             
             Program.SetPlayerPosition(targetPos);

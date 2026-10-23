@@ -314,8 +314,7 @@ namespace Soulfract
                 if (tileId == 0) tileId = World.GetGroundTileIdAt(x, y);
                 var tileData = WorldTileRegistry.GetTile(tileId);
                 if (tileData == null || tileData.Walkable) continue;
-                int heightTile = World.GetHeightAt(x, y);
-                int drawY = y * ts - (heightTile * ts / 4);
+                int drawY = y * ts;
                 Rectangle tileRect = new Rectangle(x * ts, drawY, ts, ts);
                 if (IntersectOrientedRectangleWithAABB(corners, tileRect))
                     return true;

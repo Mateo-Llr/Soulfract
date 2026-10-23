@@ -31,9 +31,7 @@ namespace Soulfract
 					{
 						if (!extraPlayer.Connected) continue;
 						if (!ctx.IsEntityNearScreen(extraPlayer.Position)) continue;
-						int playerHeight = Program.GetPlayerGroundHeight(extraPlayer.Position);
-						float playerYOffset = -playerHeight * ts / 4;
-						Vector2 actualDrawPos = new Vector2(extraPlayer.Position.X, extraPlayer.Position.Y + playerYOffset);
+						Vector2 actualDrawPos = extraPlayer.Position;
 						float playerSortY = actualDrawPos.Y + Program.FeetOffsetY;
 						int hairIndex = extraPlayer.HairStyleOverride ?? Program.PlayerHairStyle;
 						if (hairIndex < 0 || hairIndex >= hairBase.Count) hairIndex = 0;
@@ -198,8 +196,6 @@ namespace Soulfract
 				//  rendu du monde).
 				if (drawPlayer && Program.PlayerCurrentCar == null && !Program.IsPlayerRagdolled)
 				{
-					int playerHeight = Program.GetPlayerGroundHeight(playerPos);
-					float playerYOffset = -playerHeight * ts / 4;
 					Item? heldItem = null;
 					var hotbarSlots = Program.GetHotbarSlotsCached(); //  OPTIM : cache par frame
 					if (Program.hotbarSlot < hotbarSlots.Count && !hotbarSlots[Program.hotbarSlot].IsEmpty)
@@ -209,7 +205,6 @@ namespace Soulfract
 					var playerHairBaseTex = hairBase.Count > 0 ? hairBase[hairIndex] : new Texture2D();
 					var playerHairOverlayTex = hairOverlay.Count > 0 ? hairOverlay[hairIndex] : new Texture2D();
 					var playerPosForDraw = playerPos;
-					var playerYOffsetForDraw = playerYOffset;
 					var mountedAnimal = Program.MountedAnimal;
 					// Le sens du cavalier suit toujours celui de la monture, pour ne jamais les voir
 					// tournés dans des directions différentes.
@@ -241,7 +236,7 @@ namespace Soulfract
 					bool isCarryingCreature = carriedCreatureRef != null;
 					Vector2 actualDrawPos;
 					if (sittingPosition.HasValue) actualDrawPos = Program.GetSittingVisualPosition();
-					else actualDrawPos = new Vector2(playerPosForDraw.X, playerPosForDraw.Y + playerYOffsetForDraw);
+					else actualDrawPos = playerPosForDraw;
 							float tempIntensity = TemperatureSystem.CurrentIntensity;
 							if (TemperatureSystem.IsCold)
 							{

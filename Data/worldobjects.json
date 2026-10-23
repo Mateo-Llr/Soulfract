@@ -534,7 +534,7 @@
       "texture": "shroom",
       "animation": null,
       "collectable": true,
-      "variation": 2,
+      "variation": 1,
       "material": "grass",
       "connectionType": "none",
       "walkable": true,
@@ -542,6 +542,90 @@
       "drops": [
         {
           "id": "mushroom",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe"
+    },
+    {
+      "id": 209,
+      "name": "Bolete",
+      "texture": "bolete",
+      "animation": null,
+      "collectable": true,
+      "variation": 1,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "bolete",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe"
+    },
+    {
+      "id": 210,
+      "name": "Fly Agaric",
+      "texture": "fly_agaric",
+      "animation": null,
+      "collectable": true,
+      "variation": 1,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "fly_agaric",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe"
+    },
+    {
+      "id": 211,
+      "name": "Chanterelle",
+      "texture": "chanterelle",
+      "animation": null,
+      "collectable": true,
+      "variation": 4,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "chanterelle",
+          "minQty": 1,
+          "maxQty": 2,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "scythe"
+    },
+    {
+      "id": 212,
+      "name": "Nebularis",
+      "texture": "nebularis",
+      "animation": null,
+      "collectable": true,
+      "variation": 3,
+      "material": "grass",
+      "connectionType": "none",
+      "walkable": true,
+      "diggable": true,
+      "drops": [
+        {
+          "id": "nebularis",
           "minQty": 1,
           "maxQty": 2,
           "chance": 1.0

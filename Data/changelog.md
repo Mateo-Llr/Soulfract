@@ -1444,6 +1444,16 @@
 - [CHANGED] Corpse.Draw() : la dissolution gère la disparition du corps au lieu d'un simple fondu d'alpha ; l'ombre au sol s'efface légèrement plus vite que la silhouette pour éviter qu'elle "flotte" sous un corps déjà à moitié évaporé
 - [ADDED] EntityRenderer : ajout de BeginDissolveShader / EndDissolveShader avec uniforms de progression, temps, caméra et hauteur d'écran
 
+### 23 octobre
+
+- [CHANGED] Suppression du décalage visuel lié à l'altitude pour le terrain, les entités, les objets et les effets ; les falaises de relief ne sont plus dessinées
+- [FIXED] Suppression des blocages de déplacement et des filtres de collision fondés sur l'altitude ; les collisions dépendent désormais uniquement des hitbox des tuiles et objets
+- [CHANGED] Mise à jour de l'efficacité des updates, bien plus souples et pratiques
+- [CHANGED] Mise à jour des jambes des bipèdes, plus grandes pour un corps plus réaliste
+- [ADDED] Effet du personnage lorsqu'il est dans l'eau
+- [ADDED] Apparition naturelle des bolets et amanites tue-mouches dans les forêts ; champignon brun identifié comme agaric bispore
+- [ADDED] Ajout du clitocybe nébuleux et de la girolle, avec trois et quatre variations de texture respectivement
+
 ---
 
 # Potentiels ajouts futurs

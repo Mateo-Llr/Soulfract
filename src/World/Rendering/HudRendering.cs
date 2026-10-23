@@ -79,7 +79,7 @@ namespace Soulfract
 							AddPrompt("F", "F");
 
 						float objectX = x * ts + (tileData.DrawOffset?.X ?? 0);
-						float objectY = y * ts - (GetHeightAt(x, y) * ts / 4) + ts;
+						float objectY = y * ts + ts;
 						float objectWidth = ts;
 						float objectHeight = ts;
 						if (tileData.Size != null)

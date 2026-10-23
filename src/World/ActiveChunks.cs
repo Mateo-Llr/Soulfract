@@ -221,7 +221,6 @@ namespace Soulfract
 			Raylib.DrawCircleV(center, MathF.Max(1.5f, drawW * 0.045f), new Color(54, 28, 18, 255));
 		}
 
-		private static int[,] _renderHeights = new int[0, 0];
 		private static int[,] _renderGroundIds = new int[0, 0];
 		private static int[,] _renderObjectIds = new int[0, 0];
 		private static int[,] _renderOverlayIds = new int[0, 0];

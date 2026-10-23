@@ -1134,9 +1134,7 @@ namespace Soulfract
 
         private static Vector2 WagonLinkVisualPoint(Vector2 worldPoint)
         {
-            var tile = WorldToTile(worldPoint);
-            int height = World.GetHeightAt(tile.x, tile.y);
-            return new Vector2(worldPoint.X, worldPoint.Y - height * TileSize / 4f);
+            return worldPoint;
         }
 
         /// <summary>Dessine les barres d'attelage (sous les wagons) et le wagon actuellement sélectionné.</summary>
@@ -1212,13 +1210,10 @@ namespace Soulfract
         /// <summary>Position réelle du wagon (et du joueur) pendant le trajet.</summary>
         public static Vector2 GetMountedWagonPosition() => _wagonPos;
 
-        /// <summary>Position de dessin du wagon : comme tous les objets du monde (et le joueur),
-        /// il est remonté de hauteur * TileSize / 4 selon le relief de la tuile où il se trouve.</summary>
+        /// <summary>Position de dessin du wagon.</summary>
         public static Vector2 GetMountedWagonDrawPosition()
         {
-            var tile = WorldToTile(_wagonPos);
-            int height = World.GetHeightAt(tile.x, tile.y);
-            return new Vector2(_wagonPos.X, _wagonPos.Y - height * TileSize / 4f);
+            return _wagonPos;
         }
 
         /// <summary>Décalage de rendu du wagon monté par rapport au centre de sa tuile.</summary>

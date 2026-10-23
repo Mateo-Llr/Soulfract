@@ -9,6 +9,7 @@ namespace Soulfract
     {
         private static Dictionary<int, RecipeData> _recipeItems = new Dictionary<int, RecipeData>();
         private static HashSet<int> _unlockedRecipes = new HashSet<int>();
+        private static HashSet<int> _unlockedCauldronRecipes = new HashSet<int>();
         private static Dictionary<string, int> _recipeNameToId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private static string _savePath = Path.Combine("Saves", "unlocked_recipes.json");
         
@@ -29,6 +30,7 @@ namespace Soulfract
         {
             LoadUnlockedRecipes();
             RegisterRecipeItems();
+            MigrateUnlockedCauldronRecipes();
             BuildRecipeNameIndex();
         }
         
@@ -39,7 +41,7 @@ namespace Soulfract
             int recipeScrollItemId = GameData.GetItemId("recipe_scroll");
 
             // Recettes du chaudron
-            RegisterRecipe(recipeScrollItemId, 1001, "Recette de potion de soin", "Mélangez des fleurs rouges et des champignons.", 63, "cauldron");
+            RegisterRecipe(recipeScrollItemId, 1001, "Recette de potion de soin", "Mélangez des fleurs rouges et des champignons.", 100, "cauldron");
             RegisterRecipe(recipeScrollItemId, 1002, "Recette de colorant mystérieux", "Associez des fleurs rouge, blanche et un champignon.", 60, "workbench");
             RegisterRecipe(recipeScrollItemId, 1003, "Recette de breuvage étrange", "Une combinaison secrète de plantes.", 186, "cauldron");
             RegisterRecipe(recipeScrollItemId, 1013, "Recette de la potion de force", "Champignons infusés avec un rubis broyé.", 103, "cauldron");
@@ -80,6 +82,53 @@ namespace Soulfract
             };
             
             _recipeItems[recipeId] = recipeData;
+        }
+
+        private static void MigrateUnlockedCauldronRecipes()
+        {
+            foreach (var recipeData in _recipeItems.Values)
+            {
+                if (recipeData.RequiresStation != "cauldron" || !recipeData.IsDiscovered)
+                    continue;
+
+                if (GameData.Recipes.Any(recipe =>
+                    recipe.Id == recipeData.TargetRecipeId && recipe.RequiresStation == "cauldron"))
+                    _unlockedCauldronRecipes.Add(recipeData.TargetRecipeId);
+            }
+
+            foreach (var recipe in GameData.Recipes.Where(recipe =>
+                recipe.RequiresStation == "cauldron" && _unlockedCauldronRecipes.Contains(recipe.Id)))
+            {
+                var matchingRecipeData = _recipeItems.Values.FirstOrDefault(data =>
+                    data.RequiresStation == "cauldron" && data.TargetRecipeId == recipe.Id);
+                if (matchingRecipeData == null) continue;
+
+                matchingRecipeData.IsDiscovered = true;
+                _unlockedRecipes.Add(matchingRecipeData.RecipeId);
+            }
+        }
+
+        public static bool IsCauldronRecipeLearned(int recipeId) =>
+            _unlockedCauldronRecipes.Contains(recipeId);
+
+        public static void LearnCauldronRecipe(int recipeId)
+        {
+            if (!GameData.Recipes.Any(recipe =>
+                recipe.Id == recipeId && recipe.RequiresStation == "cauldron"))
+                return;
+
+            if (!_unlockedCauldronRecipes.Add(recipeId))
+                return;
+
+            foreach (var recipeData in _recipeItems.Values.Where(data =>
+                data.RequiresStation == "cauldron" && data.TargetRecipeId == recipeId))
+            {
+                recipeData.IsDiscovered = true;
+                recipeData.DiscoveredAt ??= DateTime.Now;
+                _unlockedRecipes.Add(recipeData.RecipeId);
+            }
+
+            SaveUnlockedRecipes();
         }
         
         private static void BuildRecipeNameIndex()
@@ -268,6 +317,7 @@ namespace Soulfract
         private static void LoadUnlockedRecipes()
         {
             _unlockedRecipes.Clear();
+            _unlockedCauldronRecipes.Clear();
             
             if (!File.Exists(_savePath))
                 return;
@@ -280,6 +330,8 @@ namespace Soulfract
                 {
                     foreach (var id in data.RecipeIds)
                         _unlockedRecipes.Add(id);
+                    foreach (var id in data.CauldronRecipeIds)
+                        _unlockedCauldronRecipes.Add(id);
                 }
             }
             catch (Exception ex)
@@ -295,9 +347,11 @@ namespace Soulfract
                 var data = new UnlockedRecipesData
                 {
                     RecipeIds = _unlockedRecipes.ToList(),
+                    CauldronRecipeIds = _unlockedCauldronRecipes.ToList(),
                     LastSave = DateTime.Now
                 };
                 
+                Directory.CreateDirectory(Path.GetDirectoryName(_savePath)!);
                 string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_savePath, json);
             }
@@ -310,6 +364,7 @@ namespace Soulfract
         public static void ResetAllRecipes()
         {
             _unlockedRecipes.Clear();
+            _unlockedCauldronRecipes.Clear();
             foreach (var recipe in _recipeItems.Values)
             {
                 recipe.IsDiscovered = false;
@@ -346,6 +401,7 @@ namespace Soulfract
         private class UnlockedRecipesData
         {
             public List<int> RecipeIds { get; set; } = new();
+            public List<int> CauldronRecipeIds { get; set; } = new();
             public DateTime LastSave { get; set; }
         }
     }

@@ -20,18 +20,6 @@ namespace Soulfract
 
 		private static Dictionary<int, int> _biomePriority = new();
 
-		private static Texture2D? _cliffBorderTexCache;
-
-		private static Texture2D GetCliffBorderTexture(Texture2D missingTex)
-		{
-			if (_cliffBorderTexCache == null)
-			{
-				var tex = Raylib.LoadTexture("assets/tiles/cliff_border.png");
-				_cliffBorderTexCache = tex.Id != 0 ? tex : missingTex;
-			}
-			return _cliffBorderTexCache.Value;
-		}
-
 		private static Color GetWaterColor(int tileX, int tileY, float currentTime)
 		{
 			// Récupérer l'élévation (profondeur) - plus l'élévation est basse, plus c'est profond
@@ -391,12 +379,12 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
                 Biome.Jungle => new[] { "pig", "wolf", "chicken", "duck", "dodo" },
                 Biome.Swamp => new[] { "pig", "chicken", "duck" },
                 Biome.Plains => new[] { "pig", "sheep", "cow", "chicken", "slime", "insect" },
-                Biome.Forest => new[] { "pig", "wolf", "bear", "chicken", "duck", "raccoon" },
-                Biome.DarkForest => new[] { "wolf", "bear", "spider", "raccoon" },
-                Biome.BirchForest => new[] { "pig", "wolf", "chicken", "raccoon" },
+                Biome.Forest => new[] { "pig", "wolf", "bear", "chicken", "duck", "raccoon", "bolet" },
+                Biome.DarkForest => new[] { "wolf", "bear", "spider", "raccoon", "bolet" },
+                Biome.BirchForest => new[] { "pig", "wolf", "chicken", "raccoon", "bolet" },
                 Biome.Tundra => new[] { "penguin", "wolf", "sheep", "slime" },
                 Biome.Steppe => new[] { "horse", "sheep" },
-                Biome.Taiga => new[] { "wolf", "bear", "fox", "raccoon" },
+                Biome.Taiga => new[] { "wolf", "bear", "fox", "raccoon", "bolet" },
                 Biome.SnowyForest => new[] { "penguin", "wolf", "bear", "slime" },
                 Biome.Snow => new[] { "penguin", "wolf", "slime" },
                 Biome.IceSpikes => new[] { "penguin", "wolf", "slime" },
@@ -425,46 +413,6 @@ public static bool LoadBiomeBorderTexture(int biomeGroundId, string biomeName, i
                 Biome.Steppe => new[] { "dragonfly" },
                 _ => Array.Empty<string>()
             };
-        }
-
-        private static void DrawCliffBorder(int x, int y, int directionX, int directionY, int ts, Texture2D cliffBorderTex, int? knownHeight = null)
-        {
-            if (cliffBorderTex.Id == 0) return;
-            int baseX = x * ts;
-            int baseY = y * ts - ((knownHeight ?? GetHeightAt(x, y)) * ts / 4);
-            Rectangle src = new Rectangle(0, 0, cliffBorderTex.Width, cliffBorderTex.Height);
-            Rectangle dest;
-            float rotation = 0;
-            Vector2 origin = Vector2.Zero;
-            if (directionX == -1 && directionY == 0)
-            {
-                dest = new Rectangle(baseX, baseY, ts / 4, ts);
-                rotation = 0;
-                origin = Vector2.Zero;
-            }
-            else if (directionX == 1 && directionY == 0)
-            {
-                dest = new Rectangle(baseX + ts - ts / 4, baseY, ts / 4, ts);
-                rotation = 180;
-                origin = new Vector2(dest.Width, dest.Height);
-            }
-            else if (directionX == 0 && directionY == -1)
-            {
-                dest = new Rectangle(baseX, baseY, ts / 4, ts);
-                rotation = 90;
-                origin = new Vector2(0, dest.Height);
-            }
-            else if (directionX == 0 && directionY == 1)
-            {
-                dest = new Rectangle(baseX, baseY + ts - ts / 4, ts / 4, ts);
-                rotation = -90;
-                origin = new Vector2(dest.Width, 0);
-            }
-            else
-            {
-                return;
-            }
-            Raylib.DrawTexturePro(cliffBorderTex, src, dest, origin, rotation, Color.White);
         }
 
     }

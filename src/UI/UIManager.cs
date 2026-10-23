@@ -204,6 +204,67 @@ namespace Soulfract
             Raylib.DrawRectangleRoundedLines(rect, 0.1f, 6, 1, new Color(65, 68, 75, 255));
         }
 
+        public static void DrawInventorySlot(
+            InventorySlot slot,
+            Rectangle rect,
+            bool hovered,
+            bool pressed,
+            Color fallbackColor,
+            bool borderUp = false,
+            bool borderDown = false,
+            bool borderLeft = false,
+            bool borderRight = false,
+            int? itemSize = null,
+            int itemPadding = 6,
+            int countFontSize = 14)
+        {
+            DrawItemSlotBackground(rect, hovered, pressed, fallbackColor, borderUp, borderDown, borderLeft, borderRight);
+            DrawInventorySlotContents(slot, rect, itemSize, itemPadding, countFontSize);
+        }
+
+        public static void DrawInventorySlotContents(
+            InventorySlot slot,
+            Rectangle rect,
+            int? itemSize = null,
+            int itemPadding = 6,
+            int countFontSize = 14)
+        {
+            if (slot.IsEmpty || slot.Item == null) return;
+
+            int size = itemSize ?? ItemContentSize;
+            int x = (int)rect.X + ((int)rect.Width - size) / 2;
+            int y = (int)rect.Y + ((int)rect.Height - size) / 2;
+            Item item = slot.Item;
+
+            bool isBottle = GameData.TryGetItemByName(item.Name, out var itemData)
+                && string.Equals(itemData.Key, "glassbottle_small", StringComparison.OrdinalIgnoreCase);
+            if (isBottle && GameData.ItemDatabaseByKey.TryGetValue("glassbottle_small", out var bottleData))
+            {
+                Color? customTint = item.CustomColor;
+                if (!customTint.HasValue && item.CustomColors != null && item.CustomColors.Count > 0)
+                    customTint = item.CustomColors[0];
+
+                ItemRenderer.DrawItemRotated(
+                    bottleData,
+                    new Vector2(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f),
+                    Math.Max(1, size - UIManager.ScaleInt(3)),
+                    0f,
+                    customTint,
+                    item.Metadata ?? string.Empty);
+            }
+            else
+            {
+                ItemRenderer.DrawItemPadded(item, x, y, size, itemPadding);
+            }
+
+            if (slot.Count > 1)
+            {
+                int countInset = countFontSize + 4;
+                FontManager.DrawText(slot.Count.ToString(), x + size - countInset,
+                    y + size - countInset, countFontSize, Color.White);
+            }
+        }
+
         private static void DrawSlotBorder(Texture2D texture, Rectangle rect, bool visible)
         {
             if (!visible || texture.Id == 0) return;

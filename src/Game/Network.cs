@@ -66,11 +66,7 @@ namespace Soulfract
 		/// </summary>
 		public static void SpawnNetworkEntityCorpse(EntityDto dto)
 		{
-			int tileX = (int)(dto.PosX / TileSize);
-			int tileY = (int)(dto.PosY / TileSize);
-			int height = World.GetHeightAt(tileX, tileY);
-			float yOffset = -height * TileSize / 4f;
-			Vector2 drawPos = new Vector2(dto.PosX, dto.PosY + yOffset);
+			Vector2 drawPos = new Vector2(dto.PosX, dto.PosY);
 			CorpseSystem.SpawnFromDto(dto, drawPos, drawPos.Y + (FeetOffsetY - 6f));
 		}
 

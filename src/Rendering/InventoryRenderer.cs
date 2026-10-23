@@ -1359,36 +1359,8 @@ namespace Soulfract
         {
             bool pressed = hover && Raylib.IsMouseButtonDown(MouseButton.Left);
             Color fallbackColor = selected ? COLOR_SLOT_SELECTED : (hover ? COLOR_SLOT_HOVER : COLOR_SLOT_NORMAL);
-            UIManager.DrawItemSlotBackground(new Rectangle(x, y, SLOT_SIZE, SLOT_SIZE), hover, pressed, fallbackColor, borderUp, borderDown, borderLeft, borderRight);
-
-            if (!slot.IsEmpty && slot.Item != null)
-            {
-                Item itemToRender = slot.Item;
-                string metadata = itemToRender.Metadata ?? string.Empty;
-                bool isBottle = GameData.TryGetItemByName(itemToRender.Name, out var itemData)
-                    && string.Equals(itemData.Key, "glassbottle_small", StringComparison.OrdinalIgnoreCase);
-                if (isBottle && GameData.ItemDatabaseByKey.TryGetValue("glassbottle_small", out var bottleData))
-                {
-                    Color? customTint = itemToRender.CustomColor;
-                    if (!customTint.HasValue && itemToRender.CustomColors != null && itemToRender.CustomColors.Count > 0)
-                        customTint = itemToRender.CustomColors[0];
-
-                    ItemRenderer.DrawItemRotated(
-                        bottleData,
-                        new Vector2(x + SLOT_SIZE / 2f, y + SLOT_SIZE / 2f),
-                        ITEM_SIZE - 12,
-                        0f,
-                        customTint,
-                        metadata);
-                }
-                else
-                {
-                    ItemRenderer.DrawItemPadded(itemToRender, x + ITEM_OFFSET, y + ITEM_OFFSET, ITEM_SIZE, 6);
-                }
-
-                if (slot.Count > 1)
-                    FontManager.DrawText(slot.Count.ToString(), x + ITEM_OFFSET + ITEM_SIZE - 18, y + ITEM_OFFSET + ITEM_SIZE - 18, 14, Color.White);
-            }
+            UIManager.DrawInventorySlot(slot, new Rectangle(x, y, SLOT_SIZE, SLOT_SIZE), hover, pressed,
+                fallbackColor, borderUp, borderDown, borderLeft, borderRight, ITEM_SIZE);
         }
 
         // ==================== TOOLTIP ====================
@@ -2263,59 +2235,10 @@ namespace Soulfract
                     return;
                 }
 
-                if (DraggedItem.IsDragging)
-                {
-                    if (slot.IsEmpty)
-                    {
-                        int dropCount = Math.Max(1, DraggedItem.Count);
-                        slot.Item = DraggedItem.Item;
-                        slot.Count = dropCount;
-                        DraggedItem.EndDrag();
-                    }
-                    else if (slot.Item != null && DraggedItem.Item != null && AreItemsCompatible(slot.Item, DraggedItem.Item))
-                    {
-                        int maxStack = GameData.ItemDatabase[Program.GetItemId(slot.Item.Name)].StackSize;
-                        int space = maxStack - slot.Count;
-                        if (space > 0)
-                        {
-                            int add = Math.Min(space, Math.Max(1, DraggedItem.Count));
-                            slot.Count += add;
-                            DraggedItem.Count -= add;
-                            if (DraggedItem.Count <= 0) DraggedItem.EndDrag();
-                        }
-                    }
-                    else if (slot.Item != null && DraggedItem.Item != null)
-                    {
-                        var tempItem = slot.Item;
-                        var tempCount = slot.Count;
-                        slot.Item = DraggedItem.Item;
-                        slot.Count = Math.Max(1, DraggedItem.Count);
-                        DraggedItem.Item = tempItem;
-                        DraggedItem.Count = tempCount;
-                    }
-                }
-                else
-                {
-                    if (!slot.IsEmpty && slot.Item != null)
-                    {
-                        DraggedItem.StartDrag(slot.Item, slot.Count, Raylib.GetMousePosition());
-                        slot.Clear();
-                    }
-                }
+                HandleSharedSlotInteraction(slot, Raylib.GetMousePosition());
             }
-            else if (Raylib.IsMouseButtonPressed(MouseButton.Right) && DraggedItem.IsDragging)
-            {
-                TrySocketDraggedRune(slot.Item);
-            }
-            else if (Raylib.IsMouseButtonPressed(MouseButton.Right) && !DraggedItem.IsDragging && !slot.IsEmpty && slot.Item != null)
-            {
-                int half = slot.Count / 2;
-                if (half > 0)
-                {
-                    DraggedItem.StartDrag(slot.Item, half, Raylib.GetMousePosition());
-                    slot.Count -= half;
-                }
-            }
+            else
+                HandleSharedSlotInteraction(slot, Raylib.GetMousePosition());
         }
 
         private static void HandleSlotInteraction(int idx, Vector2 mp, Equipment eq)
@@ -2330,71 +2253,125 @@ namespace Soulfract
                     return;
                 }
 
-                if (DraggedItem.IsDragging)
-                {
-                    if (slot.IsEmpty)
-                    {
-                        int dropCount = Math.Max(1, DraggedItem.Count);
-                        slot.Item = DraggedItem.Item;
-                        slot.Count = dropCount;
-                        DraggedItem.EndDrag();
-                    }
-                    else if (slot.Item != null && DraggedItem.Item != null)
-                    {
-                        if (AreItemsCompatible(slot.Item, DraggedItem.Item))
-                        {
-                            int maxStack = GameData.ItemDatabase[Program.GetItemId(slot.Item.Name)].StackSize;
-                            int space = maxStack - slot.Count;
-                            if (space > 0)
-                            {
-                                int add = Math.Min(space, Math.Max(1, DraggedItem.Count));
-                                Program.MergeSpoilMeta(slot.Item, DraggedItem.Item, add);
-                                slot.Count += add;
-                                DraggedItem.Count -= add;
-                                if (DraggedItem.Count <= 0) DraggedItem.EndDrag();
-                            }
-                        }
-                        else
-                        {
-                            var tempItem = slot.Item;
-                            var tempCount = slot.Count;
-                            slot.Item = DraggedItem.Item;
-                            slot.Count = Math.Max(1, DraggedItem.Count);
-                            DraggedItem.Item = tempItem;
-                            DraggedItem.Count = tempCount;
-                        }
-                    }
-                }
-                else
-                {
-                    if (!slot.IsEmpty && slot.Item != null)
-                    {
-                        SelectedSlot = idx;
-                        DraggedItem.StartDrag(slot.Item, slot.Count, mp, idx);
-                        slot.Clear();
-                    }
-                    else
-                    {
-                        SelectedSlot = idx;
-                    }
-                }
-            }
-            else if (Raylib.IsMouseButtonPressed(MouseButton.Right) && DraggedItem.IsDragging)
-            {
-                TrySocketDraggedRune(slot.Item);
+                if (!DraggedItem.IsDragging)
+                    SelectedSlot = idx;
+
+                HandleSharedSlotInteraction(slot, mp, idx);
             }
             else if (Raylib.IsMouseButtonPressed(MouseButton.Right) && !DraggedItem.IsDragging && !slot.IsEmpty && slot.Item != null)
             {
                 if (TryEquipItemFromInventorySlot(idx, eq))
                     return;
+            }
 
-                int half = slot.Count / 2;
-                if (half > 0)
+            if (Raylib.IsMouseButtonPressed(MouseButton.Right))
+                HandleSharedSlotInteraction(slot, mp, idx);
+        }
+
+        public static bool HandleSharedSlotInteraction(
+            InventorySlot slot,
+            Vector2 mousePosition,
+            int sourceInventorySlot = -1,
+            bool allowSwap = true)
+        {
+            if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+            {
+                if (DraggedItem.IsDragging && DraggedItem.Item != null)
                 {
-                    DraggedItem.StartDrag(slot.Item, half, mp, idx);
-                    slot.Count -= half;
+                    if (slot.IsEmpty)
+                    {
+                        slot.Item = DraggedItem.Item;
+                        slot.Count = Math.Max(1, DraggedItem.Count);
+                        DraggedItem.EndDrag();
+                        return true;
+                    }
+
+                    if (slot.Item != null && AreItemsCompatible(slot.Item, DraggedItem.Item))
+                    {
+                        int itemId = Program.GetItemId(slot.Item.Name);
+                        if (!GameData.ItemDatabase.TryGetValue(itemId, out var itemData))
+                            return false;
+
+                        int space = itemData.StackSize - slot.Count;
+                        int added = Math.Min(space, Math.Max(1, DraggedItem.Count));
+                        if (added <= 0) return false;
+
+                        Program.MergeSpoilMeta(slot.Item, DraggedItem.Item, added);
+                        slot.Count += added;
+                        DraggedItem.Count -= added;
+                        if (DraggedItem.Count <= 0) DraggedItem.EndDrag();
+                        return true;
+                    }
+
+                    if (allowSwap && slot.Item != null)
+                    {
+                        (slot.Item, DraggedItem.Item) = (DraggedItem.Item, slot.Item);
+                        (slot.Count, DraggedItem.Count) = (Math.Max(1, DraggedItem.Count), slot.Count);
+                        return true;
+                    }
+                }
+                else if (!slot.IsEmpty && slot.Item != null)
+                {
+                    DraggedItem.StartDrag(slot.Item, slot.Count, mousePosition, sourceInventorySlot);
+                    slot.Clear();
+                    return true;
                 }
             }
+            else if (Raylib.IsMouseButtonPressed(MouseButton.Right))
+            {
+                if (DraggedItem.IsDragging && DraggedItem.Item != null)
+                {
+                    if (TrySocketDraggedRune(slot.Item))
+                        return true;
+
+                    if (slot.IsEmpty)
+                    {
+                        slot.Item = DraggedItem.Item;
+                        slot.Count = 1;
+                        DraggedItem.Count--;
+                        if (DraggedItem.Count <= 0) DraggedItem.EndDrag();
+                        return true;
+                    }
+
+                    if (slot.Item != null && AreItemsCompatible(slot.Item, DraggedItem.Item))
+                    {
+                        int itemId = Program.GetItemId(slot.Item.Name);
+                        if (!GameData.ItemDatabase.TryGetValue(itemId, out var itemData))
+                            return false;
+
+                        if (slot.Count >= itemData.StackSize)
+                            return false;
+
+                        Program.MergeSpoilMeta(slot.Item, DraggedItem.Item, 1);
+                        slot.Count++;
+                        DraggedItem.Count--;
+                        if (DraggedItem.Count <= 0) DraggedItem.EndDrag();
+                        return true;
+                    }
+
+                    if (allowSwap && slot.Item != null)
+                    {
+                        (slot.Item, DraggedItem.Item) = (DraggedItem.Item, slot.Item);
+                        (slot.Count, DraggedItem.Count) = (Math.Max(1, DraggedItem.Count), slot.Count);
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                if (!slot.IsEmpty && slot.Item != null)
+                {
+                    int half = slot.Count / 2;
+                    if (half > 0)
+                    {
+                        DraggedItem.StartDrag(slot.Item, half, mousePosition, sourceInventorySlot);
+                        slot.Count -= half;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static bool TryEquipItemFromInventorySlot(int idx, Equipment eq)

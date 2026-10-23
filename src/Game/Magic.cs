@@ -443,10 +443,8 @@ namespace Soulfract
 			int objWidth = targetTileData?.Size?.Width ?? 1;
 			int objHeight = targetTileData?.Size?.Height ?? 1;
 
-			int height = World.GetHeightAt(tileX, tileY);
-			float yOffset = -height * ts / 4;
 			float targetX = tileX * ts + (objWidth * ts) / 2f;
-			float targetY = tileY * ts + yOffset + ts - (objHeight * ts) / 2f;
+			float targetY = tileY * ts + ts - (objHeight * ts) / 2f;
 			Vector2 targetPos = new Vector2(targetX, targetY);
 
 			SetPlayerPosition(targetPos);

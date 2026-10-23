@@ -20,7 +20,6 @@ namespace Soulfract
         private static int SLOT_SIZE => UIManager.ItemSlotSize;
         private static int SLOT_STEP => UIManager.ItemSlotStep;
         private static int ITEM_SIZE => UIManager.ItemContentSize;
-        private static int ITEM_OFFSET => (SLOT_SIZE - ITEM_SIZE) / 2;
         
         private static readonly Color COLOR_BG = new Color(25, 28, 35, 240);
         private static readonly Color COLOR_HEADER = new Color(35, 38, 48, 255);
@@ -347,14 +346,8 @@ namespace Soulfract
         {
             bool pressed = isHovered && Raylib.IsMouseButtonDown(MouseButton.Left);
             Color fallbackColor = isHovered ? COLOR_SLOT_HOVER : COLOR_SLOT_NORMAL;
-            UIManager.DrawItemSlotBackground(new Rectangle(x, y, SLOT_SIZE, SLOT_SIZE), isHovered, pressed, fallbackColor, borderUp, borderDown, borderLeft, borderRight);
-            
-            if (!slot.IsEmpty && slot.Item != null)
-            {
-                ItemRenderer.DrawItemPadded(slot.Item, x + ITEM_OFFSET, y + ITEM_OFFSET, ITEM_SIZE, 6);
-                if (slot.Count > 1)
-                    FontManager.DrawText(slot.Count.ToString(), x + ITEM_OFFSET + ITEM_SIZE - 18, y + ITEM_OFFSET + ITEM_SIZE - 18, 14, Color.White);
-            }
+            UIManager.DrawInventorySlot(slot, new Rectangle(x, y, SLOT_SIZE, SLOT_SIZE), isHovered, pressed,
+                fallbackColor, borderUp, borderDown, borderLeft, borderRight, ITEM_SIZE);
         }
         
         public static int GetWindowX() => (int)_windowPos.X;

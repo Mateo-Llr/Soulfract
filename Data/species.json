@@ -3896,7 +3896,7 @@
     {
       "name": "Horse",
       "type": "quadruped",
-      "scale": 1.1,
+      "scale": 1.0,
       "speed": 160,
       "runSpeed": 150,
       "maxHp": 25,
@@ -3909,71 +3909,78 @@
       "skeleton": [
         {
           "name": "llegtop",
-          "baseX": -15,
-          "baseY": 2,
+          "baseX": -6,
+          "baseY": -2,
           "baseRot": 0,
           "parent": "body"
         },
         {
           "name": "llegbottom",
-          "baseX": 0,
-          "baseY": -14,
+          "baseX": -1,
+          "baseY": -7,
           "baseRot": 0,
           "parent": "llegtop"
         },
         {
           "name": "larmtop",
-          "baseX": 26,
-          "baseY": -5,
-          "baseRot": 0,
-          "parent": "body"
-        },
-        {
-          "name": "larmbottom",
-          "baseX": 0,
-          "baseY": -12,
-          "baseRot": 0,
-          "parent": "larmtop"
-        },
-        {
-          "name": "body",
-          "baseX": 0,
-          "baseY": 20,
-          "baseRot": 0,
-          "parent": ""
-        },
-        {
-          "name": "rlegtop",
-          "baseX": -17,
-          "baseY": 2,
-          "baseRot": 0,
-          "parent": "body"
-        },
-        {
-          "name": "rlegbottom",
-          "baseX": 0,
-          "baseY": -14,
-          "baseRot": 0,
-          "parent": "rlegtop"
-        },
-        {
-          "name": "head",
-          "baseX": 22,
-          "baseY": 6,
-          "baseRot": 0,
-          "parent": "body"
-        },
-        {
-          "name": "rarmtop",
           "baseX": 16,
           "baseY": -2,
           "baseRot": 0,
           "parent": "body"
         },
         {
-          "name": "rarmbottom",
+          "name": "larmbottom",
+          "baseX": 2,
+          "baseY": -6,
+          "baseRot": 0,
+          "parent": "larmtop"
+        },
+        {
+          "name": "tail",
+          "baseX": -17,
+          "baseY": 4,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "body",
           "baseX": 0,
-          "baseY": -14,
+          "baseY": 14,
+          "baseRot": 0,
+          "parent": ""
+        },
+        {
+          "name": "rlegtop",
+          "baseX": -14,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rlegbottom",
+          "baseX": -1,
+          "baseY": -7,
+          "baseRot": 0,
+          "parent": "rlegtop"
+        },
+        {
+          "name": "head",
+          "baseX": 15,
+          "baseY": -1,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmtop",
+          "baseX": 11,
+          "baseY": -8,
+          "baseRot": 0,
+          "parent": "body"
+        },
+        {
+          "name": "rarmbottom",
+          "baseX": 2,
+          "baseY": -6,
           "baseRot": 0,
           "parent": "rarmtop"
         }

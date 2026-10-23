@@ -254,10 +254,8 @@ namespace Soulfract
 					if (objId == targetId)
 					{
 						Vector2 tileWorldPos = boat.GetTileWorldPos(relX, relY);
-						int height = World.GetHeightAt((int)(tileWorldPos.X / ts), (int)(tileWorldPos.Y / ts));
-						float yOffset = -height * ts / 4;
 						float drawX = tileWorldPos.X - ts/2f;
-						float drawY = tileWorldPos.Y - ts/2f + yOffset;
+						float drawY = tileWorldPos.Y - ts/2f;
 						var tileData = WorldTileRegistry.GetTile(targetId);
 						if (tileData?.Size != null)
 						{
@@ -297,9 +295,7 @@ namespace Soulfract
 			if (foundRelX == -1) return;
 			
 			Vector2 wheelWorldPos = _adjustedBoat.GetTileWorldPos(foundRelX, foundRelY);
-			int h = World.GetHeightAt((int)(wheelWorldPos.X / Program.TileSize), (int)(wheelWorldPos.Y / Program.TileSize));
-			float yOff = -h * Program.TileSize / 4;
-			Vector2 screenPos = Raylib.GetWorldToScreen2D(new Vector2(wheelWorldPos.X, wheelWorldPos.Y + yOff), camera);
+			Vector2 screenPos = Raylib.GetWorldToScreen2D(wheelWorldPos, camera);
 			float radius = 60f;
 			
 			Raylib.DrawCircleLines((int)screenPos.X, (int)screenPos.Y, radius, Color.Yellow);

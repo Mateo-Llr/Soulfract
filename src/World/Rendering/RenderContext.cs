@@ -56,7 +56,6 @@ namespace Soulfract
 			public float entityCullMargin;
 			public int width;
 			public int heightTiles;
-			public int[,] heights = default!;
 			public int[,] groundIds = default!;
 			public int[,] objectIds = default!;
 			public int[,] overlayIds = default!;
@@ -80,8 +79,7 @@ namespace Soulfract
 				if (pos.Y >= minY && pos.Y <= maxY)
 					return true;
 
-				float renderedY = pos.Y - GetGroundItemHeightLift(pos.X, pos.Y);
-				return renderedY >= minY && renderedY <= maxY;
+				return false;
 			}
 
 			public bool IsSegmentNearScreen(Vector2 start, Vector2 end)
@@ -146,26 +144,20 @@ namespace Soulfract
 
 				//  MARGE POUR ÉLÉMENTS "HAUTS" (arbres, toits...) : ces objets sont dessinés
 				// depuis leur tuile d'ancrage (souvent la base) avec un décalage vertical/horizontal
-				// qui peut représenter plusieurs tuiles (yOffset = -roofHeightTiles * ts pour un
-				// toit, DrawOffset pour un arbre etc.). Avec une marge d'1 seule tuile, dès que la
+				// de plusieurs tuiles (roofHeightTiles ou DrawOffset). Avec une marge d'1 seule tuile, dès que la
 				// tuile d'ancrage sort de la fenêtre visible (typiquement en bas de l'écran), l'objet
 				// entier disparaît instantanément — alors qu'une partie de son sprite (le haut de
 				// l'arbre, le bas du toit) devrait encore être visible à l'écran. On élargit donc la
-				// zone de tuiles VALIDÉES (celle qui alimente les tableaux heights/objectIds/...)
+				// zone de tuiles VALIDÉES (celle qui alimente les tableaux d'objets/...)
 				// bien au-delà du strict cadrage caméra, pour que ces tuiles d'ancrage restent prises
 				// en compte et leurs objets dessinés jusqu'à ce qu'ils quittent réellement l'écran.
 				// Coût : quelques dizaines de tuiles de plus à traiter par frame, négligeable face au
 				// gain visuel (pas de pop-out brutal), et toujours borné par MAX_RENDER_TILES_X/Y.
 				const int TALL_FEATURE_MARGIN_X = 3;
-				const int TALL_FEATURE_MARGIN_Y = (MAX_HEIGHT_LEVELS + 3) / 4 > 8
-					? (MAX_HEIGHT_LEVELS + 3) / 4
-					: 8;
+				const int TALL_FEATURE_MARGIN_Y = 8;
 
 				int startX = (int)Math.Floor(topLeft.X / ts) - 1 - TALL_FEATURE_MARGIN_X;
 				int endX = (int)Math.Ceiling(bottomRight.X / ts) + 1 + TALL_FEATURE_MARGIN_X;
-				// L'altitude ne peut que remonter le dessin : une tuile ancrée très au-dessus
-				// de l'écran ne peut donc pas redevenir visible. La grande marge ne sert qu'en bas,
-				// pour les tuiles hautes dont l'ancre est sous le bord inférieur.
 				int startY = (int)Math.Floor(topLeft.Y / ts) - 1;
 				int endY = (int)Math.Ceiling(bottomRight.Y / ts) + 1 + TALL_FEATURE_MARGIN_Y;
 
@@ -218,7 +210,6 @@ namespace Soulfract
 
 				// Buffers réutilisés : la grille est entièrement réécrite ci-dessous à chaque frame.
 				EnsureRenderTileBuffers(width, heightTiles);
-				int[,] heights = _renderHeights;
 				int[,] groundIds = _renderGroundIds;
 				int[,] objectIds = _renderObjectIds;
 				int[,] overlayIds = _renderOverlayIds;
@@ -272,7 +263,6 @@ namespace Soulfract
 					entityCullMargin = entityCullMargin,
 					width = width,
 					heightTiles = heightTiles,
-					heights = heights,
 					groundIds = groundIds,
 					objectIds = objectIds,
 					overlayIds = overlayIds,

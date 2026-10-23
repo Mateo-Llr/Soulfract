@@ -252,21 +252,6 @@ namespace Soulfract
 			_externalRenderItems.Add(new RenderItem { Y = y, Kind = RenderItemKind.External, DrawAction = drawAction });
 		}
 
-		// Textures de falaise : chargées une seule fois et mises en cache (auparavant rechargées
-		// depuis le disque à CHAQUE FRAME dans DrawWorld, ce qui causait un lag énorme et une
-		// fuite de mémoire vidéo, une nouvelle texture GPU étant créée sans jamais libérer l'ancienne).
-		private static Texture2D? _cliffDownTexCache;
-
-		private static Texture2D GetCliffDownTexture(Texture2D missingTex)
-		{
-			if (_cliffDownTexCache == null)
-			{
-				var tex = Raylib.LoadTexture("assets/tiles/cliff_down.png");
-				_cliffDownTexCache = tex.Id != 0 ? tex : missingTex;
-			}
-			return _cliffDownTexCache.Value;
-		}
-
 		private static bool _renderItemsPoolInUse = false;
 
 		private static Dictionary<(int x, int y, int zoomLevel), Texture2D> _textureCache = new();
@@ -1055,11 +1040,7 @@ namespace Soulfract
 
 		public static Vector2 GetVisualPosition(Vector2 worldPos)
         {
-            int tileX = (int)Math.Floor(worldPos.X / Program.TileSize);
-            int tileY = (int)Math.Floor(worldPos.Y / Program.TileSize);
-            int height = GetHeightAt(tileX, tileY);
-            float yOffset = -height * Program.TileSize / 4;
-            return new Vector2(worldPos.X, worldPos.Y + yOffset);
+            return worldPos;
         }
 
 		public static int GetGroundTileIdAt(float wX, float wY)
@@ -1915,11 +1896,7 @@ namespace Soulfract
         // ─────────────────────────────────────────────────────────────────────────
         public static bool IsColliding(Vector2 groundPos, Vector2 dim, HashSet<string> destroyed)
         {
-			int tileX = (int)Math.Floor(groundPos.X / Program.TileSize);
-			int tileY = (int)Math.Floor(groundPos.Y / Program.TileSize);
-			int height = GetHeightAt(tileX, tileY);
-            float yOffset = -height * Program.TileSize / 4;
-            float playerBaseY = groundPos.Y + yOffset + Program.FeetOffsetY;
+            float playerBaseY = groundPos.Y + Program.FeetOffsetY;
             Rectangle playerRect = new Rectangle(groundPos.X - dim.X / 2f, playerBaseY - dim.Y, dim.X, dim.Y);
 			return CheckCollision(groundPos, playerRect, destroyed, Program.TileSize);
         }
@@ -2303,8 +2280,7 @@ namespace Soulfract
 			// les CollisionOffset "bricolés" (+20, +40...) dans worldobjects.json pour
 			// compenser. Avec cet ancrage commun, plus besoin de ces offsets par défaut ;
 			// CollisionOffset ne sert plus qu'à un réglage fin optionnel.
-			int height = GetHeightAt(tileX, tileY);
-			int baseY = tileY * ts - (height * ts / 4);  // ← doit être int
+			int baseY = tileY * ts;
 			int w = ts, h = ts;
 			int x = tileX * ts;
 			int y = baseY;
@@ -2374,8 +2350,7 @@ namespace Soulfract
                 int tileId = GetTileIdAt(x, y);
                 var tileData = WorldTileRegistry.GetTile(tileId);
                 if (tileData == null || tileData.Walkable) continue;
-                int heightTile = GetHeightAt(x, y);
-                int drawY = y * ts - (heightTile * ts / 4);
+                int drawY = y * ts;
                 Rectangle tileRect = new Rectangle(x * ts, drawY, ts, ts);
                 if (IntersectOrientedRectangleWithAABB(corners, tileRect))
                     return true;
@@ -2447,19 +2422,6 @@ namespace Soulfract
 
 		// ─────────────────────────────────────────────────────────────────────────
         //  DESSIN DES FALAISES
-        // ─────────────────────────────────────────────────────────────────────────
-        private static void DrawCliffDown(int x, int y, int heightDiff, int ts, Texture2D cliffDownTex, int? knownHeight = null)
-        {
-            if (heightDiff <= 0) return;
-            if (cliffDownTex.Id == 0) return;
-            int baseX = x * ts;
-            int baseY = y * ts - ((knownHeight ?? GetHeightAt(x, y)) * ts / 4);
-            int cliffHeight = heightDiff * (ts / 4);
-            Rectangle src = new Rectangle(0, 0, cliffDownTex.Width, cliffDownTex.Height);
-            Rectangle dest = new Rectangle(baseX, baseY + ts, ts, cliffHeight);
-            Raylib.DrawTexturePro(cliffDownTex, src, dest, Vector2.Zero, 0, Color.White);
-        }
-
 		public static Rectangle GetEntityHitbox(Entity entity, int ts)
         {
 			return GetEntityCollisionHitbox(entity.VisualWorldPos, entity.Species, ts);
@@ -2525,10 +2487,7 @@ namespace Soulfract
 
 		public static Vector2 GetEntityGroundPosition(Vector2 worldPos)
 		{
-			int tileX = (int)MathF.Floor(worldPos.X / Program.TileSize);
-			int tileY = (int)MathF.Floor(worldPos.Y / Program.TileSize);
-			float heightOffset = GetHeightAt(tileX, tileY) * Program.TileSize / 4f;
-			return new Vector2(worldPos.X, worldPos.Y - heightOffset);
+			return worldPos;
 		}
 
 		public static float GetDistanceToDamageHitbox(Vector2 point, Rectangle damageHitbox)

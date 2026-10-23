@@ -516,9 +516,7 @@ namespace Soulfract
 						var rightArmBottom = skeleton.FirstOrDefault(p => p.Name == "rarmbottom");
 						if (rightArmBottom != null)
 						{
-							int playerHeight = GetPlayerGroundHeight(playerPos);
-							float playerYOffset = -playerHeight * TileSize / 4;
-							Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+							Vector2 playerVisualPos = GetPlayerVisualPosition(playerPos);
 							Vector2 handPos = GetHandWorldPosition(playerVisualPos, facing, skeleton, _animState, _animFrame, _animProg);
 							if (Random.Shared.NextDouble() < dt * 10f)
 							{
@@ -557,13 +555,9 @@ namespace Soulfract
 					var tileData = WorldTileRegistry.GetTile(objectId);
 					if (tileData != null && tileData.IsArmorStand == true)
 					{
-						int height = World.GetHeightAt(tileX, tileY);
-						float yOffset = -height * ts / 4;
 						float objX = tileX * ts + ts/2f;
-						float objY = tileY * ts + yOffset + ts/2f;
-						int playerHeight = GetPlayerGroundHeight(_playerPos);
-						float playerYOffset = -playerHeight * ts / 4;
-						Vector2 playerVisualPos = new Vector2(_playerPos.X, _playerPos.Y + playerYOffset);
+						float objY = tileY * ts + ts/2f;
+						Vector2 playerVisualPos = GetPlayerVisualPosition(_playerPos);
 						if (Vector2.DistanceSquared(playerVisualPos, new Vector2(objX, objY)) < (ts * 2f) * (ts * 2f))
 						{
 							var chunk = World.GetChunkAt(tileX, tileY);
@@ -755,9 +749,7 @@ namespace Soulfract
 				bool holdingFishingRod = heldItem != null && GameData.GetToolType(heldItem.Name) == ToolType.Fishing;
 				if (holdingFishingRod)
 				{
-					int playerHeight = GetPlayerGroundHeight(playerPos);
-					float playerYOffset = -playerHeight * TileSize / 4;
-					Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+					Vector2 playerVisualPos = GetPlayerVisualPosition(playerPos);
 
 					if (_currentFishingProjectile == null && _fishingCooldown <= 0f)
 					{
@@ -984,6 +976,8 @@ namespace Soulfract
 				if (ContainerUI.IsOpen && IsPointInUIRect(mousePos, ContainerUI.GetWindowX(), ContainerUI.GetWindowY(), ContainerUI.GetWindowWidth(), ContainerUI.GetWindowHeight()))
 					overOtherUI = true;
 				else if (PortableContainerUI.IsOpen && IsPointInUIRect(mousePos, PortableContainerUI.GetWindowX(), PortableContainerUI.GetWindowY(), PortableContainerUI.GetWindowWidth(), PortableContainerUI.GetWindowHeight()))
+					overOtherUI = true;
+				else if (SlimeStorageUI.IsMouseOverWindow(mousePos))
 					overOtherUI = true;
 				else if (ArmorStandUI.IsOpen && IsPointInUIRect(mousePos, ArmorStandUI.GetWindowX(), ArmorStandUI.GetWindowY(), ArmorStandUI.GetWindowWidth(), ArmorStandUI.GetWindowHeight()))
 					overOtherUI = true;
@@ -1555,24 +1549,12 @@ namespace Soulfract
 							move = Vector2.Zero;
 						}
 						Vector2 movementStart = playerPos;
-						int currentTileX = (int)MathF.Floor(playerPos.X / TileSize);
-						int currentTileY = (int)MathF.Floor(playerPos.Y / TileSize);
-						int currentHeight = World.GetHeightAt(currentTileX, currentTileY);
-						int newTileX = (int)MathF.Floor((playerPos.X + move.X) / TileSize);
-						int newHeightX = World.GetHeightAt(newTileX, currentTileY);
-						if (Math.Abs(currentHeight - newHeightX) <= 1)
-							if (_noClipEnabled || !World.IsColliding(playerPos + new Vector2(move.X, 0), hitboxDim, destroyedObjects))
-								playerPos.X += move.X;
+						if (_noClipEnabled || !World.IsColliding(playerPos + new Vector2(move.X, 0), hitboxDim, destroyedObjects))
+							playerPos.X += move.X;
 						
 						// Mouvement vertical
-						currentTileX = (int)MathF.Floor(playerPos.X / TileSize);
-						currentTileY = (int)MathF.Floor(playerPos.Y / TileSize);
-						currentHeight = World.GetHeightAt(currentTileX, currentTileY);
-						int newTileY = (int)MathF.Floor((playerPos.Y + move.Y) / TileSize);
-						int newHeightY = World.GetHeightAt(currentTileX, newTileY);
-						if (Math.Abs(currentHeight - newHeightY) <= 1)
-							if (_noClipEnabled || !World.IsColliding(playerPos + new Vector2(0, move.Y), hitboxDim, destroyedObjects))
-								playerPos.Y += move.Y;
+						if (_noClipEnabled || !World.IsColliding(playerPos + new Vector2(0, move.Y), hitboxDim, destroyedObjects))
+							playerPos.Y += move.Y;
 
 					World.ApplyPlayerMovementPush(movementStart, playerPos - movementStart, dt);
 
@@ -1777,10 +1759,8 @@ namespace Soulfract
 				}
 				else
 				{
-					int playerHeight = GetPlayerGroundHeight(playerPos);
-					float playerYOffset = -playerHeight * TileSize / 4;
 					float visualYOffset = World.IsUnderwater ? -_underwaterElevation : 0f;
-					camera.Target = new Vector2(playerPos.X, playerPos.Y + playerYOffset + visualYOffset);
+					camera.Target = new Vector2(playerPos.X, playerPos.Y + visualYOffset);
 				}
 			}
 			
@@ -1954,11 +1934,7 @@ namespace Soulfract
 						Program.ApplyScreenShake(6f, 0.3f);
 						string genieRuneLabel = genieRuneType == RuneType.Solar ? "Solaire" : "Givrée";
 					}
-					int tileX = (int)(e.WorldPos.X / TileSize);
-					int tileY = (int)(e.WorldPos.Y / TileSize);
-					int height = World.GetHeightAt(tileX, tileY);
-					float yOffset = -height * TileSize / 4;
-					Vector2 entityVisualPos = new Vector2(e.WorldPos.X, e.WorldPos.Y + yOffset);
+					Vector2 entityVisualPos = e.WorldPos;
 					SpawnDeathParticles(entityVisualPos, e.Tint);
 					//  CORPS MORT (ragdoll) : l'entité laisse un corps physique au sol, qui
 					//  reste 20 secondes, peut être poussé, et est rendu par le même moteur
@@ -1966,11 +1942,11 @@ namespace Soulfract
 					//  utilisée par le rendu des entités (y compris le décalage visuel des
 					//  espèces volantes / gluantes) pour que le corps soit exactement à la
 					//  place où l'entité était affichée.
-					Vector2 corpseDrawPos = new Vector2(e.WorldPos.X, e.WorldPos.Y + yOffset - e.VisualOffsetY);
+					Vector2 corpseDrawPos = new Vector2(e.WorldPos.X, e.WorldPos.Y - e.VisualOffsetY);
 					//  Le sol du corps est la ligne du terrain (là où l'ombre de la créature
 					//  est tracée) : une créature volante laisse donc un corps qui TOMBE
 					//  d'abord jusqu'au sol avant de basculer.
-					float corpseGroundY = e.WorldPos.Y + yOffset + (FeetOffsetY - 6f);
+					float corpseGroundY = entityVisualPos.Y + (FeetOffsetY - 6f);
 					CorpseSystem.SpawnFromEntity(e, corpseDrawPos, corpseGroundY);
 					if (TraderUI.IsOpen && TraderUI.GetCurrentTrader() == e) TraderUI.Close();
 					//  MULTIJOUEUR : informer les clients de la mort de cette entité

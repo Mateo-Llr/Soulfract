@@ -4362,9 +4362,7 @@ namespace Soulfract
                     Guid.TryParse(entity.NetId, out var parsedId) && parsedId == entityNetId);
                 if (dto != null)
                 {
-                    int tileX = (int)(dto.PosX / Program.TileSize);
-                    int tileY = (int)(dto.PosY / Program.TileSize);
-                    position = new Vector2(dto.PosX, dto.PosY - World.GetHeightAt(tileX, tileY) * Program.TileSize / 4f);
+                    position = new Vector2(dto.PosX, dto.PosY);
                     return true;
                 }
             }
@@ -4373,9 +4371,7 @@ namespace Soulfract
             if (entity != null)
             {
                 Vector2 entityVisualPos = entity.VisualWorldPos;
-                int tileX = (int)(entityVisualPos.X / Program.TileSize);
-                int tileY = (int)(entityVisualPos.Y / Program.TileSize);
-                position = new Vector2(entityVisualPos.X, entityVisualPos.Y - World.GetHeightAt(tileX, tileY) * Program.TileSize / 4f);
+                position = entityVisualPos;
                 return true;
             }
 

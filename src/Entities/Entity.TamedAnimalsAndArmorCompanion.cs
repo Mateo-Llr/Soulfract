@@ -257,9 +257,7 @@ namespace Soulfract
                         kb = kb.LengthSquared() > 0.01f ? Vector2.Normalize(kb) : new Vector2(Facing, 0);
                         target.ApplyKnockback(kb, 90f);
 
-                        int ts = Program.TileSize;
-                        int th = World.GetHeightAt((int)(target.WorldPos.X / ts), (int)(target.WorldPos.Y / ts));
-                        Vector2 targetVisualPos = new Vector2(target.WorldPos.X, target.WorldPos.Y - th * ts / 4f);
+                        Vector2 targetVisualPos = target.WorldPos;
                         Program.AddFloatingDamage(targetVisualPos, PET_ATTACK_DAMAGE, false, isEnemy: true);
 
                         if (!target.IsAlive)
@@ -491,9 +489,7 @@ namespace Soulfract
             int groundId = World.GetGroundTileIdAt(tileX, tileY);
             Color particleColor = World.GetParticleColorForGround(groundId);
 
-            int height = World.GetHeightAt(tileX, tileY);
-            float yOffset = -height * Program.TileSize / 4;
-            Vector2 footPos = new Vector2(WorldPos.X, WorldPos.Y + yOffset + Program.FeetOffsetY);
+            Vector2 footPos = new Vector2(WorldPos.X, WorldPos.Y + Program.FeetOffsetY);
 
             Random rand = new Random();
             int count = rand.Next(1, 3);

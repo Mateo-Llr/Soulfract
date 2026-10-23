@@ -215,10 +215,8 @@ namespace Soulfract
 					{
 						for (int sy = selMinY; sy <= selMaxY; sy++)
 						{
-							int h = World.GetHeightAt(sx, sy);
-							float yOff = -h * TileSize / 4f;
 							float centerX = sx * TileSize + TileSize / 2f;
-							float centerY = sy * TileSize + yOff + TileSize / 2f;
+							float centerY = sy * TileSize + TileSize / 2f;
 
 							bool isFirstCorner = (sx == c1x && sy == c1y);
 							bool isPerimeter = (sx == selMinX || sx == selMaxX || sy == selMinY || sy == selMaxY);
@@ -393,10 +391,8 @@ namespace Soulfract
 					var (x, y) = kv.Key;
 					var engine = kv.Value;
 					
-					int height = World.GetHeightAt(x, y);
-					float yOffset = -height * ts / 4;
 					float drawX = x * ts;
-					float drawY = y * ts + yOffset;
+					float drawY = y * ts;
 					
 					var tileData = WorldTileRegistry.GetTile(401);
 					int machineTilesW = tileData?.Size?.Width ?? 1;
@@ -425,10 +421,8 @@ namespace Soulfract
 					int y = kv.Key.y;
 					var dynamo = kv.Value;
 					
-					int height = World.GetHeightAt(x, y);
-					float yOffset = -height * ts / 4;
 					float drawX = x * ts;
-					float drawY = y * ts + yOffset;
+					float drawY = y * ts;
 					
 					var tileData = WorldTileRegistry.GetTile(403);
 					if (tileData?.Size != null)
@@ -495,10 +489,8 @@ namespace Soulfract
 
 					if (World.GetObjectIdAt(x, y) != 405) continue;
 
-					int height = World.GetHeightAt(x, y);
-					float yOffset = -height * ts / 4;
 					float drawX = x * ts;
-					float drawY = y * ts + yOffset;
+					float drawY = y * ts;
 
 					var tileData = WorldTileRegistry.GetTile(405);
 					if (tileData?.Size != null)
@@ -526,10 +518,8 @@ namespace Soulfract
 					// Si la tuile n'est plus un collecteur, on l'ignore (sera nettoyé ailleurs)
 					if (World.GetObjectIdAt(x, y) != 116) continue;
 
-					int height = World.GetHeightAt(x, y);
-					float yOffset = -height * ts / 4;
 					float drawX = x * ts;
-					float drawY = y * ts + yOffset;
+					float drawY = y * ts;
 
 					var tileData = WorldTileRegistry.GetTile(116);
 					if (tileData?.Size != null)
@@ -755,9 +745,7 @@ namespace Soulfract
 				
 				if (showDebug)
 				{
-					int playerHeight = GetPlayerGroundHeight(playerPos);
-					float playerYOffset = -playerHeight * TileSize / 4;
-					float playerBaseY = playerPos.Y + playerYOffset + FeetOffsetY;
+					float playerBaseY = playerPos.Y + FeetOffsetY;
 					Rectangle playerHitboxWorld = new Rectangle(playerPos.X - hitboxDim.X / 2f, playerBaseY - hitboxDim.Y, hitboxDim.X, hitboxDim.Y);
 					Vector2 topLeft = Raylib.GetWorldToScreen2D(new Vector2(playerHitboxWorld.X, playerHitboxWorld.Y), camera);
 					Vector2 bottomRight = Raylib.GetWorldToScreen2D(new Vector2(playerHitboxWorld.X + playerHitboxWorld.Width, playerHitboxWorld.Y + playerHitboxWorld.Height), camera);

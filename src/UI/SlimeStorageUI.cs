@@ -77,67 +77,37 @@ namespace Soulfract
             InventorySlot slot = _slime.GetSlimeStorageSlot();
             DraggedItem draggedItem = InventoryRenderer.DraggedItem;
 
-            if (Raylib.IsMouseButtonPressed(MouseButton.Left)
-                && Raylib.CheckCollisionPointRec(mousePosition, storageSlot)
-                && !draggedItem.IsDragging
-                && !slot.IsEmpty && slot.Item != null)
+            if (Raylib.CheckCollisionPointRec(mousePosition, storageSlot)
+                && (Raylib.IsMouseButtonPressed(MouseButton.Left)
+                    || Raylib.IsMouseButtonPressed(MouseButton.Right)))
             {
-                int previousCount = slot.Count;
-                int remaining = Program.AddItemToInventory(slot.Item, previousCount);
-                int transferred = previousCount - remaining;
-                if (transferred > 0)
+                bool wasEmpty = slot.IsEmpty;
+                Item? previousItem = slot.Item;
+                bool rejectedDifferentItem = Raylib.IsMouseButtonPressed(MouseButton.Left)
+                    && draggedItem.IsDragging && draggedItem.Item != null
+                    && !slot.IsEmpty && slot.Item != null
+                    && !Program.AreItemsStackable(slot.Item, draggedItem.Item);
+
+                bool changed = InventoryRenderer.HandleSharedSlotInteraction(
+                    slot, mousePosition, allowSwap: false);
+
+                if (rejectedDifferentItem)
                 {
-                    if (remaining <= 0) slot.Clear();
-                    else slot.Count = remaining;
-                    if (slot.IsEmpty) _slime.SlimeIncubationSeconds = 0f;
+                    Program.AddNotification(new Notification("Le slime ne peut stocker qu'un type d'objet à la fois.",
+                        new Color(255, 200, 100, 255), 2f));
+                }
+
+                if (changed)
+                {
+                    bool slotChangedItem = wasEmpty != slot.IsEmpty || previousItem != slot.Item;
+                    if (slotChangedItem)
+                        _slime.SlimeIncubationSeconds = 0f;
                     SyncStorage();
                 }
             }
 
-            if (Raylib.IsMouseButtonReleased(MouseButton.Left)
-                && Raylib.CheckCollisionPointRec(mousePosition, storageSlot)
-                && draggedItem.IsDragging && draggedItem.Item != null)
-            {
-                StoreDraggedItem(slot, draggedItem);
-            }
-
             if (Raylib.IsKeyPressed(KeyboardKey.Escape))
                 Close();
-        }
-
-        private static void StoreDraggedItem(InventorySlot target, DraggedItem draggedItem)
-        {
-            Item dragged = draggedItem.Item!;
-            int count = Math.Max(1, draggedItem.Count);
-
-            if (target.IsEmpty || target.Item == null)
-            {
-                target.Item = dragged;
-                target.Count = count;
-                _slime!.SlimeIncubationSeconds = 0f;
-                draggedItem.EndDrag();
-                SyncStorage();
-                return;
-            }
-
-            if (!Program.AreItemsStackable(target.Item, dragged))
-            {
-                Program.AddNotification(new Notification("Le slime ne peut stocker qu'un type d'objet à la fois.",
-                    new Color(255, 200, 100, 255), 2f));
-                return;
-            }
-
-            int itemId = Program.GetItemId(target.Item.Name);
-            if (!GameData.ItemDatabase.TryGetValue(itemId, out var itemData)) return;
-            int space = itemData.StackSize - target.Count;
-            int added = Math.Min(space, count);
-            if (added <= 0) return;
-
-            Program.MergeSpoilMeta(target.Item, dragged, added);
-            target.Count += added;
-            draggedItem.Count -= added;
-            if (draggedItem.Count <= 0) draggedItem.EndDrag();
-            SyncStorage();
         }
 
         private static void SyncStorage()
@@ -239,14 +209,8 @@ namespace Soulfract
             Raylib.DrawRectangleRoundedLines(slotRect, 0.08f, 6, 2, COLOR_ACCENT);
 
             InventorySlot slot = _slime.GetSlimeStorageSlot();
-            if (!slot.IsEmpty && slot.Item != null)
-            {
-                ItemRenderer.DrawItemPadded(slot.Item, (int)slotRect.X + UIManager.ScaleInt(4),
-                    (int)slotRect.Y + UIManager.ScaleInt(4), (int)slotRect.Width - UIManager.ScaleInt(8), 4);
-                if (slot.Count > 1)
-                    FontManager.DrawText(slot.Count.ToString(), (int)slotRect.X + (int)slotRect.Width - 22,
-                        (int)slotRect.Y + (int)slotRect.Height - 20, 14, Color.White);
-            }
+            UIManager.DrawInventorySlotContents(slot, slotRect,
+                (int)slotRect.Width - UIManager.ScaleInt(8), itemPadding: 4);
 
             string hint = "Glissez un objet dans la case ou cliquez pour le reprendre.";
             int hintWidth = FontManager.MeasureText(hint, 11);

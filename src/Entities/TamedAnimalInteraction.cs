@@ -156,12 +156,7 @@ namespace Soulfract
             }
 
             // Calcul de la position à l'écran de l'animal
-            int tileX = (int)(animal.WorldPos.X / Program.TileSize);
-            int tileY = (int)(animal.WorldPos.Y / Program.TileSize);
-            int height = World.GetHeightAt(tileX, tileY);
-            float yOffset = -height * Program.TileSize / 4;
-            Vector2 animalVisualWorldPos = new Vector2(animal.WorldPos.X, animal.WorldPos.Y + yOffset);
-            _radialCenter = Raylib.GetWorldToScreen2D(animalVisualWorldPos, camera);
+            _radialCenter = Raylib.GetWorldToScreen2D(animal.WorldPos, camera);
         }
 
         private static void UpdateRadialMenuSelection(Vector2 mousePos)

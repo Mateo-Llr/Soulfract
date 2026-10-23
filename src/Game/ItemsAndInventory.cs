@@ -320,8 +320,7 @@ namespace Soulfract
 					{
 						NetworkManager.SendPvpHitRequest(targetConnId, pvpDamage);
 					}
-					Vector2 targetVisualPos = new Vector2(target.Position.X,
-						target.Position.Y + (World.GetHeightAt((int)(target.Position.X / ts), (int)(target.Position.Y / ts)) * -ts / 4));
+					Vector2 targetVisualPos = target.Position;
 					if (!float.IsNaN(targetVisualPos.X) && !float.IsNaN(targetVisualPos.Y) &&
 						!float.IsInfinity(targetVisualPos.X) && !float.IsInfinity(targetVisualPos.Y))
 					{
@@ -350,7 +349,7 @@ namespace Soulfract
 							&& GameData.GetItemType(heldItem.Name) == ItemType.Weapon;
 						int concussion = heldItem != null ? GameData.GetConcussion(heldItem.Name) : 0;
 						NetworkManager.RequestEntityHit(dtoGuid, clientDamage, isPlayerWeapon, concussion);
-						Vector2 dtoVisualPos = new Vector2(dto.PosX, dto.PosY + (World.GetHeightAt((int)(dto.PosX / ts), (int)(dto.PosY / ts)) * -ts / 4));
+						Vector2 dtoVisualPos = new Vector2(dto.PosX, dto.PosY);
 						if (!float.IsNaN(dtoVisualPos.X) && !float.IsNaN(dtoVisualPos.Y) &&
 							!float.IsInfinity(dtoVisualPos.X) && !float.IsInfinity(dtoVisualPos.Y))
 						{
@@ -384,7 +383,7 @@ namespace Soulfract
 					if (knockbackDir.Length() > 0.01f) knockbackDir = Vector2.Normalize(knockbackDir);
 					else knockbackDir = new Vector2(1, 0);
 					entity.ApplyKnockback(knockbackDir, ATTACK_KNOCKBACK);
-					Vector2 entityVisualPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + (World.GetHeightAt((int)(entity.WorldPos.X / ts), (int)(entity.WorldPos.Y / ts)) * -ts / 4));
+					Vector2 entityVisualPos = entity.WorldPos;
 					if (!float.IsNaN(entityVisualPos.X) && !float.IsNaN(entityVisualPos.Y) &&
 						!float.IsInfinity(entityVisualPos.X) && !float.IsInfinity(entityVisualPos.Y))
 					{
@@ -402,7 +401,7 @@ namespace Soulfract
 							entity.WasKilledByPlayerWeapon = true;
 
 						SkillSystem.AddXP(SkillType.Chasseur, 5);
-						entityVisualPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + (World.GetHeightAt((int)(entity.WorldPos.X / ts), (int)(entity.WorldPos.Y / ts)) * -ts / 4));
+						entityVisualPos = entity.WorldPos;
 						SpawnDeathParticles(entityVisualPos, entity.Tint);
 
 						// Boss de l'oeil : chaque monstre de vague tué inflige des dégâts au boss.
@@ -499,8 +498,7 @@ namespace Soulfract
 				}
 			}
 			
-			int heightAtTarget = World.GetHeightAt(bestTileX, bestTileY);
-			float drawY = bestTileY * ts - (heightAtTarget * ts / 4);
+			float drawY = bestTileY * ts;
 			Vector2 targetTileWorldPos = new(bestTileX * ts + ts / 2f, bestTileY * ts + ts / 2f);
 			
 			//  BOIRE : interagir face à une case d'eau (mêmes IDs que la détection
@@ -797,8 +795,7 @@ namespace Soulfract
 							Vector2 boatObjectWorldPos = playerBoat.GetTileWorldPos(relX, relY);
 							int boatObjTileX = (int)(boatObjectWorldPos.X / ts);
 							int boatObjTileY = (int)(boatObjectWorldPos.Y / ts);
-							int boatObjHeight = World.GetHeightAt(boatObjTileX, boatObjTileY);
-							float boatObjDrawY = boatObjTileY * ts - (boatObjHeight * ts / 4);
+							float boatObjDrawY = boatObjTileY * ts;
 							AddFloatingDamage(new Vector2(boatObjectWorldPos.X, boatObjDrawY + ts/2f), boatDamage, isEnemy: true);
 							
 							if (boatHp.Current <= 0)
@@ -1032,7 +1029,7 @@ namespace Soulfract
 			attackCooldown = 0.35f;
 			isAttacking = true;
 			attackAnim = 0.25f;
-			float finalWorldY = bestTileY * ts - (heightAtTarget * ts / 4) + ts; // bas de la tuile
+			float finalWorldY = bestTileY * ts + ts; // bas de la tuile
 			Vector2 objectWorldPos = new Vector2(bestTileX * ts + ts/2f, finalWorldY - 15f); // légèrement au-dessus
 			if (World.IsLeafBearingTree(tileId))
 				TrySpawnBirdFromTreeHit(bestTileX, bestTileY);
@@ -1256,11 +1253,9 @@ namespace Soulfract
 			{
 				for (int y = startY; y <= endY; y++)
 				{
-					int height = World.GetHeightAt(x, y);
-					float visualY = y * ts - (height * ts / 4);
 					float visualX = x * ts;
 					float centerX = visualX + ts / 2f;
-					float centerY = visualY + ts / 2f;
+					float centerY = y * ts + ts / 2f;
 					float dist = Vector2.Distance(mouseWorld, new Vector2(centerX, centerY));
 
 					int objectId = World.GetObjectIdAt(x, y);
@@ -1337,7 +1332,7 @@ namespace Soulfract
 				groundTileY = mouseTileY;
 				groundId2 = World.GetGroundTileIdAt(groundTileX, groundTileY);
 				float centerX = groundTileX * ts + ts / 2f;
-				float centerY = groundTileY * ts - (World.GetHeightAt(groundTileX, groundTileY) * ts / 4) + ts / 2f;
+				float centerY = groundTileY * ts + ts / 2f;
 				bestGroundDist = Vector2.Distance(mouseWorld, new Vector2(centerX, centerY));
 			}
 
@@ -1590,9 +1585,7 @@ namespace Soulfract
 			
 			if (itemData.PlaceableId == 215) // ou 601 selon votre items.json
 			{
-				int height = World.GetHeightAt(tileX, tileY);
-				float yOffset = -height * ts / 4;
-				Vector2 carPos = new Vector2(tileX * ts + ts / 2f, tileY * ts + yOffset + ts / 2f);
+				Vector2 carPos = new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f);
 				var car = new Car(carPos);
 				Program.Cars.Add(car);
 				RemoveItemFromInventory(item.Name, 1);

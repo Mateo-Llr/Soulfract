@@ -1,5 +1,5 @@
 // TileGridRendering.cs
-// Phase 1 : remplit les tableaux de tuiles visibles (hauteurs, sol, objets, overlays...) en une passe.
+// Phase 1 : remplit les tableaux de tuiles visibles (sol, objets, overlays...) en une passe.
 // Fichier extrait de DrawWorld.cs (classe partielle World).
 #nullable enable
 using Raylib_cs;
@@ -12,7 +12,7 @@ namespace Soulfract
     {
         private static partial class DrawPhases
         {
-			/// <summary>Remplit les grilles de rendu (heights, groundIds, objectIds, overlayIds...) pour la fenêtre visible. Réutilise un seul chunk par tuile.</summary>
+			/// <summary>Remplit les grilles de rendu pour la fenêtre visible. Réutilise un seul chunk par tuile.</summary>
 			internal static void FillTileGrid(DrawWorldContext ctx)
 			{
 				int startX = ctx.startX;
@@ -21,7 +21,6 @@ namespace Soulfract
 				int endY = ctx.endY;
 				int width = ctx.width;
 				int heightTiles = ctx.heightTiles;
-				int[,] heights = ctx.heights;
 				int[,] groundIds = ctx.groundIds;
 				int[,] objectIds = ctx.objectIds;
 				int[,] overlayIds = ctx.overlayIds;
@@ -35,14 +34,14 @@ namespace Soulfract
 				// Remplir les tableaux en une seule passe
 				//
 				//  PERF (dézoom) : ce bloc tournait auparavant sur un chunk (GetChunkAt) DIFFÉRENT
-				// par appel — un pour la hauteur, un pour le sol, un pour l'objet, un pour l'overlay,
-				// un pour le revêtement mural, un pour la décoration — soit jusqu'à 8 lookups de
+				// par appel — un pour le sol, un pour l'objet, un pour l'overlay,
+				// un pour le revêtement mural, un pour la décoration — soit jusqu'à 7 lookups de
 				// Dictionary<(int,int), ChunkData> pour LA MÊME tuile, chacun recalculant en plus
 				// chunkX/chunkY. En dézoom, MAX_RENDER_TILES_X/Y (120x80) peut porter ce nombre de
 				// tuiles à ~9600/frame, donc jusqu'à ~77 000 lookups de chunk rien que pour cette
 				// boucle. On récupère maintenant le chunk UNE SEULE FOIS par tuile et on lit ses
-				// dictionnaires internes directement ; les fonctions globales (GetHeightAt,
-				// GetGroundTileIdAt, GetBuildingIdAt, GetRoofHeight) ne sont rappelées qu'en repli,
+				// dictionnaires internes directement ; les fonctions globales (GetGroundTileIdAt,
+				// GetBuildingIdAt, GetRoofHeight) ne sont rappelées qu'en repli,
 				// pour les tuiles qui n'ont pas encore d'entrée explicite dans le chunk (génération
 				// procédurale / cache climat), ce qui reste correct au sous-sol/en extérieur du
 				// chunk chargé.
@@ -61,7 +60,6 @@ namespace Soulfract
 						tileLit[ix, iy] = isTileLit;
 						if (!isTileLit)
 						{
-							heights[ix, iy] = 0;
 							groundIds[ix, iy] = 0;
 							objectIds[ix, iy] = 0;
 							overlayIds[ix, iy] = 0;
@@ -91,13 +89,6 @@ namespace Soulfract
 							// (GetGroundTileIdAt refaisait inutilement chunk + override, qui ne pouvaient que rater).
 							int gid = (chunk != null && chunk.GroundOverrides.TryGetValue((x, y), out int gv))
 								? gv : GetProceduralGroundTileId(x, y);
-							int h = _isUnderground
-								? chunk != null && chunk.Heights.TryGetValue((x, y), out int undergroundHeight)
-									? undergroundHeight : 0
-								: (_isInDungeon ? GetHeightAt(x, y) : GetHeightAtWithChunk(x, y, chunk));
-							if (!_isUnderground && gid == 10)
-								h = (int)WorldGeneration.GetWaterSurfaceHeight();
-							heights[ix, iy] = h;
 							groundIds[ix, iy] = gid;
 
 							int oid = chunk?.Objects.GetValueOrDefault((x, y), 0) ?? 0;

@@ -29,12 +29,6 @@ namespace Soulfract
 					if (!ctx.IsSegmentNearScreen(p1, p2))
 						continue;
 				
-					// Ajuster pour la hauteur du terrain
-					int h1 = GetHeightAt(conn.X1, conn.Y1);
-					int h2 = GetHeightAt(conn.X2, conn.Y2);
-					p1.Y -= h1 * ts / 4f;
-					p2.Y -= h2 * ts / 4f;
-				
 					float sortY = Math.Min(p1.Y, p2.Y);
 				
 					renderItems.Add(new RenderItem
@@ -51,8 +45,6 @@ namespace Soulfract
 				{
 					var startTile = Program.GetWireStartTile();
 					Vector2 startPos = new Vector2(startTile.x * ts + ts / 2f, startTile.y * ts + ts / 2f);
-					startPos.Y -= GetHeightAt(startTile.x, startTile.y) * ts / 4f;
-				
 					Vector2 endPos = mouseWorldPos;
 					float sortY = Math.Min(startPos.Y, endPos.Y);
 				

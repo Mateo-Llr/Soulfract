@@ -41,9 +41,8 @@ namespace Soulfract
 					if (World.GetObjectIdAt(x, y) != 88)
 						continue;
 
-					int elevation = World.GetHeightAt(x, y) * TileSize / 4;
 					float drawX = x * TileSize + (tikiData?.DrawOffset?.X ?? 0);
-					float drawY = y * TileSize - elevation - spriteHeight + TileSize;
+					float drawY = y * TileSize - spriteHeight + TileSize;
 					var spriteBounds = new Rectangle(drawX, drawY, spriteWidth, spriteHeight);
 					if (!Raylib.CheckCollisionPointRec(mouseWorld, spriteBounds))
 						continue;
@@ -581,9 +580,7 @@ namespace Soulfract
 
 		public static Vector2 GetPlayerVisualPosition(Vector2 playerPos)
 		{
-			int playerHeight = GetPlayerGroundHeight(playerPos);
-			float playerYOffset = -playerHeight * TileSize / 4;
-			return new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+			return playerPos;
 		}
 
 		/// <summary>
@@ -1446,10 +1443,7 @@ namespace Soulfract
 
 		private static void SpawnRockBreakParticles(Vector2 playerPos)
 		{
-			int ts = Program.TileSize;
-			int playerHeight = GetPlayerGroundHeight(playerPos);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+			Vector2 playerVisualPos = GetPlayerVisualPosition(playerPos);
 
 			int particleCount = 8;
 			for (int i = 0; i < particleCount; i++)
@@ -1599,10 +1593,8 @@ namespace Soulfract
 
 		private static Vector2 GetPlayerCameraTarget(Vector2 playerPos)
 		{
-			int playerHeight = GetPlayerGroundHeight(playerPos);
-			float playerYOffset = -playerHeight * TileSize / 4;
 			float underwaterVisualOffset = World.IsUnderwater ? -_underwaterElevation : 0f;
-			return new Vector2(playerPos.X, playerPos.Y + playerYOffset + underwaterVisualOffset);
+			return new Vector2(playerPos.X, playerPos.Y + underwaterVisualOffset);
 		}
 
 		private static void SpawnCrabCompanion()
@@ -1634,10 +1626,7 @@ namespace Soulfract
 					if (!dto.IsTamed || dto.IsHostilePet || dto.IsCarried
 						|| !string.Equals(dto.Species, "slime", StringComparison.OrdinalIgnoreCase)
 						|| !string.Equals(dto.OwnerName, LocalPlayerName, StringComparison.OrdinalIgnoreCase)) continue;
-					int remoteTileX = (int)(dto.PosX / TileSize);
-					int remoteTileY = (int)(dto.PosY / TileSize);
-					float visualY = dto.PosY - World.GetHeightAt(remoteTileX, remoteTileY) * TileSize / 4f;
-					float distance = Vector2.Distance(mouseWorld, new Vector2(dto.PosX, visualY));
+					float distance = Vector2.Distance(mouseWorld, new Vector2(dto.PosX, dto.PosY));
 					if (distance >= bestSlimeDistance) continue;
 					bestSlimeDistance = distance;
 					closestSlime = dto;
@@ -1656,12 +1645,7 @@ namespace Soulfract
 				if (!string.Equals(entity.OwnerName, _currentSaveName, StringComparison.Ordinal)) continue;
 				if (entity.Species == "human") continue; // ignorer les humains
 
-				// Position visuelle de l'entité (avec hauteur)
-				int tileX = (int)(entity.WorldPos.X / TileSize);
-				int tileY = (int)(entity.WorldPos.Y / TileSize);
-				int height = World.GetHeightAt(tileX, tileY);
-				float yOffset = -height * TileSize / 4;
-				Vector2 visualPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + yOffset);
+				Vector2 visualPos = entity.WorldPos;
 
 				float dist = Vector2.Distance(mouseWorld, visualPos);
 				if (dist < bestDist)
@@ -1696,9 +1680,7 @@ namespace Soulfract
 			int groundId = World.GetGroundTileIdAt(tileX, tileY);
 			Color particleColor = World.GetParticleColorForGround(groundId);
 			
-			int height = World.GetHeightAt(tileX, tileY);
-			float yOffset = -height * TileSize / 4;
-			Vector2 footPos = new Vector2(_playerPos.X, _playerPos.Y + yOffset + FeetOffsetY);
+			Vector2 footPos = new Vector2(_playerPos.X, _playerPos.Y + FeetOffsetY);
 			
 			Random rand = new Random();
 			int count = rand.Next(1, 3);
@@ -2052,9 +2034,7 @@ namespace Soulfract
 					// Les murs sont les IDs 8 (mur de pierre) et 84 (mur de bois)
 					if (objId == 8 || objId == 84)
 					{
-						int height = World.GetHeightAt(x, y);
-						float yOffset = -height * ts / 4;
-						float drawY = y * ts + yOffset;
+						float drawY = y * ts;
 						// Le rectangle du mur (collision approximative)
 						Rectangle wallRect = new Rectangle(x * ts, drawY, ts, ts);
 						walls.Add(wallRect);
@@ -2082,9 +2062,7 @@ namespace Soulfract
 		static void SpawnHealParticles(Vector2 playerPos)
 		{
 			int ts = Program.TileSize;
-			int playerHeight = GetPlayerGroundHeight(playerPos);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+			Vector2 playerVisualPos = GetPlayerVisualPosition(playerPos);
 			
 			int particleCount = 8;
 			for (int i = 0; i < particleCount; i++)
@@ -2268,11 +2246,7 @@ namespace Soulfract
 				if (entity.IsSpiritAnimal) continue;
 				if (entity.Species == "human") continue;
 
-				int tileX = (int)(entity.WorldPos.X / TileSize);
-				int tileY = (int)(entity.WorldPos.Y / TileSize);
-				int height = World.GetHeightAt(tileX, tileY);
-				float yOffset = -height * TileSize / 4;
-				Vector2 visualPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + yOffset);
+				Vector2 visualPos = entity.WorldPos;
 
 				float dist = Vector2.Distance(mouseWorld, visualPos);
 				if (dist < bestDist)
@@ -2299,11 +2273,7 @@ namespace Soulfract
 				if (dto.IsSpiritAnimal) continue;
 				if (dto.Species == "human") continue;
 
-				int tileX = (int)(dto.PosX / TileSize);
-				int tileY = (int)(dto.PosY / TileSize);
-				int height = World.GetHeightAt(tileX, tileY);
-				float yOffset = -height * TileSize / 4;
-				Vector2 visualPos = new Vector2(dto.PosX, dto.PosY + yOffset);
+				Vector2 visualPos = new Vector2(dto.PosX, dto.PosY);
 
 				float dist = Vector2.Distance(mouseWorld, visualPos);
 				if (dist < bestDist)
@@ -2318,9 +2288,7 @@ namespace Soulfract
 		static void SpawnHairParticles(Vector2 playerPos)
 		{
 			int ts = Program.TileSize;
-			int playerHeight = GetPlayerGroundHeight(playerPos);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+			Vector2 playerVisualPos = GetPlayerVisualPosition(playerPos);
 			
 			int particleCount = Random.Shared.Next(15, 30);
 			for (int i = 0; i < particleCount; i++)

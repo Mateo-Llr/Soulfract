@@ -3914,10 +3914,8 @@ public readonly struct ProjectileRenderTag
 			
 			if (IsStuck)
 			{
-				int height = World.GetHeightAt(StuckTileX, StuckTileY);
-				float yOffset = -height * Program.TileSize / 4;
 				float tileDrawX = StuckTileX * Program.TileSize;
-				float tileDrawY = StuckTileY * Program.TileSize + yOffset;
+				float tileDrawY = StuckTileY * Program.TileSize;
 				drawPos = new Vector2(tileDrawX + StuckOffsetX, tileDrawY + StuckOffsetY);
 			}
 			else
@@ -4243,9 +4241,7 @@ public readonly struct ProjectileRenderTag
 			StuckTileY = tileY;
 			
 			int ts = Program.TileSize;
-			int height = World.GetHeightAt(tileX, tileY);
-			float yOffset = -height * ts / 4;
-			float tileDrawY = tileY * ts + yOffset;
+			float tileDrawY = tileY * ts;
 			
 			// Calculer l'offset relatif à la tuile
 			StuckOffsetX = hitPos.X - (tileX * ts);
@@ -4379,15 +4375,8 @@ public readonly struct ProjectileRenderTag
 			{
 				Vector2 tileCenter = GetTileWorldPos(relX, relY);
 				
-				// Calculer la position visuelle réelle de la tuile (avec hauteur)
-				int worldTileX = (int)(tileCenter.X / tileSize);
-				int worldTileY = (int)(tileCenter.Y / tileSize);
-				int height = World.GetHeightAt(worldTileX, worldTileY);
-				float yOffset = -height * tileSize / 4;
-				
-				// Position visuelle du centre de la tuile
 				float visualCenterX = tileCenter.X;
-				float visualCenterY = tileCenter.Y + yOffset;
+				float visualCenterY = tileCenter.Y;
 				
 				// Récupérer les dimensions réelles de l'objet placé sur cette tuile (si présent)
 				int objId = GetObjectIdAt(relX, relY);

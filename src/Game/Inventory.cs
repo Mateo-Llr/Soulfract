@@ -1879,8 +1879,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 		if (count <= 0) return;
 		int tileX = (int)(worldPos.X / TileSize);
 		int tileY = (int)(worldPos.Y / TileSize);
-		int height = World.GetHeightAt(tileX, tileY);
-		float groundY = tileY * TileSize - (height * TileSize / 4) + TileSize;
+		float groundY = tileY * TileSize + TileSize;
 
 		GroundItem groundItem = throwDirection.HasValue && throwDistance > 0f
 			? new GroundItem(itemId, count, worldPos, groundY, throwDirection.Value, throwDistance, customColors, null, metadata, meta, container, backpack)
@@ -2468,9 +2467,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			
 			Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 			int ts = Program.TileSize;
-			int playerHeight = GetPlayerGroundHeight(playerPos);
-			float playerYOffset = -playerHeight * ts / 4;
-			Vector2 playerVisualPos = new Vector2(playerPos.X, playerPos.Y + playerYOffset);
+			Vector2 playerVisualPos = GetPlayerVisualPosition(playerPos);
 			Vector2 attackDir = mouseWorld - playerVisualPos;
 			if (attackDir.Length() < 0.01f) attackDir = new Vector2(1, 0);
 			attackDir = Vector2.Normalize(attackDir);

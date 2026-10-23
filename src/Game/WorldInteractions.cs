@@ -260,10 +260,8 @@ namespace Soulfract
 						int objId = World.GetObjectIdAt(x, y);
 						if (objId != 52) continue; // 52 = sortie de grotte
 
-						int height = World.GetHeightAt(x, y);
-						float yOffset = -height * ts / 4;
 						float drawX = x * ts;
-						float drawY = y * ts + yOffset;
+						float drawY = y * ts;
 						Vector2 worldPos = new Vector2(drawX + ts / 2, drawY + ts / 2);
 
 						// Rayon et intensité liés à la luminosité extérieure
@@ -316,7 +314,7 @@ namespace Soulfract
 					if (objId == 408) continue; // Les ampoules électriques sont dessinées selon leur état alimenté ci-dessous.
 					if (World.HasInputPort(objId) && !World.IsPoweredOrUnwiredLight(x, y))
 						continue;
-					float lightY = y * ts + ts / 2f - World.GetHeightAt(x, y) * ts / 4f;
+					float lightY = y * ts + ts / 2f;
 					if (hasWallTorch)
 					{
 						var wallData = WorldTileRegistry.GetTile(objId);
@@ -353,8 +351,7 @@ namespace Soulfract
 							var tileData = WorldTileRegistry.GetTile(408);
 							if (tileData != null)
 							{
-								float yOffset = -World.GetHeightAt(x, y) * ts / 4f;
-								Vector2 worldPos = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f + yOffset);
+								Vector2 worldPos = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f);
 								
 								int radius = 350; // Ajustez selon vos besoins
 								Color lightColor = new Color(255, 220, 150, 200);
@@ -405,10 +402,7 @@ namespace Soulfract
 				if (entity.IsSpiritAnimal)
 				{
 					Vector2 visualPos = entity.VisualWorldPos;
-					int tileX = (int)(visualPos.X / ts);
-					int tileY = (int)(visualPos.Y / ts);
-					float yOffset = -World.GetHeightAt(tileX, tileY) * ts / 4f;
-					Vector2 drawPosition = new(visualPos.X, visualPos.Y + yOffset - entity.VisualOffsetY);
+					Vector2 drawPosition = new(visualPos.X, visualPos.Y - entity.VisualOffsetY);
 					Vector2 eyePosition = EntityRenderer.GetSpiritEyeLightPosition(
 						entity.Species, entity.AnimState, entity.CurrentFrame, entity.AnimProgress,
 						entity.Facing, drawPosition, entity.IsInWater, entity.Scale, blendKey: entity);
@@ -419,9 +413,7 @@ namespace Soulfract
 				if (info != null && info.IsLightSource)
 				{
 					Vector2 pos = entity.VisualWorldPos;
-					int height = World.GetHeightAt((int)(pos.X / ts), (int)(pos.Y / ts));
-					float yOffset = -height * ts / 4;
-					Vector2 visualPos = new Vector2(pos.X, pos.Y + yOffset - entity.VisualOffsetY);
+					Vector2 visualPos = new Vector2(pos.X, pos.Y - entity.VisualOffsetY);
 					
 					int radius = info.LightRadius;
 					Color lightColor = info.LightColor;
@@ -452,7 +444,7 @@ namespace Soulfract
 			{
 				if (!sp.IsAlive) continue;
 				Vector2 pos = sp.Position;
-				// Ajuster la hauteur du terrain si besoin, mais la position est déjà monde
+				// La position du point d'impact est déjà en coordonnées monde.
 				int radius = (int)(sp.Size * 6); // ou 100 par défaut
 				Color lightColor = sp.Color;
 				// Augmenter l'alpha pour la lumière
@@ -550,12 +542,8 @@ namespace Soulfract
 				foreach (var (relX, relY) in nearbyBoat.Tiles.Keys)
 				{
 					Vector2 tileWorldPos = nearbyBoat.GetTileWorldPos(relX, relY);
-					int boatTileX = (int)(tileWorldPos.X / ts);
-					int boatTileY = (int)(tileWorldPos.Y / ts);
-					int boatHeight = World.GetHeightAt(boatTileX, boatTileY);
-					float boatYOffset = -boatHeight * ts / 4;
 					float drawX = tileWorldPos.X - ts/2f;
-					float drawY = tileWorldPos.Y - ts/2f + boatYOffset;
+					float drawY = tileWorldPos.Y - ts/2f;
 					
 					int boatObjectId = nearbyBoat.GetObjectIdAt(relX, relY);
 					var currentBoatTileData = boatObjectId != 0 ? WorldTileRegistry.GetTile(boatObjectId) : null;
@@ -650,12 +638,8 @@ namespace Soulfract
 					if (bestTileData.IsSittable)
 					{
 						Vector2 tileWorldPos = nearbyBoat.GetTileWorldPos(bestRelX, bestRelY);
-						int sitTileX = (int)(tileWorldPos.X / ts);
-						int sitTileY = (int)(tileWorldPos.Y / ts);
-						int sitHeight = World.GetHeightAt(sitTileX, sitTileY);
-						float sitYOffset = -sitHeight * ts / 4;
 						float sitWorldX = tileWorldPos.X;
-						float sitWorldY = tileWorldPos.Y + sitYOffset;
+						float sitWorldY = tileWorldPos.Y;
 						
 						float sitHeightOffset = ts * 0.6f;
 						if (bestTileData.Size != null && bestTileData.Size.Height > 1)

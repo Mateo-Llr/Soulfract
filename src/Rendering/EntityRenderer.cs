@@ -17,6 +17,200 @@ namespace Soulfract
         private static readonly HashSet<string> _emptyLegPartsSet = new();
         public const float BASE_ENTITY_SCALE = 2.8f;
 
+        // Shader d'immersion : appliqué à chaque calque de sprite pendant le dessin d'une
+        // entité dans l'eau. Le seuil est exprimé en coordonnées écran (origine en bas à
+        // gauche pour gl_FragCoord), mais calculé depuis une hauteur monde fixe : il reste
+        // donc stable quand la caméra bouge ou zoome.
+        private static Shader _waterImmersionShader;
+        private static bool _waterImmersionShaderLoaded;
+        private static bool _waterImmersionShaderFailed;
+        private static int _waterImmersionLineLocation = -1;
+        private static int _waterImmersionFeatherLocation = -1;
+        private static int _waterImmersionTintLocation = -1;
+        private static int _waterImmersionFadeDistanceLocation = -1;
+        private static int _waterImmersionDepthLocation = -1;
+        private static int _waterImmersionTimeLocation = -1;
+        private static int _waterImmersionCameraTargetLocation = -1;
+        private static int _waterImmersionCameraOffsetLocation = -1;
+        private static int _waterImmersionCameraZoomLocation = -1;
+        private static int _waterImmersionScreenHeightLocation = -1;
+        private static int _waterImmersionTextureFlipXLocation = -1;
+        private static readonly Dictionary<uint, (float HalfWidth, float Bottom)> _waterHeadAlphaBoundsCache = new();
+        private static float _activeWaterlineWorldY;
+        private static float _activeWaterFadeDistanceWorld = 64f;
+        private static float _activeWaterDepthFactor;
+        private static bool _waterImmersionActive;
+        private const float WaterSinkBodyHeightFactor = 2f;
+
+        private const string WaterImmersionFragmentShader = @"#version 330
+in vec2 fragTexCoord;
+in vec4 fragColor;
+out vec4 finalColor;
+uniform sampler2D texture0;
+uniform float uWaterlineFragY;
+uniform float uWaterlineFeather;
+uniform float uWaterFadeDistance;
+uniform float uWaterDepth;
+uniform vec3 uWaterTint;
+uniform float uTime;
+uniform vec2 uCamTarget;
+uniform vec2 uCamOffset;
+uniform float uCamZoom;
+uniform float uScreenHeight;
+uniform float uTextureFlipX;
+
+float hash(vec2 p)
+{
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+float valueNoise(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+}
+void main()
+{
+    vec2 screenPos = vec2(gl_FragCoord.x, uScreenHeight - gl_FragCoord.y);
+    vec2 worldPos = (screenPos - uCamOffset) / max(0.001, uCamZoom) + uCamTarget;
+    vec4 original = texture(texture0, fragTexCoord) * fragColor;
+    if (original.a <= 0.001) { finalColor = original; return; }
+
+    float submerged = 1.0 - smoothstep(uWaterlineFragY - uWaterlineFeather,
+                                      uWaterlineFragY + uWaterlineFeather,
+                                      gl_FragCoord.y);
+    if (submerged <= 0.001) { finalColor = original; return; }
+
+    float belowSurface = max(0.0, uWaterlineFragY - gl_FragCoord.y);
+    float depth = clamp(uWaterDepth, 0.0, 1.0);
+    float fade = smoothstep(0.0, max(1.0, uWaterFadeDistance), belowSurface);
+    // Atténuation un peu plus forte : la silhouette se perd davantage dans l'océan profond.
+    float fadeStrength = mix(0.28, 0.96, depth);
+    float visibility = 1.0 - fade * fadeStrength;
+
+    // Coordonnées et caustiques reprennent le principe du shader de l'eau : motif continu
+    // dans le monde, distorsion lente, deux couches animées qui produisent des filaments.
+    vec2 warpUv = worldPos * 0.010 + vec2(uTime * 0.015, -uTime * 0.011);
+    float warpX = valueNoise(warpUv) - 0.5;
+    float warpY = valueNoise(warpUv + vec2(31.7, 5.2)) - 0.5;
+    vec2 warp = vec2(warpX, warpY) * 3.0;
+    vec2 uv1 = (worldPos + warp) * 0.032 + vec2(uTime * 0.055, uTime * 0.027);
+    vec2 uv2 = (worldPos + warp) * 0.047 - vec2(uTime * 0.038, uTime * 0.061);
+    float n1 = valueNoise(uv1);
+    float n2 = valueNoise(uv2);
+    float caustic = 1.0 - abs(n1 - n2) * 2.0;
+    caustic = smoothstep(0.55, 0.92, clamp(caustic, 0.0, 1.0));
+
+    // Petite distorsion des texels sous l'eau (vêtements, peau, accessoires) : assez discrète
+    // pour ne pas casser les contours pixel-art. Elle ne touche que la zone immergée.
+    vec2 texel = 1.0 / max(vec2(textureSize(texture0, 0)), vec2(1.0));
+    vec2 distortion = vec2(warpX * uTextureFlipX, warpY) * texel * (1.2 + 1.8 * depth);
+    vec4 refracted = texture(texture0, clamp(fragTexCoord + distortion, vec2(0.001), vec2(0.999))) * fragColor;
+    vec3 color = mix(original.rgb, refracted.rgb, submerged * 0.72);
+
+    float tintStrength = submerged * (0.48 + 0.38 * depth);
+    color = mix(color, color * uWaterTint, tintStrength);
+    color = mix(color, vec3(0.025, 0.19, 0.29), submerged * (0.16 + 0.27 * depth));
+    // Caustiques cyan animées qui éclairent par endroits la texture, sans la remplacer.
+    float causticStrength = caustic * submerged * (0.18 + 0.24 * (1.0 - depth));
+    color = mix(color, vec3(0.42, 0.91, 0.92), causticStrength);
+    // Atténuation du contraste avec la profondeur, puis alpha plus faible dans les couches basses.
+    color *= 1.0 - fade * (0.12 + 0.22 * depth);
+    finalColor = vec4(color, original.a * mix(1.0, visibility, submerged));
+}";
+
+        private static void EnsureWaterImmersionShaderLoaded()
+        {
+            if (_waterImmersionShaderLoaded || _waterImmersionShaderFailed) return;
+            _waterImmersionShaderLoaded = true;
+            _waterImmersionShader = Raylib.LoadShaderFromMemory(null, WaterImmersionFragmentShader);
+            if (_waterImmersionShader.Id == 0)
+            {
+                _waterImmersionShaderFailed = true;
+                Console.WriteLine("[EntityRenderer] Échec du shader d'immersion ; rendu normal utilisé.");
+                return;
+            }
+            _waterImmersionLineLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uWaterlineFragY");
+            _waterImmersionFeatherLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uWaterlineFeather");
+            _waterImmersionTintLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uWaterTint");
+            _waterImmersionFadeDistanceLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uWaterFadeDistance");
+            _waterImmersionDepthLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uWaterDepth");
+            _waterImmersionTimeLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uTime");
+            _waterImmersionCameraTargetLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uCamTarget");
+            _waterImmersionCameraOffsetLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uCamOffset");
+            _waterImmersionCameraZoomLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uCamZoom");
+            _waterImmersionScreenHeightLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uScreenHeight");
+            _waterImmersionTextureFlipXLocation = Raylib.GetShaderLocation(_waterImmersionShader, "uTextureFlipX");
+            if (_waterImmersionLineLocation < 0 || _waterImmersionFeatherLocation < 0 || _waterImmersionTintLocation < 0
+                || _waterImmersionFadeDistanceLocation < 0 || _waterImmersionDepthLocation < 0
+                || _waterImmersionTimeLocation < 0 || _waterImmersionCameraTargetLocation < 0
+                || _waterImmersionCameraOffsetLocation < 0 || _waterImmersionCameraZoomLocation < 0
+                || _waterImmersionScreenHeightLocation < 0 || _waterImmersionTextureFlipXLocation < 0)
+            {
+                Raylib.UnloadShader(_waterImmersionShader);
+                _waterImmersionShaderFailed = true;
+                return;
+            }
+        }
+
+        private static void DrawImmersedTexture(Texture2D texture, Rectangle src, Rectangle dest, Vector2 origin, float rotation, Color tint)
+        {
+            if (!_waterImmersionActive)
+            {
+                Raylib.DrawTexturePro(texture, src, dest, origin, rotation, tint);
+                return;
+            }
+
+            EnsureWaterImmersionShaderLoaded();
+            if (_waterImmersionShaderFailed)
+            {
+                Raylib.DrawTexturePro(texture, src, dest, origin, rotation, tint);
+                return;
+            }
+
+            float screenHeight;
+            float screenLineY;
+            Camera2D camera;
+            if (_ghostCompositeActive)
+            {
+                // Le composite fantôme utilise un repère local : monde = pixel local + origine.
+                screenHeight = _ghostCompositeAllocH;
+                screenLineY = _activeWaterlineWorldY - _ghostCompositeWorldOrigin.Y;
+                camera = new Camera2D { Target = _ghostCompositeWorldOrigin, Offset = Vector2.Zero, Zoom = 1f, Rotation = 0f };
+            }
+            else
+            {
+                camera = Program.GetCurrentCamera();
+                screenHeight = Raylib.GetScreenHeight();
+                screenLineY = (_activeWaterlineWorldY - camera.Target.Y) * camera.Zoom + camera.Offset.Y;
+            }
+            float lineFragY = screenHeight - screenLineY;
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionLineLocation, lineFragY, ShaderUniformDataType.Float);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionFeatherLocation, 2.5f, ShaderUniformDataType.Float);
+            float renderScale = _ghostCompositeActive ? 1f : camera.Zoom;
+            float fadeDistance = Math.Max(8f, _activeWaterFadeDistanceWorld * renderScale);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionFadeDistanceLocation, fadeDistance, ShaderUniformDataType.Float);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionDepthLocation, _activeWaterDepthFactor, ShaderUniformDataType.Float);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionTintLocation, new Vector3(0.56f, 0.84f, 0.88f), ShaderUniformDataType.Vec3);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionTimeLocation, (float)Raylib.GetTime(), ShaderUniformDataType.Float);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionCameraTargetLocation, camera.Target, ShaderUniformDataType.Vec2);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionCameraOffsetLocation, camera.Offset, ShaderUniformDataType.Vec2);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionCameraZoomLocation, camera.Zoom, ShaderUniformDataType.Float);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionScreenHeightLocation, screenHeight, ShaderUniformDataType.Float);
+            Raylib.SetShaderValue(_waterImmersionShader, _waterImmersionTextureFlipXLocation,
+                src.Width < 0f ? -1f : 1f, ShaderUniformDataType.Float);
+            Raylib.BeginShaderMode(_waterImmersionShader);
+            Raylib.DrawTexturePro(texture, src, dest, origin, rotation, tint);
+            Raylib.EndShaderMode();
+        }
+
         //  PERF (dézoom) : niveau de zoom de la caméra courante, poussé une fois par frame par
         // World.DrawWorld via SetCurrentZoomLevel. Sert de base au LOD de DrawEntity ci-dessous
         // (voir "lowDetail") : à faible zoom, les détails fins (bijoux, traits aléatoires,
@@ -533,6 +727,65 @@ namespace Soulfract
         private static Dictionary<string, EquipmentRenderState> _equipmentRenderStateCache = new(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, Dictionary<string,int>> _partIndexCache = new();
         private static Dictionary<string, (float MaxBaseX, float MaxBaseY)> _skeletonExtentCache = new(StringComparer.OrdinalIgnoreCase);
+
+        private static (float Offset, float BodyHeight, float Depth) GetWaterSink(
+            float maxBaseY, float speciesScale, Vector2 pos, bool inWater)
+        {
+            float bodyHeight = Math.Max(36f, maxBaseY * speciesScale * 2f);
+            if (!inWater) return (0f, bodyHeight, 0f);
+
+            float waterDepth = World.GetWaterDepthFactorAtWorldPosition(pos);
+            return (waterDepth * bodyHeight * WaterSinkBodyHeightFactor, bodyHeight, waterDepth);
+        }
+
+        private static (float HalfWidth, float Bottom) GetWaterHeadAlphaBounds(Texture2D texture)
+        {
+            if (_waterHeadAlphaBoundsCache.TryGetValue(texture.Id, out var bounds))
+                return bounds;
+
+            Image image = Raylib.LoadImageFromTexture(texture);
+            try
+            {
+                if (!Raylib.IsImageReady(image))
+                {
+                    Console.WriteLine("[EntityRenderer] Impossible de lire la texture de tête pour calculer la limite d'immersion.");
+                    bounds = (texture.Width * 0.5f, texture.Height * 0.5f);
+                }
+                else
+                {
+                    float minX = texture.Width;
+                    float maxX = -1f;
+                    float maxY = -1f;
+                    for (int y = 0; y < image.Height; y++)
+                    {
+                        for (int x = 0; x < image.Width; x++)
+                        {
+                            if (Raylib.GetImageColor(image, x, y).A <= 8)
+                                continue;
+
+                            minX = Math.Min(minX, x);
+                            maxX = Math.Max(maxX, x + 1f);
+                            maxY = Math.Max(maxY, y + 1f);
+                        }
+                    }
+
+                    bounds = maxY < 0f
+                        ? (0f, 0f)
+                        : (Math.Max(Math.Abs(minX - texture.Width * 0.5f),
+                                Math.Abs(maxX - texture.Width * 0.5f)) + 0.5f,
+                            Math.Max(0f, maxY - texture.Height * 0.5f));
+                }
+            }
+            finally
+            {
+                if (Raylib.IsImageReady(image))
+                    Raylib.UnloadImage(image);
+            }
+
+            _waterHeadAlphaBoundsCache[texture.Id] = bounds;
+            return bounds;
+        }
+
         private sealed class SpeciesFeatureRenderCache
         {
             public Dictionary<string, SpeciesData.RandomFeatureJson> ReplaceByPart { get; } = new(StringComparer.Ordinal);
@@ -962,7 +1215,7 @@ namespace Soulfract
 
         private static void DrawTextureProWithFlash(Texture2D texture, Rectangle src, Rectangle dest, Vector2 origin, float rotation, Color tint, bool flashWhite = false)
         {
-            Raylib.DrawTexturePro(texture, src, dest, origin, rotation, tint);
+            DrawImmersedTexture(texture, src, dest, origin, rotation, tint);
             if (flashWhite && texture.Id != 0)
             {
                 Raylib.BeginBlendMode(BlendMode.Additive);
@@ -1292,11 +1545,23 @@ namespace Soulfract
             if (SpeciesData.Species.TryGetValue(speciesKey, out var speciesInfo))
                 speciesScale = BASE_ENTITY_SCALE * speciesInfo.Scale * customScale;
 
-            float legHeight = SpeciesData.LegHeights.GetValueOrDefault(speciesKey, 0f);
-            var legParts = SpeciesData.LegPartNames.GetValueOrDefault(speciesKey, _emptyLegPartsSet);
-            Vector2 drawPos = pos;
-            if (inWater)
-                drawPos = new Vector2(pos.X, pos.Y + legHeight);
+            // La profondeur influence à la fois la position visuelle du squelette et le shader :
+            // le personnage s'enfonce progressivement, tandis que ses pixels les plus bas
+            // deviennent plus sombres et plus transparents.
+            if (!_skeletonExtentCache.TryGetValue(speciesKey, out var skeletonExtents))
+            {
+                float maxBaseX = 0f;
+                float maxBaseY = 0f;
+                foreach (var part in skeleton)
+                {
+                    maxBaseX = Math.Max(maxBaseX, Math.Abs(part.BasePos.X));
+                    maxBaseY = Math.Max(maxBaseY, Math.Abs(part.BasePos.Y));
+                }
+                skeletonExtents = (maxBaseX, maxBaseY);
+                _skeletonExtentCache[speciesKey] = skeletonExtents;
+            }
+            var waterSink = GetWaterSink(skeletonExtents.MaxBaseY, speciesScale, pos, inWater);
+            Vector2 drawPos = pos + new Vector2(0f, waterSink.Offset);
 
             // Determine dye layer counts for all equipment types
             int bodyLayers = 1, legsLayers = 1, headLayers = 1, backpackLayers = 1;
@@ -1365,6 +1630,10 @@ namespace Soulfract
             // ghost.fs est actif sur le framebuffer principal" — le shader n'est désormais
             // appliqué qu'une seule fois, à la toute fin, sur la silhouette déjà aplatie.
             bool ghostShaderActive = false;
+            bool previousWaterImmersionActive = _waterImmersionActive;
+            float previousWaterlineWorldY = _activeWaterlineWorldY;
+            float previousWaterDepthFactor = _activeWaterDepthFactor;
+            float previousWaterFadeDistanceWorld = _activeWaterFadeDistanceWorld;
             long entityRenderStart = PerfStats.GetTimestamp();
             bool measureEntityRender = PerfStats.BeginEntityRender();
             try
@@ -1487,20 +1756,51 @@ namespace Soulfract
                 }
             }
 
+            if (inWater && partIndexMap.TryGetValue(headPartName, out int waterHeadIndex))
+            {
+                var headTexture = skeleton[waterHeadIndex].Texture;
+                if (headTexture.Id != 0)
+                {
+                    float headRotation = globalRotations[waterHeadIndex] * MathF.PI / 180f;
+                    var headBounds = GetWaterHeadAlphaBounds(headTexture);
+                    float headHalfWidth = headBounds.HalfWidth * speciesScale;
+                    float headBottomExtent = headBounds.Bottom * speciesScale;
+                    float headHalfHeightAtRotation =
+                        MathF.Abs(MathF.Sin(headRotation)) * headHalfWidth
+                        + MathF.Abs(MathF.Cos(headRotation)) * headBottomExtent;
+                    float headBottomWithoutSink = globalPositions[waterHeadIndex].Y
+                        - waterSink.Offset + headHalfHeightAtRotation;
+                    float waterlineY = pos.Y + Program.FeetOffsetY * customScale - 1f;
+                    float maxSinkOffset = Math.Max(0f, waterlineY - headBottomWithoutSink - 2f);
+                    float clampedSinkOffset = Math.Min(waterSink.Offset, maxSinkOffset);
+                    float sinkCorrection = clampedSinkOffset - waterSink.Offset;
+                    if (sinkCorrection != 0f)
+                    {
+                        drawPos.Y += sinkCorrection;
+                        for (int i = 0; i < partCount; i++)
+                            globalPositions[i].Y += sinkCorrection;
+                    }
+                }
+            }
 
             // --------------------- SHADOW / WATER RIPPLE ---------------------
-            if (!_skeletonExtentCache.TryGetValue(speciesKey, out var skeletonExtents))
+            if (inWater)
             {
-                float maxBaseX = 0f;
-                float maxBaseY = 0f;
-                foreach (var part in skeleton)
-                {
-                    maxBaseX = Math.Max(maxBaseX, Math.Abs(part.BasePos.X));
-                    maxBaseY = Math.Max(maxBaseY, Math.Abs(part.BasePos.Y));
-                }
-                skeletonExtents = (maxBaseX, maxBaseY);
-                _skeletonExtentCache[speciesKey] = skeletonExtents;
+                // La surface reste au niveau du sol d'origine ; c'est le personnage qui
+                // s'enfonce. Ainsi, la ligne coupe naturellement le corps plus haut avec
+                // la profondeur au lieu de déplacer artificiellement la ligne d'eau.
+                float feetY = pos.Y + Program.FeetOffsetY * customScale;
+                _activeWaterlineWorldY = feetY - 1f;
+                _activeWaterDepthFactor = waterSink.Depth;
+                _activeWaterFadeDistanceWorld = Math.Max(18f, waterSink.BodyHeight * 0.48f);
+                _waterImmersionActive = true;
             }
+            else
+            {
+                _waterImmersionActive = false;
+                _activeWaterDepthFactor = 0f;
+            }
+
             float shadowRadiusX = Math.Max(16f, skeletonExtents.MaxBaseX * speciesScale);
             float shadowRadiusY = Math.Max(6f, skeletonExtents.MaxBaseY * speciesScale * 0.25f);
             float shadowY = pos.Y + (Program.FeetOffsetY - 6) * customScale + shadowGroundOffset;
@@ -1605,8 +1905,7 @@ namespace Soulfract
                     carriedEntityDrawn = true;
                 }
 
-                if (inWater && legParts.Contains(part.Name))
-                    continue;
+                // Les jambes restent dessinées : le shader d'immersion les traite comme le reste du corps.
 
                 bool isSkinPart = isHumanoid &&
                     (part.Name == "head" || part.Name.Contains("arm"));
@@ -1802,7 +2101,7 @@ namespace Soulfract
                         {
                             Texture2D gemTexture = slimeStoredItem.Icon;
                             Rectangle gemSource = new(0, 0, gemTexture.Width, gemTexture.Height);
-                            Raylib.DrawTexturePro(gemTexture, gemSource, gemDest, gemOrigin, globalRot,
+                            DrawImmersedTexture(gemTexture, gemSource, gemDest, gemOrigin, globalRot,
                                 new Color(255, 255, 255, 220));
                         }
                         else
@@ -2526,7 +2825,7 @@ namespace Soulfract
                         if (flowerTexture.Id != 0 && World.TryGetPottedFlowerDestination(flowerItemId, potRect, out _, out Rectangle flowerDestination))
                         {
                             float flowerSourceWidth = flowerTexture.Width * facing;
-                            Raylib.DrawTexturePro(flowerTexture,
+                            DrawImmersedTexture(flowerTexture,
                                 new Rectangle(facing < 0 ? flowerTexture.Width : 0, 0, flowerSourceWidth, flowerTexture.Height),
                                 flowerDestination,
                                 Vector2.Zero, 0, Color.White);
@@ -2618,6 +2917,10 @@ namespace Soulfract
                 }
                 ArrayPool<Vector2>.Shared.Return(globalPositions);
                 ArrayPool<float>.Shared.Return(globalRotations);
+                _waterImmersionActive = previousWaterImmersionActive;
+                _activeWaterlineWorldY = previousWaterlineWorldY;
+                _activeWaterDepthFactor = previousWaterDepthFactor;
+                _activeWaterFadeDistanceWorld = previousWaterFadeDistanceWorld;
                 ArrayPool<bool>.Shared.Return(computed);
                 PerfStats.EndEntityRender(measureEntityRender, entityRenderStart);
             }
@@ -3044,10 +3347,13 @@ namespace Soulfract
             if (SpeciesData.Species.TryGetValue(speciesKey, out var speciesInfo))
                 speciesScale = BASE_ENTITY_SCALE * speciesInfo.Scale * customScale;
 
-            float legHeight = SpeciesData.LegHeights.GetValueOrDefault(speciesKey, 0f);
-            Vector2 drawPos = pos;
-            if (inWater)
-                drawPos = new Vector2(pos.X, pos.Y + legHeight);
+            // Garder les positions calculées (tête, mains, objets tenus) alignées sur le
+            // squelette réellement dessiné, qui s'enfonce avec la profondeur de l'eau.
+            float maxBaseY = 0f;
+            foreach (var part in skeleton)
+                maxBaseY = Math.Max(maxBaseY, Math.Abs(part.BasePos.Y));
+            var waterSink = GetWaterSink(maxBaseY, speciesScale, pos, inWater);
+            Vector2 drawPos = pos + new Vector2(0f, waterSink.Offset);
 
             Vector2[] globalPositions = new Vector2[partCount];
             float[] globalRotations = new float[partCount];

@@ -1237,8 +1237,7 @@ namespace Soulfract
 			int tileSize = Program.TileSize;
 			if (!hasLeafSpawnPoints)
 			{
-				int height = GetHeightAt(x, y);
-				groundY = y * tileSize - height * tileSize / 4f + tileSize;
+				groundY = y * tileSize + tileSize;
 				leafSpawnPoints = new List<Vector2>();
 			}
 			int drawWidth = tileSize * (treeData?.Size?.Width ?? 4);
@@ -1415,11 +1414,8 @@ namespace Soulfract
 			if (tex.Id == 0) return false;
 
 			int ts = Program.TileSize;
-			int height = GetHeightAt(tileX, tileY);
-			float yOffset = -height * ts / 4f;
-
 			float baseWx = tileX * ts;
-			float baseWy = tileY * ts + yOffset;
+			float baseWy = tileY * ts;
 
 			int objWidth = ts * tileData.Size.Width;
 			int objHeight = ts * tileData.Size.Height;
@@ -1496,7 +1492,7 @@ namespace Soulfract
 					var treeData = WorldTileRegistry.GetTile(treeId);
 					if (treeData?.Size == null) continue;
 
-					float treeGroundY = (y + 1) * Program.TileSize - GetHeightAt(x, y) * Program.TileSize / 4f;
+					float treeGroundY = (y + 1) * Program.TileSize;
 					float treeCenterX = x * Program.TileSize + treeData.Size.Width * Program.TileSize / 2f;
 					float distanceSquared = Vector2.DistanceSquared(birdPosition, new Vector2(treeCenterX, treeGroundY));
 					if (distanceSquared >= nearestDistanceSquared) continue;

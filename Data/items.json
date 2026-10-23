@@ -403,6 +403,16 @@
       "thirstRestore": 1.5
     },
     {
+      "id": "nebularis",
+      "type": "food",
+      "stackSize": 50,
+      "value": 3,
+      "healAmount": 3,
+      "rarity": "common",
+      "hungerRestore": 6.0,
+      "thirstRestore": 1.5
+    },
+    {
       "id": "fly_agaric",
       "type": "food",
       "stackSize": 50,

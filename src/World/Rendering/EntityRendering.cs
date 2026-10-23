@@ -60,7 +60,7 @@ namespace Soulfract
 							continue;
 						if (!ShouldRenderEntity(dtoPos))
 							continue;
-						Vector2 dtoVisualPos = new(dtoPos.X, dtoPos.Y - GetHeightAt(tileX, tileY) * ts / 4f);
+						Vector2 dtoVisualPos = dtoPos;
 						if (!ctx.IsEntityNearScreen(dtoVisualPos))
 							continue;
 
@@ -195,14 +195,12 @@ namespace Soulfract
 					int tileX = (int)(entityVisualPos.X / ts);
 					int tileY = (int)(entityVisualPos.Y / ts);
 					if (!Program.IsTileLit(tileX, tileY)) continue;
-					int height = GetHeightAt(tileX, tileY);
-					float yOffset = -height * ts / 4;
 					var e = entity;
 					bool isTrader = e.IsTrader;
-					Vector2 traderIconPos = new Vector2(entityVisualPos.X, entityVisualPos.Y + yOffset - e.VisualOffsetY);
+					Vector2 traderIconPos = new Vector2(entityVisualPos.X, entityVisualPos.Y - e.VisualOffsetY);
 					renderItems.Add(new RenderItem
 					{
-						Y = entityVisualPos.Y + Program.FeetOffsetY + yOffset,
+						Y = entityVisualPos.Y + Program.FeetOffsetY,
 						DrawAction = () =>
 						{
 							//  BOSS VER DE TERRE : rendu segmenté dédié (trail), pas le squelette classique.
@@ -219,7 +217,7 @@ namespace Soulfract
 							Entity? mount = e.IsRidingMount && e.OwnedMount != null && e.OwnedMount.IsMounted && e.OwnedMount.Rider == e ? e.OwnedMount : null;
 							EntityRenderer.DrawEntity(
 								e.Species, e.AnimState, e.CurrentFrame, e.AnimProgress,
-								e.Facing, new Vector2(entityVisualPos.X, entityVisualPos.Y + yOffset - e.VisualOffsetY), e.Tint,
+								e.Facing, new Vector2(entityVisualPos.X, entityVisualPos.Y - e.VisualOffsetY), e.Tint,
 								hairBaseTex, hairOverlayTex, e.HairColor,
 								SpeciesData.Skeletons,
 								eyes: EntityRenderer.GetEyesTextureForSpecies(e.Species), mouth: Program.GetMouthTextureFor(e), forceBlinking: e.IsBlinking,
@@ -275,7 +273,7 @@ namespace Soulfract
 							if (e.Species != "human" && e.CurrentHP < e.MaxHP)
 							{
 								float ratio = Math.Clamp((float)e.CurrentHP / Math.Max(1, e.MaxHP), 0f, 1f);
-								Vector2 entityDrawPos = new Vector2(e.WorldPos.X, e.WorldPos.Y + yOffset - e.VisualOffsetY);
+								Vector2 entityDrawPos = new Vector2(e.WorldPos.X, e.WorldPos.Y - e.VisualOffsetY);
 								float topY = EntityRenderer.GetVisualTopY(
 									e.Species, e.AnimState, e.CurrentFrame, e.AnimProgress,
 									e.Facing, entityDrawPos, e.Scale, blendKey: e);
@@ -303,7 +301,7 @@ namespace Soulfract
 							}
 							if (e.Concussion > 0f && e.MaxHP > 0)
 							{
-								Vector2 entityDrawPos = new Vector2(e.WorldPos.X, e.WorldPos.Y + yOffset - e.VisualOffsetY);
+								Vector2 entityDrawPos = new Vector2(e.WorldPos.X, e.WorldPos.Y - e.VisualOffsetY);
 								float topY = EntityRenderer.GetVisualTopY(
 									e.Species, e.AnimState, e.CurrentFrame, e.AnimProgress,
 									e.Facing, entityDrawPos, e.Scale, blendKey: e);
@@ -395,7 +393,7 @@ namespace Soulfract
 					}
 					if (e.ShowAlertIcon && _alertIcon.Id != 0)
 					{
-						Vector2 iconWorldPos = new Vector2(e.WorldPos.X, e.WorldPos.Y + yOffset - e.VisualOffsetY);
+						Vector2 iconWorldPos = new Vector2(e.WorldPos.X, e.WorldPos.Y - e.VisualOffsetY);
 						renderItems.Add(new RenderItem
 						{
 							Y = float.MaxValue - 900,
@@ -418,8 +416,7 @@ namespace Soulfract
 					{
 						int entityTileX = (int)(entity.WorldPos.X / ts);
 						int entityTileY = (int)(entity.WorldPos.Y / ts);
-						int entityHeight = World.GetHeightAt(entityTileX, entityTileY);
-						float entityYOffset = -entityHeight * ts / 4;
+						float entityYOffset = 0f;
 						Vector2 iconWorldPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + entityYOffset - entity.VisualOffsetY);
 						renderItems.Add(new RenderItem
 						{

@@ -697,8 +697,7 @@
       "resultColor": [ 21, 62, 217, 255 ],
       "resultMetadata": "effect:speed:30",
       "ingredients": [
-        [ "white_flower", 1 ],
-        [ "mushroom", 1 ]
+        [ "chanterelle", 1 ]
       ],
       "station": "cauldron",
       "category": "brewing"

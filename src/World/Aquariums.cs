@@ -23,11 +23,8 @@ namespace Soulfract
 				var tileData = WorldTileRegistry.GetTile(99);
 				if (tileData?.Size == null) continue;
 				int ts = Program.TileSize;
-				int height = GetHeightAt(pos.x, pos.y);
-				float yOffset = -height * ts / 4;
-
 				float drawX = pos.x * ts + (tileData.DrawOffset?.X ?? 0);
-				float drawY = pos.y * ts + yOffset + (tileData.DrawOffset?.Y ?? 0);
+				float drawY = pos.y * ts + (tileData.DrawOffset?.Y ?? 0);
 				int objWidth = ts * tileData.Size.Width;
 				int objHeight = ts * tileData.Size.Height;
 				

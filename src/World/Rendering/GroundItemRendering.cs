@@ -36,8 +36,7 @@ namespace Soulfract
 					float alphaBottom = isLootbag && Program.LootbagTexture.Id != 0
 						? ItemRenderer.GetTextureAlphaBottom(Program.LootbagTexture, "lootbag")
 						: ItemRenderer.GetItemAlphaBottom(itemData);
-					float groundLift = GetGroundItemHeightLift(gi.Position.X, gi.Position.Y);
-					float shadowY = gi.Position.Y + 5f - groundLift;
+					float shadowY = gi.Position.Y + 5f;
 					Vector2 drawPos = new Vector2(gi.Position.X, shadowY - gi.Height + itemSize / 2f - alphaBottom * itemSize);
 					float itemRenderWidth = MathF.Max(itemSize, shadowWidth);
 					float itemRenderTop = MathF.Min(drawPos.Y, shadowY - 4f);
@@ -47,7 +46,7 @@ namespace Soulfract
 				
 					renderItems.Add(new RenderItem
 					{
-						Y = gi.Position.Y - groundLift,
+						Y = gi.Position.Y,
 						Kind = RenderItemKind.GroundItem,
 						Tag = new GroundItemRenderTag(gi, itemData, itemColor, isLootbag, shadowWidth, alphaBottom, gi.GroundVelocity.X * 0.5f, drawPos, itemSize, gi.Metadata, gi.CustomColor)
 					});
@@ -75,8 +74,7 @@ namespace Soulfract
 						float alphaBottom = isLootbag && Program.LootbagTexture.Id != 0
 							? ItemRenderer.GetTextureAlphaBottom(Program.LootbagTexture, "lootbag")
 							: ItemRenderer.GetItemAlphaBottom(netItemData);
-						float netLift = GetGroundItemHeightLift(ngi.PosX, ngi.PosY);
-						float shadowY = ngi.PosY + 5f - netLift;
+						float shadowY = ngi.PosY + 5f;
 						Vector2 drawPos = new Vector2(ngi.PosX, shadowY + itemSize / 2f - alphaBottom * itemSize);
 						float itemRenderWidth = MathF.Max(itemSize, shadowWidth);
 						float itemRenderTop = MathF.Min(drawPos.Y, shadowY - 4f);
@@ -86,7 +84,7 @@ namespace Soulfract
 
 						renderItems.Add(new RenderItem
 						{
-							Y = ngi.PosY - netLift,
+							Y = ngi.PosY,
 							DrawAction = () =>
 							{
 								float size = itemSize;

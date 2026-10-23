@@ -4,7 +4,7 @@
 // L'ancienne méthode géante (~3300 lignes) est découpée en phases, une par fichier :
 //   Context      : DrawWorldContext (paramètres + bornes visibles + grilles de tuiles)
 //   TileGrid     : remplissage des grilles de tuiles
-//   Terrain      : sol, falaises, eau, bordures de biomes
+//   Terrain      : sol, eau, bordures de biomes
 //   Boats        : radeaux + objets posés dessus
 //   GroundItems  : items au sol
 //   WorldObjects : objets du monde, icônes de portes

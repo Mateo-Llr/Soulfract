@@ -101,10 +101,9 @@ namespace Soulfract
 
 		private static void EnsureRenderTileBuffers(int width, int height)
 		{
-			if (_renderHeights.GetLength(0) >= width && _renderHeights.GetLength(1) >= height)
+			if (_renderGroundIds.GetLength(0) >= width && _renderGroundIds.GetLength(1) >= height)
 				return;
 
-			_renderHeights = new int[width, height];
 			_renderGroundIds = new int[width, height];
 			_renderObjectIds = new int[width, height];
 			_renderOverlayIds = new int[width, height];
@@ -227,22 +226,6 @@ namespace Soulfract
 				}
 			}
 		}
-
-		/// <summary>
-		/// Décalage visuel vertical (pixels, positif = vers le haut) appliqué à un objet posé au sol à
-		/// la position logique donnée. Le terrain, les objets, les entités et le joueur sont tous
-		/// dessinés remontés de (hauteur * ts / 4) ; les objets au sol ne l'étaient pas, donc ils
-		/// paraissaient plus bas que le joueur de cette valeur et il fallait « monter » pour les
-		/// attraper alors que la logique (ramassage, casse) compare des positions logiques.
-		/// </summary>
-		private static float GetGroundItemHeightLift(float worldX, float worldY)
-		{
-			if (_isUnderground) return 0f;
-			int ts = Program.TileSize;
-			int h = GetHeightAt((int)Math.Floor(worldX / ts), (int)Math.Floor(worldY / ts));
-			return h * ts / 4f;
-		}
-
 
     }
 }

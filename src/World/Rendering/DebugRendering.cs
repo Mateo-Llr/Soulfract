@@ -116,8 +116,7 @@ namespace Soulfract
 								{
 									if (!pfBlocked.Contains((dbx, dby))) continue;
 									if (GetObjectIdAt(dbx, dby) != 0) continue;
-									int dbHeight = GetHeightAt(dbx, dby);
-									int dbBaseY = dby * ts - (dbHeight * ts / 4);
+									int dbBaseY = dby * ts;
 									Raylib.DrawRectangleLinesEx(new Rectangle(dbx * ts, dbBaseY, ts, ts), 2, Color.Orange);
 								}
 							}

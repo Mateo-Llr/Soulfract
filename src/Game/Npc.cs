@@ -87,10 +87,7 @@ namespace Soulfract
 					continue;
 
 				Vector2 entityVisualPos = entity.VisualWorldPos;
-				int tileX = (int)(entityVisualPos.X / TileSize);
-				int tileY = (int)(entityVisualPos.Y / TileSize);
-				int height = World.GetHeightAt(tileX, tileY);
-				Vector2 visualPos = new(entityVisualPos.X, entityVisualPos.Y - height * TileSize / 4f);
+				Vector2 visualPos = entityVisualPos;
 				float distSq = Vector2.DistanceSquared(mouseWorld, visualPos);
 				if (distSq < bestDistSq)
 				{
@@ -342,10 +339,7 @@ namespace Soulfract
 				if (entity.IsTamed && !entity.IsGuildMember) continue;
 
 				Vector2 entityVisualPos = entity.VisualWorldPos;
-				int tileX = (int)(entityVisualPos.X / TileSize);
-				int tileY = (int)(entityVisualPos.Y / TileSize);
-				int height = World.GetHeightAt(tileX, tileY);
-				Vector2 visualPos = new(entityVisualPos.X, entityVisualPos.Y - height * TileSize / 4f);
+				Vector2 visualPos = entityVisualPos;
 
 				float distSq = Vector2.DistanceSquared(mouseWorld, visualPos);
 				if (distSq < bestDistSq)
@@ -481,11 +475,7 @@ namespace Soulfract
 				if (entity.IsTamed && !entity.IsGuildMember) continue;
 
 				// Position visuelle de l'entité
-				int tileX = (int)(entity.WorldPos.X / TileSize);
-				int tileY = (int)(entity.WorldPos.Y / TileSize);
-				int height = World.GetHeightAt(tileX, tileY);
-				float yOffset = -height * TileSize / 4;
-				Vector2 visualPos = new Vector2(entity.WorldPos.X, entity.WorldPos.Y + yOffset);
+				Vector2 visualPos = entity.WorldPos;
 				
 				float distSq = Vector2.DistanceSquared(mouseWorld, visualPos);
 				

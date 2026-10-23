@@ -1,5 +1,5 @@
 // TerrainRendering.cs
-// Sol, falaises, eau et bordures de biomes.
+// Sol, eau et bordures de biomes.
 // Fichier extrait de DrawWorld.cs (classe partielle World).
 #nullable enable
 using Raylib_cs;
@@ -12,7 +12,7 @@ namespace Soulfract
     {
         private static partial class DrawPhases
         {
-			/// <summary>Phase 2 : fond (sous-sol / intérieur), mise à jour du shader d'eau, puis sol + falaises + bordures de biomes.</summary>
+			/// <summary>Phase 2 : fond (sous-sol / intérieur), mise à jour du shader d'eau, puis sol et bordures de biomes.</summary>
 			internal static void DrawTerrain(DrawWorldContext ctx)
 			{
 				Vector2 playerPos = ctx.playerPos;
@@ -22,9 +22,6 @@ namespace Soulfract
 				int sw = ctx.sw;
 				int sh = ctx.sh;
 				float currentTime = ctx.currentTime;
-
-				Texture2D cliffDownTex = GetCliffDownTexture(missingTex);
-				Texture2D cliffBorderTex = GetCliffBorderTexture(missingTex);
 
 				if (_isUnderground)
 					Raylib.DrawRectangle(0, 0, sw, sh, new Color(0, 0, 0, 100));
@@ -36,12 +33,12 @@ namespace Soulfract
 				UpdateWaterShaderTime(currentTime, playerPos, isPlayerInWater, entities);
 				_renderBiomeBorders.Clear();
 
-				DrawGroundTiles(ctx, cliffDownTex, cliffBorderTex);
+				DrawGroundTiles(ctx);
 				DrawBiomeBorders(ctx);
 			}
 
-			/// <summary>Sol (eau via shader, textures, rail legacy), décorations, zones debug et falaises, tout en une seule boucle.</summary>
-			internal static void DrawGroundTiles(DrawWorldContext ctx, Texture2D cliffDownTex, Texture2D cliffBorderTex)
+			/// <summary>Sol (eau via shader, textures, rail legacy), décorations et zones debug en une seule boucle.</summary>
+			internal static void DrawGroundTiles(DrawWorldContext ctx)
 			{
 				Texture2D missingTex = ctx.missingTex;
 				Dictionary<int, Texture2D> tileTextures = ctx.tileTextures;
@@ -52,7 +49,6 @@ namespace Soulfract
 				int endY = ctx.endY;
 				int width = ctx.width;
 				int heightTiles = ctx.heightTiles;
-				int[,] heights = ctx.heights;
 				int[,] groundIds = ctx.groundIds;
 				int[,] objectIds = ctx.objectIds;
 				int[,] buildingIds = ctx.buildingIds;
@@ -62,7 +58,7 @@ namespace Soulfract
 				bool drawBiomeBorders = ctx.drawBiomeBorders;
 
 				// =================================================================================
-				// 1. SOL, DÉCORATIONS, BORDURES, FALAISES (tout en une seule boucle)
+				// 1. SOL ET DÉCORATIONS
 				// =================================================================================
 				for (int ix = 0; ix < width; ix++)
 				{
@@ -77,8 +73,7 @@ namespace Soulfract
 							EnsureWaterShaderInactive();
 							continue;
 						}
-						int height = heights[ix, iy];
-						int drawY = worldY * ts - (height * ts / 4);
+						int drawY = worldY * ts;
 						int groundId = groundIds[ix, iy];
 						int objectId = objectIds[ix, iy];
 						bool tileDrawVisible = ctx.IsWorldRectVisible(worldX * ts, drawY, ts, ts);
@@ -173,56 +168,6 @@ namespace Soulfract
 							}
 						}
 
-						// Le relief du fond marin reste utilisé par le dégradé de profondeur,
-						// mais ne dessine ni falaises sous-marines ni ruptures de hauteur au rivage.
-						if (!_isUnderground && !_isPlayerIndoors && groundId != 10)
-						{
-							// Bas
-							if (iy + 1 < heightTiles && groundIds[ix, iy + 1] != 10)
-							{
-								int downHeight = heights[ix, iy + 1];
-								int diff = height - downHeight;
-								if (diff > 0)
-								{
-									float cliffY = worldY * ts - height * ts / 4f + ts;
-									if (ctx.IsWorldRectVisible(worldX * ts, cliffY, ts, diff * (ts / 4)))
-										DrawCliffDown(worldX, worldY, diff, ts, cliffDownTex, height);
-								}
-							}
-							// Gauche
-							if (ix - 1 >= 0 && groundIds[ix - 1, iy] != 10)
-							{
-								int leftHeight = heights[ix - 1, iy];
-								if (height > leftHeight)
-								{
-									float cliffY = worldY * ts - height * ts / 4f;
-									if (ctx.IsWorldRectVisible(worldX * ts, cliffY, ts / 4f, ts))
-										DrawCliffBorder(worldX, worldY, -1, 0, ts, cliffBorderTex, height);
-								}
-							}
-							// Haut
-							if (iy - 1 >= 0 && groundIds[ix, iy - 1] != 10)
-							{
-								int upHeight = heights[ix, iy - 1];
-								if (height > upHeight)
-								{
-									float cliffY = worldY * ts - height * ts / 4f;
-									if (ctx.IsWorldRectVisible(worldX * ts, cliffY, ts / 4f, ts))
-										DrawCliffBorder(worldX, worldY, 0, -1, ts, cliffBorderTex, height);
-								}
-							}
-							// Droite
-							if (ix + 1 < width && groundIds[ix + 1, iy] != 10)
-							{
-								int rightHeight = heights[ix + 1, iy];
-								if (height > rightHeight)
-								{
-									float cliffY = worldY * ts - height * ts / 4f;
-									if (ctx.IsWorldRectVisible(worldX * ts + ts - ts / 4f, cliffY, ts / 4f, ts))
-										DrawCliffBorder(worldX, worldY, 1, 0, ts, cliffBorderTex, height);
-								}
-							}
-						}
 					}
 				}
 
@@ -240,7 +185,6 @@ namespace Soulfract
 				float currentTime = ctx.currentTime;
 				int startX = ctx.startX;
 				int startY = ctx.startY;
-				int[,] heights = ctx.heights;
 				int[,] groundIds = ctx.groundIds;
 				bool drawBiomeBorders = ctx.drawBiomeBorders;
 
@@ -266,22 +210,22 @@ namespace Soulfract
 						switch (edge.direction)
 						{
 							case BiomeBorderDirection.Right:
-								int rightDrawY = wy * ts - heights[bx + 1, by] * ts / 4;
+								int rightDrawY = wy * ts;
 								destination = new Rectangle((wx + 1) * ts, rightDrawY, ts, ts);
 								break;
 							case BiomeBorderDirection.Left:
 								source = new Rectangle(borderTex.Width, 0, -borderTex.Width, borderTex.Height);
-								int leftDrawY = wy * ts - heights[bx - 1, by] * ts / 4;
+								int leftDrawY = wy * ts;
 								destination = new Rectangle((wx - 1) * ts, leftDrawY, ts, ts);
 								break;
 							case BiomeBorderDirection.Bottom:
-								int bottomDrawY = (wy + 1) * ts - heights[bx, by + 1] * ts / 4;
+								int bottomDrawY = (wy + 1) * ts;
 								destination = new Rectangle(wx * ts + ts / 2f, bottomDrawY + ts / 2f, ts, ts);
 								origin = new Vector2(ts / 2f, ts / 2f);
 								rotation = 90f;
 								break;
 							default:
-								int topDrawY = (wy - 1) * ts - heights[bx, by - 1] * ts / 4;
+								int topDrawY = (wy - 1) * ts;
 								destination = new Rectangle(wx * ts + ts / 2f, topDrawY + ts / 2f, ts, ts);
 								origin = new Vector2(ts / 2f, ts / 2f);
 								rotation = -90f;

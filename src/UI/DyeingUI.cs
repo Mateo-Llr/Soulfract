@@ -510,14 +510,8 @@ namespace Soulfract
                 Raylib.DrawRectangleRoundedLines(slotRect, 0.1f, 6, 1, COLOR_BORDER);
             }
 
-            // Si un item est présent, on le dessine par‑dessus
-            if (!_dyeSlot.IsEmpty && _dyeSlot.Item != null)
-            {
-                ItemRenderer.DrawItemPadded(_dyeSlot.Item, slotX, slotY, SLOT_SIZE, 4);
-                if (_dyeSlot.Count > 1)
-                    Raylib.DrawText(_dyeSlot.Count.ToString(), slotX + SLOT_SIZE - 20, slotY + SLOT_SIZE - 20, 16, Color.White);
-            }
-            else
+            UIManager.DrawInventorySlotContents(_dyeSlot, slotRect, SLOT_SIZE, itemPadding: 4, countFontSize: 16);
+            if (_dyeSlot.IsEmpty || _dyeSlot.Item == null)
             {
                 // Texte d'invite
                 string hint = "Glissez un item";

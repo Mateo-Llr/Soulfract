@@ -1481,11 +1481,7 @@ namespace Soulfract
             }
 
             int ts = Program.TileSize;
-            int tileX = (int)(WorldPos.X / ts);
-            int tileY = (int)(WorldPos.Y / ts);
-            int height = World.GetHeightAt(tileX, tileY);
-            float yOffset = -height * ts / 4;
-            Vector2 headPos = new Vector2(WorldPos.X, WorldPos.Y + yOffset - ts * 0.9f);
+            Vector2 headPos = new Vector2(WorldPos.X, WorldPos.Y - ts * 0.9f);
 
             const int fontSize = 11;
             const int lineHeight = 13;

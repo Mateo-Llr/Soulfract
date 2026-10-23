@@ -456,11 +456,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 		public static bool IsCollidingEntity(Vector2 groundPos, HashSet<string> destroyed, string species)
 		{
 			Vector2 dim = GetEntityDimensions(species);
-			int tileX = (int)Math.Floor(groundPos.X / Program.TileSize);
-			int tileY = (int)Math.Floor(groundPos.Y / Program.TileSize);
-			int height = GetHeightAt(tileX, tileY);
-			float yOffset = -height * Program.TileSize / 4;
-			float entityBaseY = groundPos.Y + yOffset + Program.FeetOffsetY;
+			float entityBaseY = groundPos.Y + Program.FeetOffsetY;
 			Rectangle entityRect = new Rectangle(groundPos.X - dim.X / 2f, entityBaseY - dim.Y, dim.X, dim.Y);
 			return CheckCollision(groundPos, entityRect, destroyed, Program.TileSize); // CheckCollision inclut déjà les bateaux maintenant
 			
@@ -481,7 +477,6 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 		{
 			int playerTileX = (int)Math.Floor(groundPos.X / ts);
 			int playerTileY = (int)Math.Floor(groundPos.Y / ts);
-			int playerHeight = GetHeightAt(playerTileX, playerTileY);
 			for (int dx = -3; dx <= 3; dx++)
 			for (int dy = -3; dy <= 3; dy++)
 			{
@@ -493,8 +488,6 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 				int tileId = GetTileIdAt(wX, wY);
 				var tileData = WorldTileRegistry.GetTile(tileId);
 				if (tileData == null || tileData.Walkable) continue;
-				int tileHeight = GetHeightAt(wX, wY);
-				if (tileHeight < playerHeight - 1) continue;
 				
 				var (x, y, w, h) = GetCollisionRect(wX, wY, tileData, ts);
 				// (L'ancrage bas-gauche est désormais géré directement dans GetCollisionRect,
@@ -527,11 +520,8 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					string key = $"{tileX}_{tileY}";
 					if (destroyed.Contains(key)) continue;
 					
-					int height = GetHeightAt(tileX, tileY);
-					float yOffset = -height * ts / 4;
-					
 					float drawX = tileWorldPos.X - ts/2f;
-					float drawY = tileWorldPos.Y - ts/2f + yOffset;
+					float drawY = tileWorldPos.Y - ts/2f;
 					int drawW = ts, drawH = ts;
 					int offX = 0, offY = 0;
 					
@@ -559,7 +549,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					{
 						hitboxW = ts * boatTileData.CollisionSize.Width;
 						hitboxH = ts * boatTileData.CollisionSize.Height;
-						int boatBaseY = tileY * ts - (height * ts / 4);
+						int boatBaseY = tileY * ts;
 						hitboxX = (int)(drawX + (boatTileData.CollisionOffset?.X ?? 0));
 						hitboxY = (int)(boatBaseY + ts - hitboxH - (boatTileData.CollisionOffset?.Y ?? 0));
 					}

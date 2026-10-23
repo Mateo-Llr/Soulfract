@@ -43,7 +43,6 @@ namespace Soulfract
 				int endY = ctx.endY;
 				int width = ctx.width;
 				int heightTiles = ctx.heightTiles;
-				int[,] heights = ctx.heights;
 				int[,] objectIds = ctx.objectIds;
 				int[,] overlayIds = ctx.overlayIds;
 				int[,] buildingIds = ctx.buildingIds;
@@ -62,9 +61,8 @@ namespace Soulfract
 						// Cercle rituel (traitement spécial)
 						if (objectId == 4000)
 						{
-							int ritualHeight = heights[ix, iy];
 							float ritualWx = worldX * ts;
-							float ritualWy = worldY * ts - (ritualHeight * ts / 4);
+							float ritualWy = worldY * ts;
 							var ritualTileData = WorldTileRegistry.GetTile(4000);
 							if (ritualTileData != null)
 							{
@@ -98,8 +96,7 @@ namespace Soulfract
 						var tileData = WorldTileRegistry.GetTile(objectId);
 						if (tileData == null) continue;
 
-						int height = heights[ix, iy];
-						float wx = worldX * ts, wy = worldY * ts - (height * ts / 4);
+						float wx = worldX * ts, wy = worldY * ts;
 
 						int objectDrawWidth = tileData.Size != null ? ts * tileData.Size.Width : ts;
 						int objectDrawHeight = tileData.Size != null ? ts * tileData.Size.Height : ts;

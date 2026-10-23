@@ -207,9 +207,8 @@ namespace Soulfract
 					seedDrawH = ts * previewTreeData.Size.Height;
 				}
 				
-				int seedHeight = World.GetHeightAt(seedTileX, seedTileY);
 				int seedDrawX = seedTileX * ts + (previewTreeData?.DrawOffset?.X ?? 0);
-				int seedDrawY = seedTileY * ts - (seedHeight * ts / 4) - seedDrawH + ts;
+				int seedDrawY = seedTileY * ts - seedDrawH + ts;
 				
 				Color seedGhostColor = new Color(255, 255, 255, 180);
 				
@@ -292,13 +291,9 @@ namespace Soulfract
 							 World.GetGroundTileIdAt(worldTileX, worldTileY) == 11) &&
 							World.GetObjectIdAt(worldTileX, worldTileY) == 0)
 						{
-							// Position réelle et continue de la case candidate (pas re-alignée sur
-							// la grille MONDE) + décalage de hauteur, pour rester exact même quand
-							// le bateau a dérivé et n'est plus pile sur une frontière de tuile.
-							int candidateHeight = World.GetHeightAt(worldTileX, worldTileY);
-							float candYOffset = -candidateHeight * ts / 4f;
+							// Position réelle et continue de la case candidate, même quand le bateau a dérivé.
 							float boatDrawX = candidateWorld.X - ts / 2f;
-							float boatDrawY = candidateWorld.Y - ts / 2f + candYOffset;
+							float boatDrawY = candidateWorld.Y - ts / 2f;
 
 							UpdateSelectAnimation(Raylib.GetFrameTime());
 							if (_selectTextures.Count > 0 && _selectTextures[_selectAnimFrame].Id != 0)
@@ -348,13 +343,8 @@ namespace Soulfract
 					return; // case déjà occupée
 
 				Vector2 tileWorldPos = previewBoat.GetTileWorldPos(relX, relY);
-				int furnTileX = (int)(tileWorldPos.X / ts);
-				int furnTileY = (int)(tileWorldPos.Y / ts);
-				int height = World.GetHeightAt(furnTileX, furnTileY);
-				float yOffset = -height * ts / 4f;
-
 				float furnDrawX = tileWorldPos.X - ts / 2f;
-				float furnDrawY = tileWorldPos.Y - ts / 2f + yOffset;
+				float furnDrawY = tileWorldPos.Y - ts / 2f;
 				float furnW = ts, furnH = ts;
 
 				if (tileData.Size != null)
@@ -411,10 +401,8 @@ namespace Soulfract
 				if (currentTileData != null && !currentTileData.Diggable) return;
 			}
 
-			int heightAtTarget = World.GetHeightAt(tileX, tileY);
-
 			int drawX = tileX * ts;
-			int drawY = tileY * ts - (heightAtTarget * ts / 4);
+			int drawY = tileY * ts;
 
 			int w = ts, h = ts;
 
