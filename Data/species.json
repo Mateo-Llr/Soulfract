@@ -1543,6 +1543,7 @@
       "scale": 0.8,
       "speed": 115,
       "runSpeed": 310,
+      "portable":true,
       "maxHp": 15,
       "attack": 2,
       "behavior": "passive",

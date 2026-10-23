@@ -15,6 +15,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Validate version tag
+        shell: pwsh
+        run: |
+          # Le tag doit etre de la forme v1.0.26 (ou v1.0.26-beta) : .NET refuse les versions non numeriques.
+          if ($env:GITHUB_REF_NAME -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') {
+            Write-Error "Tag invalide '$env:GITHUB_REF_NAME'. Format attendu : v1.0.26"
+            exit 1
+          }
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -47,7 +56,9 @@ jobs:
       - name: Package game
         shell: pwsh
         run: |
-          Get-ChildItem publish/game -File -Recurse -Include *.dylib,*.so,*.pdb,*.xml | Remove-Item -Force
+          # IMPORTANT : nettoyage a la RACINE uniquement (pas de -Recurse), sinon les
+          # fichiers de Data/, assets/ et GuildEmblems/ (.xml, etc.) sont supprimes du jeu.
+          Get-ChildItem publish/game -File -Include *.dylib,*.so,*.pdb | Remove-Item -Force
           Compress-Archive -Path publish/game/* -DestinationPath publish/Soulfract-win-x64.zip -CompressionLevel Optimal
 
       - name: Create incremental game update
