@@ -4034,12 +4034,21 @@
       "id": 7000,
       "name": "Porte-bannière",
       "texture": "banner_holder",
+      "hardness": 2,
+      "material": "wood",
       "walkable": false,
-      "diggable": false,
+      "diggable": true,
       "collectable": false,
       "furniture": true,
-      "drops": [],
-      "miningTool": "none",
+      "drops": [
+        {
+          "id": "banner_holder",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
       "size": {
         "width": 2,
         "height": 3
@@ -4269,6 +4278,38 @@
       "size": {
         "width": 6,
         "height": 5
+      }
+    },
+    {
+      "id": 125,
+      "name": "Épouvantail",
+      "texture": "scarecrow",
+      "hardness": 3,
+      "material": "wood",
+      "furniture": true,
+      "walkable": false,
+      "diggable": true,
+      "swaysInWind": true,
+      "drops": [
+        {
+          "id": "scarecrow",
+          "minQty": 1,
+          "maxQty": 1,
+          "chance": 1.0
+        }
+      ],
+      "miningTool": "axe",
+      "size": {
+        "width": 3,
+        "height": 3
+      },
+      "collisionSize": {
+        "width": 1,
+        "height": 1
+      },
+      "drawOffset": {
+        "x": -40,
+        "y": 0
       }
     }
   ]

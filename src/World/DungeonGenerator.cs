@@ -920,18 +920,12 @@ namespace Soulfract
                 Color backgroundColor = palette[backgroundIndex];
                 Color patternColor = palette[patternColorIndex];
 
-                World.GetChunkAt(worldX, worldY)?.SetBannerHolderAt(worldX, worldY, new BannerHolderData
-                {
-                    HasBanner = true,
-                    PatternName = patternNames[c.Rand.Next(patternNames.Length)],
-                    ShapeName = shapeNames[c.Rand.Next(shapeNames.Length)],
-                    BgR = backgroundColor.R,
-                    BgG = backgroundColor.G,
-                    BgB = backgroundColor.B,
-                    PatR = patternColor.R,
-                    PatG = patternColor.G,
-                    PatB = patternColor.B,
-                });
+                World.GetChunkAt(worldX, worldY)?.SetBannerHolderAt(worldX, worldY,
+                    BannerHolderData.WithBanner(BannerHolderData.CreateBannerItem(
+                        patternNames[c.Rand.Next(patternNames.Length)],
+                        shapeNames[c.Rand.Next(shapeNames.Length)],
+                        backgroundColor,
+                        patternColor)));
             }
         }
 

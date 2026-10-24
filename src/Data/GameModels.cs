@@ -1015,44 +1015,48 @@ public readonly struct ProjectileRenderTag
 	// ─── BANNIÈRES DE VILLAGE ────────────────────────────────────────────────────
 	public class BannerHolderData
 	{
-		public bool HasBanner { get; set; } = true;
-		public string PatternName { get; set; } = "";
-		public string ShapeName  { get; set; } = "";
-		public byte BgR { get; set; } = 180;
-		public byte BgG { get; set; } = 20;
-		public byte BgB { get; set; } = 20;
-		public byte PatR { get; set; } = 240;
-		public byte PatG { get; set; } = 200;
-		public byte PatB { get; set; } = 50;
+		public InventorySlot Slot { get; } = new();
+		public bool HasBanner => !Slot.IsEmpty;
+		public Item? BannerItem => HasBanner ? Slot.Item : null;
+		public string PatternName => GetStylePart(0);
+		public string ShapeName => GetStylePart(1);
+		public Color BackgroundColor => GetStyleColor(0, new Color(180, 20, 20, 255));
+		public Color PatternColor => GetStyleColor(1, new Color(240, 200, 50, 255));
 
-		public Color BackgroundColor => new Color(BgR, BgG, BgB, (byte)255);
-		public Color PatternColor    => new Color(PatR, PatG, PatB, (byte)255);
-
-		/// <summary>Encode le style pour le stocker dans Item.Metadata</summary>
-		public string ToMetadata() => $"{PatternName}|{ShapeName}";
-
-		public static BannerHolderData FromMetadata(string meta, List<Color?> colors)
+		private string GetStylePart(int index)
 		{
-			var parts = meta.Split('|');
-			var d = new BannerHolderData
+			string[] parts = (BannerItem?.Metadata ?? "").Split('|');
+			return parts.Length > index ? parts[index] : "";
+		}
+
+		private Color GetStyleColor(int index, Color fallback)
+		{
+			var colors = BannerItem?.CustomColors;
+			return colors != null && colors.Count > index && colors[index].HasValue
+				? colors[index]!.Value
+				: fallback;
+		}
+
+		public static BannerHolderData WithBanner(Item bannerItem)
+		{
+			var data = new BannerHolderData();
+			data.Slot.Item = bannerItem;
+			data.Slot.Count = 1;
+			return data;
+		}
+
+		public static Item CreateBannerItem(string patternName, string shapeName, Color backgroundColor, Color patternColor)
+		{
+			int bannerId = GameData.GetItemId("banner");
+			if (bannerId == 0 || !GameData.ItemDatabase.TryGetValue(bannerId, out var itemData))
+				throw new InvalidOperationException("The banner item is missing from the item database.");
+
+			var item = new Item(itemData.Name, 1, itemData.Color, itemData.Icon)
 			{
-				HasBanner   = true,
-				PatternName = parts.Length > 0 ? parts[0] : "",
-				ShapeName   = parts.Length > 1 ? parts[1] : "",
+				Metadata = $"{patternName}|{shapeName}",
+				CustomColors = new List<Color?> { backgroundColor, patternColor }
 			};
-			if (colors.Count > 0 && colors[0].HasValue)
-			{
-				d.BgR = colors[0]!.Value.R;
-				d.BgG = colors[0]!.Value.G;
-				d.BgB = colors[0]!.Value.B;
-			}
-			if (colors.Count > 1 && colors[1].HasValue)
-			{
-				d.PatR = colors[1]!.Value.R;
-				d.PatG = colors[1]!.Value.G;
-				d.PatB = colors[1]!.Value.B;
-			}
-			return d;
+			return item;
 		}
 	}
 	

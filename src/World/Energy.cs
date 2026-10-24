@@ -316,13 +316,17 @@ namespace Soulfract
 				PerfStats.StartSection(PerfStats.Section.ChunkEntityMerge);
 				try
 				{
+					var entitiesByNetId = new Dictionary<Guid, Entity>();
+					foreach (var entity in globalEntities)
+						entitiesByNetId.TryAdd(entity.NetId, entity);
+
 					foreach (var savedEntity in dungeonChunk.Entities)
 					{
-						var loadedEntity = globalEntities.FirstOrDefault(entity => entity.NetId == savedEntity.NetId);
-						if (loadedEntity == null)
+						if (!entitiesByNetId.TryGetValue(savedEntity.NetId, out var loadedEntity))
 						{
 							loadedEntity = savedEntity;
-							globalEntities.Add(loadedEntity);
+							globalEntities.Add(savedEntity);
+							entitiesByNetId.Add(savedEntity.NetId, savedEntity);
 						}
 
 						if (string.Equals(loadedEntity.Species, "ogre", StringComparison.OrdinalIgnoreCase))

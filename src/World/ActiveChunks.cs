@@ -12,6 +12,10 @@ namespace Soulfract
 		// Réutilisé à chaque mise à jour pour éviter une allocation de HashSet par frame.
 		// UpdateActiveChunks est exécutée séquentiellement sur le thread du jeu.
 		private static readonly HashSet<(int x, int y)> _shouldBeLoadedChunksScratch = new();
+		private static readonly Queue<(int x, int y)> _pendingChunkUnloads = new();
+		private static readonly HashSet<(int x, int y)> _pendingChunkUnloadKeys = new();
+		private static Dictionary<(int chunkX, int chunkY), ChunkData>? _pendingChunkUnloadOwner;
+		private const int CHUNKS_UNLOADED_PER_FRAME = 1;
 
 		public static void UpdateActiveChunks(Vector2 playerPos, float currentTime, List<Entity> globalEntities)
 		{
@@ -82,6 +86,12 @@ namespace Soulfract
 			}
 			
 			var chunksDict = GetChunksDict();
+			if (!ReferenceEquals(_pendingChunkUnloadOwner, chunksDict))
+			{
+				_pendingChunkUnloads.Clear();
+				_pendingChunkUnloadKeys.Clear();
+				_pendingChunkUnloadOwner = chunksDict;
+			}
 			
 			// Réutiliser la collection temporaire au lieu de l'allouer à chaque frame.
 			var shouldBeLoaded = _shouldBeLoadedChunksScratch;
@@ -136,65 +146,57 @@ namespace Soulfract
 			// loin de l'entrée) — les décharger comme le monde normal supprimerait immédiatement
 			// leurs entités (boss compris) de la liste globale dès la génération.
 			if (_isInDungeon)
+			{
+				_pendingChunkUnloads.Clear();
+				_pendingChunkUnloadKeys.Clear();
 				return;
+			}
 
 			PerfStats.StartSection(PerfStats.Section.ChunkUnloadWork);
-			var toUnload = new List<(int x, int y)>();
 			foreach (var chunk in chunksDict)
 			{
-				// CORRECTION : utiliser chunk.Key.Item1 et chunk.Key.Item2
-				if (!shouldBeLoaded.Contains((chunk.Key.Item1, chunk.Key.Item2)))
-				{
-					//  CORRECTION DUPLICATION : chunk.Entities n'est JAMAIS tenu à jour quand
-					// une entité se déplace d'un chunk à l'autre en cours de jeu (rien ne la
-					// retire du chunk qu'elle quitte, rien ne l'ajoute à celui qu'elle rejoint).
-					// Si on sauvegardait chunk.Entities tel quel, on pouvait donc écrire sur
-					// disque une entité qui a déjà quitté ce chunk depuis longtemps (avec sa
-					// position actuelle, potentiellement dans un tout autre chunk), tandis que
-					// le chunk qu'elle occupe réellement ne la connaît pas. Au rechargement,
-					// cette entité "fantôme" ressortait comme une copie en plus de l'originale.
-					// On reconstruit donc la liste juste avant sauvegarde à partir de la
-					// position RÉELLE des entités dans globalEntities : chaque entité n'est
-					// ainsi jamais persistée que dans le fichier du chunk où elle se trouve
-					// vraiment au moment de la sauvegarde.
-					var entitiesReallyInThisChunk = new List<Entity>();
-					for (int i = globalEntities.Count - 1; i >= 0; i--)
-					{
-						var entity = globalEntities[i];
-						//  Les compagnons d'armure (crabe, etc.) ne sont jamais liés à un chunk : ils
-						// sont entièrement dérivés de l'équipement porté et respawnés à chaque
-						// chargement (voir Program.UpdateArmorCompanions / SaveChunkEntities). Les
-						// laisser passer ici les faisait disparaître silencieusement dès que leur
-						// chunk du moment se déchargeait (ex : juste après le chargement d'une
-						// partie, avant que la caméra ne soit recentrée sur le joueur) : le nuage de
-						// fumée d'apparition se déclenchait, mais le crabe était retiré juste après.
-						if (entity.IsPetCompanion) continue;
-						int entityChunkX = (int)Math.Floor(entity.WorldPos.X / (CHUNK_SIZE * Program.TileSize));
-						int entityChunkY = (int)Math.Floor(entity.WorldPos.Y / (CHUNK_SIZE * Program.TileSize));
-						if (entityChunkX == chunk.Key.Item1 && entityChunkY == chunk.Key.Item2)
-						{
-							entitiesReallyInThisChunk.Add(entity);
-							globalEntities.RemoveAt(i);
-						}
-					}
-					chunk.Value.Entities = entitiesReallyInThisChunk;
-
-					// Sauvegarder avant de décharger
-					if (!string.IsNullOrEmpty(CurrentSaveName))
-					{
-						if (_isInDungeon && _currentDungeonInstanceId >= 0)
-							SaveSystem.SaveDungeonChunk(CurrentSaveName, _currentDungeonInstanceId, chunk.Key.Item1, chunk.Key.Item2, chunk.Value);
-						else
-							SaveSystem.SaveChunk(CurrentSaveName, chunk.Key.Item1, chunk.Key.Item2, chunk.Value, _isUnderground);
-					}
-					
-					toUnload.Add((chunk.Key.Item1, chunk.Key.Item2));
-				}
+				var key = (chunk.Key.Item1, chunk.Key.Item2);
+				bool outsideUnloadMargin = key.Item1 < minChunkX - 1 || key.Item1 > maxChunkX + 1
+					|| key.Item2 < minChunkY - 1 || key.Item2 > maxChunkY + 1;
+				if (outsideUnloadMargin && _pendingChunkUnloadKeys.Add(key))
+					_pendingChunkUnloads.Enqueue(key);
 			}
-			
-			foreach (var key in toUnload)
+
+			for (int i = 0; i < CHUNKS_UNLOADED_PER_FRAME && _pendingChunkUnloads.Count > 0; i++)
 			{
-				chunksDict.Remove((key.x, key.y));
+				var key = _pendingChunkUnloads.Dequeue();
+				_pendingChunkUnloadKeys.Remove(key);
+				if (!chunksDict.TryGetValue(key, out var chunk) || shouldBeLoaded.Contains(key)
+					|| (key.x >= minChunkX - 1 && key.x <= maxChunkX + 1
+					&& key.y >= minChunkY - 1 && key.y <= maxChunkY + 1))
+					continue;
+
+				// Recalcule les entités depuis leurs positions actuelles : ChunkData.Entities
+				// n'est pas tenue à jour lorsqu'une entité traverse une frontière de chunk.
+				var entitiesReallyInThisChunk = new List<Entity>();
+				for (int entityIndex = globalEntities.Count - 1; entityIndex >= 0; entityIndex--)
+				{
+					var entity = globalEntities[entityIndex];
+					if (entity.IsPetCompanion) continue;
+					int entityChunkX = (int)Math.Floor(entity.WorldPos.X / (CHUNK_SIZE * Program.TileSize));
+					int entityChunkY = (int)Math.Floor(entity.WorldPos.Y / (CHUNK_SIZE * Program.TileSize));
+					if (entityChunkX == key.x && entityChunkY == key.y)
+					{
+						entitiesReallyInThisChunk.Add(entity);
+						globalEntities.RemoveAt(entityIndex);
+					}
+				}
+				chunk.Entities = entitiesReallyInThisChunk;
+
+				if (!string.IsNullOrEmpty(CurrentSaveName))
+				{
+					if (_isInDungeon && _currentDungeonInstanceId >= 0)
+						SaveSystem.SaveDungeonChunk(CurrentSaveName, _currentDungeonInstanceId, key.x, key.y, chunk);
+					else
+						SaveSystem.SaveChunk(CurrentSaveName, key.x, key.y, chunk, _isUnderground);
+				}
+
+				chunksDict.Remove(key);
 			}
 			PerfStats.EndSection(PerfStats.Section.ChunkUnloadWork);
 		}

@@ -764,6 +764,13 @@ namespace Soulfract
 			// culture mûre, tandis que le clic gauche reste le geste de casse/récolte.
 			if (tileData.IsCrop)
 			{
+				Item? heldCropItem = equipment.MainHand;
+				if (Raylib.IsMouseButtonPressed(MouseButton.Right)
+					&& World.GetGroundTileIdAt(tileX, tileY) == 27
+					&& heldCropItem != null
+					&& TryGetLiquidContainer(heldCropItem, out _, out _, out _))
+					return false;
+
 				float cropDist = Vector2.Distance(GetPlayerFeetPosition(playerPos), new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f));
 				if (cropDist > MAX_INTERACTION_DISTANCE)
 					return false;
@@ -966,28 +973,21 @@ namespace Soulfract
 				var bannerData = chunk.GetBannerHolderAt(tileX, tileY);
 				if (bannerData == null)
 				{
-					bannerData = new BannerHolderData { HasBanner = false };
+					bannerData = new BannerHolderData();
 					chunk.SetBannerHolderAt(tileX, tileY, bannerData);
 				}
 
 				if (bannerData.HasBanner)
 				{
-					int bannerId = GetItemId("Bannière");
+					var bannerItem = bannerData.BannerItem;
+					if (bannerItem == null) return false;
+					int bannerId = GetItemId(bannerItem.Name);
 					if (bannerId == 0) return false;
-					if (!GameData.ItemDatabase.TryGetValue(bannerId, out var bannerItemData)) return false;
-
-					var bannerItem = new Item(bannerItemData.Name, 1, bannerItemData.Color, bannerItemData.Icon);
-					bannerItem.Metadata = bannerData.ToMetadata();
-					bannerItem.CustomColors = new List<Color?>
-					{
-						bannerData.BackgroundColor,
-						bannerData.PatternColor,
-					};
 
 					int remaining = AddItemToInventory(bannerItem, 1);
 					if (remaining == 0)
 					{
-						bannerData.HasBanner = false;
+						bannerData.Slot.Clear();
 					}
 					else
 					{
@@ -997,16 +997,17 @@ namespace Soulfract
 				}
 				else
 				{
+					int bannerId = GameData.GetItemId("banner");
 					Item? foundBannerItem = null;
 					InventorySlot? foundSlot = null;
 
                     var heldBannerItem = InventoryRenderer.GetHotbarItem(hotbarSlot);
-                    if (heldBannerItem != null && heldBannerItem.Name == "Bannière" && !string.IsNullOrEmpty(heldBannerItem.Metadata))
+                    if (heldBannerItem != null && GetItemId(heldBannerItem.Name) == bannerId && !string.IsNullOrEmpty(heldBannerItem.Metadata))
                     {
                         foundBannerItem = heldBannerItem;
                         foundSlot = InventoryRenderer.InventorySlots.FirstOrDefault(slot => slot.Item == heldBannerItem);
                     }
-                    else if (equipment.MainHand != null && equipment.MainHand.Name == "Bannière" && !string.IsNullOrEmpty(equipment.MainHand.Metadata))
+                    else if (equipment.MainHand != null && GetItemId(equipment.MainHand.Name) == bannerId && !string.IsNullOrEmpty(equipment.MainHand.Metadata))
                     {
                         foundBannerItem = equipment.MainHand;
                         foundSlot = InventoryRenderer.InventorySlots.FirstOrDefault(slot => slot.Item == equipment.MainHand);
@@ -1016,7 +1017,7 @@ namespace Soulfract
                     {
                         foreach (var slot in InventoryRenderer.InventorySlots)
                         {
-                            if (!slot.IsEmpty && slot.Item?.Name == "Bannière" && !string.IsNullOrEmpty(slot.Item.Metadata))
+                            if (!slot.IsEmpty && slot.Item != null && GetItemId(slot.Item.Name) == bannerId && !string.IsNullOrEmpty(slot.Item.Metadata))
                             {
                                 foundBannerItem = slot.Item;
                                 foundSlot = slot;
@@ -1030,9 +1031,8 @@ namespace Soulfract
                         return true;
                     }
 
-                    var newData = BannerHolderData.FromMetadata(foundBannerItem.Metadata, foundBannerItem.CustomColors);
-                    newData.HasBanner = true;
-                    chunk.SetBannerHolderAt(tileX, tileY, newData);
+                    bannerData.Slot.Item = foundBannerItem;
+                    bannerData.Slot.Count = 1;
 
                     if (foundSlot != null)
                     {

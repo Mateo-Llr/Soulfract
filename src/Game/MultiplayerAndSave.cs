@@ -298,6 +298,7 @@ namespace Soulfract
 		CorpseSystem.Clear();
 		_particles.Clear();
 		Cars.Clear();
+		Skateboards.Clear();
 		EntityRenderer.ClearEquipmentCache();
 			
 			InventoryRenderer.Initialize(40);

@@ -595,18 +595,8 @@ Vector2 assignedSpot = house.InteriorPosition;
 										if (groundTile == null || !groundTile.Diggable) continue;
 
 										bannerChunk.Objects[(bx, by)] = 7000;
-										bannerChunk.BannerHolders[(bx, by)] = new BannerHolderData
-										{
-											HasBanner = true,
-											PatternName = chosenPattern,
-											ShapeName = chosenShape,
-											BgR = bgColor.R,
-											BgG = bgColor.G,
-											BgB = bgColor.B,
-											PatR = patColor.R,
-											PatG = patColor.G,
-											PatB = patColor.B,
-										};
+										bannerChunk.BannerHolders[(bx, by)] = BannerHolderData.WithBanner(
+											BannerHolderData.CreateBannerItem(chosenPattern, chosenShape, bgColor, patColor));
 										bannersPlaced++;
 										break;
 									}

@@ -446,7 +446,21 @@ void main()
 				//  MULTIJOUEUR : se déconnecter proprement avant de quitter
 				NetworkManager.Disconnect();
 				
-				SaveCurrentGameOnExit();
+				try
+				{
+					SaveCurrentGameOnExit();
+				}
+				finally
+				{
+					try
+					{
+						SaveSystem.FlushChunkWrites();
+					}
+					catch (Exception ex)
+					{
+						Console.Error.WriteLine($"[Save] Échec lors de la vidange des sauvegardes de chunks : {ex}");
+					}
+				}
 				SettingsManager.Save();
 				TraderUI.Close();
 				InventoryRenderer.CloseInventory();

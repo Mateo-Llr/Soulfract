@@ -260,7 +260,6 @@ namespace Soulfract
 								World.PlantCrop(bestTileX, bestTileY, cropId, (float)_gameTime);
 								SoundEffects.PlayPlant();
 								RemoveItemFromInventory(heldItem.Name, 1);
-								AddNotification(new Notification($" {heldItem.Name} plantée !", new Color(100, 200, 100, 255), 1.5f));
 								attackAnim = 0.2f;
 								isAttacking = true;
 								return; //  SORTIE : on a planté
@@ -1110,6 +1109,27 @@ namespace Soulfract
 						}
 					}
 				}
+
+				if (tileId == 7000)
+				{
+					var chunk = World.GetChunkAt(bestTileX, bestTileY);
+					var bannerItem = chunk?.GetBannerHolderAt(bestTileX, bestTileY)?.BannerItem;
+					if (bannerItem != null)
+					{
+						int bannerItemId = GetItemId(bannerItem.Name);
+						if (bannerItemId > 0)
+						{
+							Program.GiveItemToPlayer(
+								bannerItemId,
+								1,
+								targetTileWorldPos,
+								bannerItem.CustomColors,
+								metadata: bannerItem.Metadata,
+								pickupCooldown: 0f);
+						}
+					}
+					chunk?.SetBannerHolderAt(bestTileX, bestTileY, null);
+				}
 				
 				int mineralOverlayId = World.GetOverlayAt(bestTileX, bestTileY);
 				if (mineralOverlayId != 0 && mineralOverlayId != 82)
@@ -1343,6 +1363,14 @@ namespace Soulfract
 		{
 			int ts = Program.TileSize;
 			Vector2 mouseWorld = Raylib.GetScreenToWorld2D(mousePos, cam);
+
+			if (item != null && string.Equals(item.Name, Skateboard.ITEM_KEY, StringComparison.OrdinalIgnoreCase))
+			{
+				if (Vector2.Distance(Program.GetPlayerFeetPosition(Program.GetPlayerPosition()), mouseWorld) <= MAX_INTERACTION_DISTANCE
+					&& Program.TryPlaceSkateboard(mouseWorld))
+					RemoveItemFromInventory(item.Name, 1);
+				return;
+			}
 			
 			// ========== 1. PLACEMENT SUR UN BATEAU ==========
 			Boat? playerBoat = World.GetBoatAtPosition(Program.GetPlayerPosition(), ts);
@@ -1380,6 +1408,12 @@ namespace Soulfract
 						var boatItemInfo = GameData.ItemDatabase.Values.FirstOrDefault(d => d.Name == item.Name);
 						if (boatItemInfo.ID != 0 && boatItemInfo.PlaceableId != 0 && boatItemInfo.Type == ItemType.Placeable)
 						{
+							if (boatItemInfo.PlaceableId == 7000)
+							{
+								activeNotifications.Add(new Notification("Le porte-bannière ne peut pas être posé sur un bateau.", new Color(255, 100, 100, 255), 1.5f));
+								return;
+							}
+
 							if (playerBoat.GetObjectIdAt(relX, relY) != 0)
 							{
 								activeNotifications.Add(new Notification($"Impossible de placer ici !", new Color(255, 100, 100, 255), 1f));
@@ -1408,7 +1442,7 @@ namespace Soulfract
 									playerBoat.ArmorStands[(relX, relY)] = new ArmorStandData();
 								}
 							}
-							
+
 							RemoveItemFromInventory(item.Name, 1);
 								return;
 						}
@@ -1667,6 +1701,12 @@ namespace Soulfract
 						chunk.SetArmorStandAt(tileX, tileY, standData);
 					}
 				}
+			}
+
+			if (itemData.PlaceableId == 7000)
+			{
+				var chunk = World.GetChunkAt(tileX, tileY);
+				chunk?.SetBannerHolderAt(tileX, tileY, new BannerHolderData());
 			}
 			
 			// Retirer l'item de l'inventaire

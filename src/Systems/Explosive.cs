@@ -274,6 +274,26 @@ namespace Soulfract
 					World.RemoveTileMeta(tileX, tileY, "ore");
 				}
 				
+				if (objectId == 7000)
+				{
+					var bannerItem = World.GetChunkAt(tileX, tileY)?.GetBannerHolderAt(tileX, tileY)?.BannerItem;
+					if (bannerItem != null)
+					{
+						int bannerItemId = GameData.GetItemId("banner");
+						if (bannerItemId > 0)
+						{
+							Program.GiveItemToPlayer(
+								bannerItemId,
+								1,
+								tileDropPosition,
+								bannerItem.CustomColors,
+								metadata: bannerItem.Metadata,
+								pickupCooldown: 0f);
+						}
+					}
+					World.GetChunkAt(tileX, tileY)?.SetBannerHolderAt(tileX, tileY, null);
+				}
+
 				// Drops normaux du bloc
 				var drops = WorldTileRegistry.GetDrops(objectId);
 				foreach (var (dropId, qty) in drops)

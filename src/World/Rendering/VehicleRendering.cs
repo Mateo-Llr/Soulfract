@@ -30,6 +30,13 @@ namespace Soulfract
 					});
 				}
 
+				foreach (var sb in Program.Skateboards)
+				{
+					if (!ctx.IsEntityNearScreen(sb.Position))
+						continue;
+					renderItems.Add(sb.ToRenderItem(Program.GetSkateboardSortY(sb)));
+				}
+
 				if (Program.HasWagonLinkVisuals())
 				{
 					// Barres d'attelage : triées tout en bas pour passer sous les sprites des wagons.

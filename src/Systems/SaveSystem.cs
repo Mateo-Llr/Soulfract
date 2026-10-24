@@ -6,6 +6,8 @@ using Raylib_cs;
 using System.Numerics;
 using System.Linq;
 using System.IO.Compression;
+using System.Collections.Concurrent;
+using System.Threading;
 
 namespace Soulfract
 {
@@ -20,6 +22,15 @@ namespace Soulfract
         private const int MAX_CHUNK_RECORD_SIZE = 256 * 1024 * 1024;
         private static readonly object ChunkStoreLock = new();
         private static readonly Dictionary<string, ChunkStore> ChunkStores = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly object ChunkWriteStateLock = new();
+        private static readonly BlockingCollection<ChunkWriteRequest> ChunkWriteQueue = new();
+        private static readonly ConcurrentDictionary<PendingChunkKey, ChunkSaveData> PendingChunkWrites = new();
+        private static readonly List<Exception> ChunkWriteErrors = new();
+        private static Thread? _chunkWriterThread;
+        private static int _chunkWritesInFlight;
+
+        private readonly record struct PendingChunkKey(string SubDir, int X, int Y);
+        private sealed record ChunkWriteRequest(PendingChunkKey Key, ChunkSaveData Data);
 
         private sealed class ChunkStore
         {
@@ -424,6 +435,29 @@ namespace Soulfract
 
             target.Item = item;
             target.Count = save.Count;
+        }
+
+        public static BannerHolderData RestoreBannerHolder(BannerHolderSaveData save)
+        {
+            var holder = new BannerHolderData();
+            if (save.Slot != null)
+            {
+                RestoreInventorySlotFromSave(save.Slot, holder.Slot);
+                return holder;
+            }
+
+            if (save.HasBanner)
+            {
+                var bannerItem = BannerHolderData.CreateBannerItem(
+                    save.PatternName,
+                    save.ShapeName,
+                    new Color(save.BgR, save.BgG, save.BgB, (byte)255),
+                    new Color(save.PatR, save.PatG, save.PatB, (byte)255));
+                holder.Slot.Item = bannerItem;
+                holder.Slot.Count = 1;
+            }
+
+            return holder;
         }
 
         public static EquipmentSave CreateEquipmentSave(Equipment? equipment)
@@ -852,6 +886,17 @@ namespace Soulfract
                 carData.WheelSpin = CleanFloat(carData.WheelSpin);
                 data.Cars.Add(carData);
             }
+
+            data.Skateboards = Program.GetSkateboardsSaveData();
+            foreach (var skateboardData in data.Skateboards)
+            {
+                skateboardData.PosX = CleanFloat(skateboardData.PosX);
+                skateboardData.PosY = CleanFloat(skateboardData.PosY);
+                skateboardData.VelocityX = CleanFloat(skateboardData.VelocityX);
+                skateboardData.VelocityY = CleanFloat(skateboardData.VelocityY);
+                if (skateboardData.HeadingAngle.HasValue)
+                    skateboardData.HeadingAngle = CleanFloat(skateboardData.HeadingAngle.Value);
+            }
             
             data.ExploredTiles = World.GetExploredTiles();
             
@@ -1231,6 +1276,7 @@ namespace Soulfract
             if (string.IsNullOrWhiteSpace(saveName))
                 throw new ArgumentException("Nom de sauvegarde invalide.", nameof(saveName));
 
+            FlushChunkWrites();
             string savePath = Path.Combine(SAVE_DIR, $"{saveName}.json");
             if (!File.Exists(savePath))
                 throw new FileNotFoundException("Sauvegarde introuvable.", savePath);
@@ -1675,12 +1721,14 @@ namespace Soulfract
                 car.LoadSaveData(carData);
                 Program.Cars.Add(car);
             }
+            Program.LoadSkateboardsSaveData(data.Skateboards);
             
             return data;
         }
         
         public static void DeleteSave(string saveName)
         {
+            FlushChunkWrites();
             string savePath = Path.Combine(SAVE_DIR, $"{saveName}.json");
             if (File.Exists(savePath))
                 File.Delete(savePath);
@@ -1869,10 +1917,7 @@ namespace Soulfract
                     bannerHoldersDict[key] = new BannerHolderSaveData
                     {
                         HasBanner = kv.Value.HasBanner,
-                        PatternName = kv.Value.PatternName,
-                        ShapeName = kv.Value.ShapeName,
-                        BgR = kv.Value.BgR, BgG = kv.Value.BgG, BgB = kv.Value.BgB,
-                        PatR = kv.Value.PatR, PatG = kv.Value.PatG, PatB = kv.Value.PatB,
+                        Slot = CreateInventorySlotSave(kv.Value.Slot),
                     };
                 }
             }
@@ -2164,70 +2209,105 @@ namespace Soulfract
             if (chunks.Count == 0) return;
 
             string subDir = $"{saveName}_dungeon{instanceId}_chunks";
-            string storePath = GetChunkStorePath(subDir);
-            lock (ChunkStoreLock)
-            {
-                var store = GetChunkStore(storePath);
-                Directory.CreateDirectory(SAVE_DIR);
-
-                string legacyChunkDir = Path.Combine(SAVE_DIR, subDir);
-                if (Directory.Exists(legacyChunkDir))
-                    Directory.Delete(legacyChunkDir, recursive: true);
-
-                using (var stream = new FileStream(storePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read))
-                {
-                    if (stream.Length == 0)
-                    {
-                        using var header = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true);
-                        header.Write(CHUNK_STORE_MAGIC);
-                        header.Write(CHUNK_STORE_VERSION);
-                        header.Flush();
-                        store.Length = CHUNK_STORE_HEADER_SIZE;
-                    }
-
-                    stream.Position = store.Length;
-                    using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
-                    {
-                        foreach (var (coords, chunk) in chunks)
-                        {
-                            var chunkData = BuildChunkSaveData(coords.chunkX, coords.chunkY, chunk);
-                            byte[] payload = CompressChunkData(chunkData);
-                            writer.Write(coords.chunkX);
-                            writer.Write(coords.chunkY);
-                            writer.Write(payload.Length);
-                            long payloadOffset = stream.Position;
-                            writer.Write(payload);
-
-                            if (store.Chunks.TryGetValue(coords, out var previous))
-                                store.LiveBytes -= CHUNK_RECORD_HEADER_SIZE + previous.PayloadLength;
-
-                            store.Chunks[coords] = new ChunkRecord(payloadOffset, payload.Length);
-                            store.LiveBytes += CHUNK_RECORD_HEADER_SIZE + payload.Length;
-                        }
-
-                        writer.Flush();
-                        stream.Flush();
-                        store.Length = stream.Position;
-                    }
-                }
-
-                if (store.Length > Math.Max(4L * 1024 * 1024, store.LiveBytes * 2))
-                    CompactChunkStore(storePath, store);
-            }
+            foreach (var (coords, chunk) in chunks)
+                QueueChunkWrite(subDir, coords.chunkX, coords.chunkY,
+                    BuildChunkSaveData(coords.chunkX, coords.chunkY, chunk));
         }
 
         private static void SaveChunkToDir(string subDir, int chunkX, int chunkY, World.ChunkData chunk)
         {
-            var chunkData = BuildChunkSaveData(chunkX, chunkY, chunk);
+            QueueChunkWrite(subDir, chunkX, chunkY, BuildChunkSaveData(chunkX, chunkY, chunk));
+        }
+
+        private static void QueueChunkWrite(string subDir, int chunkX, int chunkY, ChunkSaveData chunkData)
+        {
+            var key = new PendingChunkKey(subDir, chunkX, chunkY);
+            PendingChunkWrites[key] = chunkData;
+            lock (ChunkWriteStateLock)
+            {
+                _chunkWriterThread ??= StartChunkWriterThread();
+                _chunkWritesInFlight++;
+                ChunkWriteQueue.Add(new ChunkWriteRequest(key, chunkData));
+            }
+        }
+
+        private static Thread StartChunkWriterThread()
+        {
+            var thread = new Thread(ChunkWriterLoop)
+            {
+                IsBackground = true,
+                Name = "ChunkWriter",
+                Priority = ThreadPriority.BelowNormal
+            };
+            thread.Start();
+            return thread;
+        }
+
+        private static void ChunkWriterLoop()
+        {
+            foreach (var request in ChunkWriteQueue.GetConsumingEnumerable())
+            {
+                Exception? writeError = null;
+                try
+                {
+                    WriteChunkNow(request.Key, request.Data);
+                }
+                catch (Exception ex)
+                {
+                    writeError = ex;
+                    Console.Error.WriteLine($"[ChunkWriter] Échec de sauvegarde ({request.Key.SubDir}, {request.Key.X}, {request.Key.Y}): {ex}");
+                }
+                finally
+                {
+                    if (writeError == null
+                        && PendingChunkWrites.TryGetValue(request.Key, out var pending)
+                        && ReferenceEquals(pending, request.Data))
+                    {
+                        PendingChunkWrites.TryRemove(request.Key, out _);
+                    }
+
+                    lock (ChunkWriteStateLock)
+                    {
+                        if (writeError != null)
+                            ChunkWriteErrors.Add(writeError);
+                        _chunkWritesInFlight--;
+                        if (_chunkWritesInFlight == 0)
+                            Monitor.PulseAll(ChunkWriteStateLock);
+                    }
+                }
+            }
+        }
+
+        public static void FlushChunkWrites()
+        {
+            List<Exception>? errors = null;
+            lock (ChunkWriteStateLock)
+            {
+                while (_chunkWritesInFlight > 0)
+                    Monitor.Wait(ChunkWriteStateLock);
+
+                if (ChunkWriteErrors.Count > 0)
+                {
+                    errors = new List<Exception>(ChunkWriteErrors);
+                    ChunkWriteErrors.Clear();
+                }
+            }
+
+            if (errors != null)
+                throw new AggregateException("Une ou plusieurs sauvegardes de chunk ont échoué.", errors);
+        }
+
+        private static void WriteChunkNow(PendingChunkKey key, ChunkSaveData chunkData)
+        {
             byte[] payload = CompressChunkData(chunkData);
-            string storePath = GetChunkStorePath(subDir);
+            string storePath = GetChunkStorePath(key.SubDir);
 
             lock (ChunkStoreLock)
             {
                 var store = GetChunkStore(storePath);
                 Directory.CreateDirectory(SAVE_DIR);
 
-                string legacyChunkDir = Path.Combine(SAVE_DIR, subDir);
+                string legacyChunkDir = Path.Combine(SAVE_DIR, key.SubDir);
                 if (Directory.Exists(legacyChunkDir))
                     Directory.Delete(legacyChunkDir, recursive: true);
 
@@ -2244,23 +2324,23 @@ namespace Soulfract
 
                     stream.Position = store.Length;
                     using var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true);
-                    writer.Write(chunkX);
-                    writer.Write(chunkY);
+                    writer.Write(key.X);
+                    writer.Write(key.Y);
                     writer.Write(payload.Length);
                     long payloadOffset = stream.Position;
                     writer.Write(payload);
                     writer.Flush();
                     stream.Flush();
 
-                    if (store.Chunks.TryGetValue((chunkX, chunkY), out var previous))
+                    if (store.Chunks.TryGetValue((key.X, key.Y), out var previous))
                         store.LiveBytes -= CHUNK_RECORD_HEADER_SIZE + previous.PayloadLength;
 
-                    store.Chunks[(chunkX, chunkY)] = new ChunkRecord(payloadOffset, payload.Length);
+                    store.Chunks[(key.X, key.Y)] = new ChunkRecord(payloadOffset, payload.Length);
                     store.LiveBytes += CHUNK_RECORD_HEADER_SIZE + payload.Length;
                     store.Length = stream.Position;
                 }
 
-                if (store.Length > Math.Max(4L * 1024 * 1024, store.LiveBytes * 2))
+                if (store.Length > 256L * 1024 * 1024 && store.Length > store.LiveBytes * 4)
                     CompactChunkStore(storePath, store);
             }
         }
@@ -2274,7 +2354,7 @@ namespace Soulfract
         {
             byte[] json = JsonSerializer.SerializeToUtf8Bytes(chunkData, WriteOptions);
             using var output = new MemoryStream();
-            using (var compressor = new BrotliStream(output, CompressionLevel.Optimal, leaveOpen: true))
+            using (var compressor = new BrotliStream(output, CompressionLevel.Fastest, leaveOpen: true))
                 compressor.Write(json);
 
             byte[] payload = output.ToArray();
@@ -2350,6 +2430,9 @@ namespace Soulfract
 
         private static ChunkSaveData? LoadChunkData(string subDir, int chunkX, int chunkY)
         {
+            if (PendingChunkWrites.TryGetValue(new PendingChunkKey(subDir, chunkX, chunkY), out var pending))
+                return pending;
+
             string storePath = GetChunkStorePath(subDir);
             lock (ChunkStoreLock)
             {
@@ -2362,6 +2445,7 @@ namespace Soulfract
 
         private static IEnumerable<ChunkSaveData> EnumerateChunkData(string subDir)
         {
+            FlushChunkWrites();
             string storePath = GetChunkStorePath(subDir);
             List<(int x, int y)> coordinates;
             lock (ChunkStoreLock)
@@ -2648,14 +2732,7 @@ namespace Soulfract
                 foreach (var kv in chunkData.BannerHolders)
                 {
                     var (x, y) = UnpackTileKey(kv.Key, chunkX, chunkY);
-                    chunk.BannerHolders[(x, y)] = new BannerHolderData
-                    {
-                        HasBanner = kv.Value.HasBanner,
-                        PatternName = kv.Value.PatternName,
-                        ShapeName = kv.Value.ShapeName,
-                        BgR = kv.Value.BgR, BgG = kv.Value.BgG, BgB = kv.Value.BgB,
-                        PatR = kv.Value.PatR, PatG = kv.Value.PatG, PatB = kv.Value.PatB,
-                    };
+                    chunk.BannerHolders[(x, y)] = RestoreBannerHolder(kv.Value);
                 }
             }
             
@@ -3276,6 +3353,7 @@ namespace Soulfract
         public HashSet<string> ExploredTiles { get; set; } = new();
         public GuildSaveData? GuildData { get; set; }
         public List<CarSaveData> Cars { get; set; } = new();
+        public List<SkateboardSaveData> Skateboards { get; set; } = new();
         
         public List<SteamEngineSave> SteamEngines { get; set; } = new();
         public List<DynamoSave> Dynamos { get; set; } = new();
@@ -3557,6 +3635,7 @@ namespace Soulfract
     public class BannerHolderSaveData
     {
         public bool HasBanner { get; set; } = true;
+        public InventorySlotSave? Slot { get; set; }
         public string PatternName { get; set; } = "";
         public string ShapeName { get; set; } = "";
         public byte BgR { get; set; }

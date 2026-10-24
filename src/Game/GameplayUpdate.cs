@@ -1010,7 +1010,8 @@ namespace Soulfract
 			// Gestion de la touche E (interaction) avec priorité corrigée
 			if (!ChatSystem.IsOpen && !mouseOverUI)
 			{
-				if (PlayerCurrentCar == null && KeyBindings.IsPressed(GameAction.Interact) && !_isAdjustingSail)
+				if (PlayerCurrentCar == null && KeyBindings.IsPressed(GameAction.Interact) && !_isAdjustingSail
+					&& !_skateboardInteractConsumedThisFrame)
 				{
 					// UNIQUEMENT le gouvernail (ID 109) permet de régler les voiles
 					var (wheelBoat, _, _, wheelId) = GetInteractiveBoatPartUnderMouse(camera, Boat.WheelObjectId);
@@ -1387,6 +1388,11 @@ namespace Soulfract
 					}
 					_animFrame = _animRawFrame % wagonFrameCount;
 					_animProg = _wagonSpeed > 0.1f ? _animRawProg : 0f;
+					goto SkipMovementAndInteraction;
+				}
+				else if (PlayerSkateboard != null)
+				{
+					UpdateSkateboardRide(dt, ref facing, hitboxDim);
 					goto SkipMovementAndInteraction;
 				}
 				else if (PlayerCurrentCar != null)
@@ -2051,8 +2057,10 @@ namespace Soulfract
 			
 			foreach (var car in Cars)
 			{
+				if (car == PlayerCurrentCar) continue;
 				car.Update(dt, destroyedObjects);
 			}
+			UpdateLooseSkateboards(dt);
 			
 			// Mise à jour des effets divers
 			foreach (var hp in objectHPs.Values) if (hp.DamageFlash > 0) hp.DamageFlash -= dt;

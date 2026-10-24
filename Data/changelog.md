@@ -1453,6 +1453,16 @@
 - [ADDED] Effet du personnage lorsqu'il est dans l'eau
 - [ADDED] Apparition naturelle des bolets et amanites tue-mouches dans les forêts ; champignon brun identifié comme agaric bispore
 - [ADDED] Ajout du clitocybe nébuleux et de la girolle, avec trois et quatre variations de texture respectivement
+- [CHANGED] Mise à jour du menu de chaudron
+- [CHANGED] Mise à jour du cheval, bien plus accurate
+
+### 24 octobre
+- [CHANGED] Mise à jour du rendu du menu de bestiaire
+- [CHANGED] Dézoom léger des portraits du bestiaire, toujours cadrés sur la tête
+- [ADDED] Variantes et couleurs aléatoires des créatures dans les portraits du bestiaire
+- [ADDED] Ajout de l'épouvantail
+- [ADDED] Ajout du skateboard
+- [FIXED] Optimisation énorme du chargement des chunks, retirant le coup de lag lorsqu'on passe d'un chunk à l'autre.
 
 ---
 

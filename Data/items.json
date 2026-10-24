@@ -3203,6 +3203,30 @@
       "rarity": "uncommon",
       "hungerRestore": 8.0,
       "thirstRestore": 2.0
+    },
+    {
+      "id": "scarecrow",
+      "type": "placeable",
+      "stackSize": 10,
+      "value": 20,
+      "placeableId": 125,
+      "rarity": "common"
+    },
+    {
+      "id": "skateboard",
+      "type": "placeable",
+      "placeableId": 216,
+      "stackSize": 1,
+      "value": 60,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "banner_holder",
+      "type": "placeable",
+      "placeableId": 7000,
+      "stackSize": 10,
+      "value": 20,
+      "rarity": "common"
     }
   ]
 }

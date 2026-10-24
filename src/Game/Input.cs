@@ -13,8 +13,12 @@ namespace Soulfract
 {
     public static partial class Program
     {
+		private static bool _skateboardInteractConsumedThisFrame;
+
 		static void HandleInput(Camera2D camera, float dt)
 	{
+		_skateboardInteractConsumedThisFrame = false;
+
 		// ========================================================
 		if (TamedAnimalUI.IsOpen && TamedAnimalUI.IsEditingName)
 			return;
@@ -200,6 +204,11 @@ namespace Soulfract
 			{
 				if (TryInteractWithMusicBiped(inputCamera)) return;
 				if (TryHandleWagonInteraction()) return;
+				if (HandleSkateboardInteract(new Vector2(TileSize * 0.9f, TileSize * 0.4f)))
+				{
+					_skateboardInteractConsumedThisFrame = true;
+					return;
+				}
 
 				// Cas 1 : on est dans une voiture → descendre
 				if (PlayerCurrentCar != null)
@@ -401,6 +410,15 @@ namespace Soulfract
 				}
 				
 				// Bloquer les autres interactions pendant que le menu est ouvert
+				return;
+			}
+
+			if (Raylib.IsMouseButtonPressed(MouseButton.Right) && !_rightClickConsumed
+				&& PlayerCurrentCar == null && !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen
+				&& !QuestDialogUI.IsOpen
+				&& TryPickUpSkateboardAt(Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera)))
+			{
+				_rightClickConsumed = true;
 				return;
 			}
 

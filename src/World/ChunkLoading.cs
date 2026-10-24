@@ -136,10 +136,9 @@ namespace Soulfract
 
 						if (!slotSave.IsEmpty && !string.IsNullOrEmpty(slotSave.ItemName))
 						{
-							var itemDef = GameData.ItemDatabase.Values.FirstOrDefault(d => d.Name == slotSave.ItemName);
-							if (itemDef.ID != 0)
+							if (GameData.TryGetItemByName(slotSave.ItemName, out var itemDef))
 							{
-var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef.Icon);
+								var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef.Icon);
 
 								if (slotSave.CustomColors != null && slotSave.CustomColors.Count > 0)
 								{
@@ -172,61 +171,17 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 					var (x, y) = SaveSystem.UnpackTileKey(stand.Key, chunkData.ChunkX, chunkData.ChunkY);
 					var standData = new ArmorStandData();
 					standData.CurrentPose = stand.Value.CurrentPose ?? "idle";
-					if (!string.IsNullOrEmpty(stand.Value.Head))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Head);
-						if (d.ID != 0) standData.Head = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Body))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Body);
-						if (d.ID != 0) standData.Body = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Legs))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Legs);
-						if (d.ID != 0) standData.Legs = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.MainHand))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.MainHand);
-						if (d.ID != 0) standData.MainHand = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.OffHand))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.OffHand);
-						if (d.ID != 0) standData.OffHand = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Face))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Face);
-						if (d.ID != 0) standData.Face = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Ears))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Ears);
-						if (d.ID != 0) standData.Ears = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Neck))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Neck);
-						if (d.ID != 0) standData.Neck = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Waist))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Waist);
-						if (d.ID != 0) standData.Waist = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Feet))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Feet);
-						if (d.ID != 0) standData.Feet = new Item(d.Name, 1, d.Color, d.Icon);
-					}
-					if (!string.IsNullOrEmpty(stand.Value.Back))
-					{
-						var d = GameData.ItemDatabase.Values.FirstOrDefault(it => it.Name == stand.Value.Back);
-						if (d.ID != 0) standData.Back = new Item(d.Name, 1, d.Color, d.Icon);
-					}
+					standData.Head = RestoreArmorStandItem(stand.Value.Head);
+					standData.Body = RestoreArmorStandItem(stand.Value.Body);
+					standData.Legs = RestoreArmorStandItem(stand.Value.Legs);
+					standData.MainHand = RestoreArmorStandItem(stand.Value.MainHand);
+					standData.OffHand = RestoreArmorStandItem(stand.Value.OffHand);
+					standData.Face = RestoreArmorStandItem(stand.Value.Face);
+					standData.Ears = RestoreArmorStandItem(stand.Value.Ears);
+					standData.Neck = RestoreArmorStandItem(stand.Value.Neck);
+					standData.Waist = RestoreArmorStandItem(stand.Value.Waist);
+					standData.Feet = RestoreArmorStandItem(stand.Value.Feet);
+					standData.Back = RestoreArmorStandItem(stand.Value.Back);
 					chunk.ArmorStands[(x, y)] = standData;
 				}
 			}
@@ -237,14 +192,7 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 				foreach (var kv in chunkData.BannerHolders)
 				{
 					var (x, y) = SaveSystem.UnpackTileKey(kv.Key, chunkData.ChunkX, chunkData.ChunkY);
-					chunk.BannerHolders[(x, y)] = new BannerHolderData
-					{
-						HasBanner = kv.Value.HasBanner,
-						PatternName = kv.Value.PatternName,
-						ShapeName = kv.Value.ShapeName,
-						BgR = kv.Value.BgR, BgG = kv.Value.BgG, BgB = kv.Value.BgB,
-						PatR = kv.Value.PatR, PatG = kv.Value.PatG, PatB = kv.Value.PatB,
-					};
+					chunk.BannerHolders[(x, y)] = SaveSystem.RestoreBannerHolder(kv.Value);
 				}
 			}
 
@@ -449,6 +397,13 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			RestoreRoofTileInfoForChunk(chunk);
         }
 
+		private static Item? RestoreArmorStandItem(string? itemName)
+		{
+			if (string.IsNullOrEmpty(itemName) || !GameData.TryGetItemByName(itemName, out var itemData))
+				return null;
+
+			return new Item(itemData.Name, 1, itemData.Color, itemData.Icon);
+		}
 
     }
 }

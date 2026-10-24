@@ -14,13 +14,15 @@ namespace Soulfract
         public float WheelRotation { get; set; } // angle de braquage des roues avant
         public float WheelSpin { get; set; } // rotation des roues
 
-        // Constantes physiques - version rapide et dynamique
-        private const float ACCEL = 900f;
-        private const float FRICTION = 0.94f;
-        public const float MAX_SPEED = 450f;
-        private const float ANGULAR_ACCEL = 450f;
-        private const float MAX_ANGULAR_SPEED = 200f;
-        private const float ANGULAR_FRICTION = 0.88f;
+        // Accélérations exprimées par seconde afin que la conduite reste identique à tous les FPS.
+        private const float ACCELERATION_FACTOR = 1.8f;
+        private const float BRAKE_FACTOR = 3f;
+        private const float COAST_DECELERATION_FACTOR = 0.85f;
+        private const float LATERAL_DECELERATION_FACTOR = 3f;
+        public const float MAX_SPEED = 520f;
+        private const float ANGULAR_ACCEL = 720f;
+        private const float MAX_ANGULAR_SPEED = 220f;
+        private const float ANGULAR_DECEL = 900f;
         public const float CAR_WIDTH = 48f;
         public const float CAR_HEIGHT = 96f;
 
@@ -138,22 +140,32 @@ namespace Soulfract
             float currentSpeed = MathF.Sqrt(VelocityX * VelocityX + VelocityY * VelocityY);
             bool isMovingForward = currentSpeed > 5f && Vector2.Dot(new Vector2(VelocityX, VelocityY), new Vector2(MathF.Sin(Angle * MathF.PI / 180f), -MathF.Cos(Angle * MathF.PI / 180f))) > 0;
 
-            // Physique linéaire
+            // Accélération longitudinale avec freinage plus fort en sens opposé.
             float rad = Angle * MathF.PI / 180f;
             Vector2 dir = new Vector2(MathF.Sin(rad), -MathF.Cos(rad));
+            Vector2 velocity = new Vector2(VelocityX, VelocityY);
+            float forwardSpeed = Vector2.Dot(velocity, dir);
+            Vector2 lateralVelocity = velocity - dir * forwardSpeed;
 
-            VelocityX += dir.X * accelInput * ACCEL * dt;
-            VelocityY += dir.Y * accelInput * ACCEL * dt;
+            float longitudinalRate;
+            if (accelInput == 0f)
+                longitudinalRate = MAX_SPEED * COAST_DECELERATION_FACTOR;
+            else if (forwardSpeed * accelInput < 0f)
+                longitudinalRate = MAX_SPEED * BRAKE_FACTOR;
+            else
+                longitudinalRate = MAX_SPEED * ACCELERATION_FACTOR;
 
-            VelocityX *= FRICTION;
-            VelocityY *= FRICTION;
-
-            float speed = MathF.Sqrt(VelocityX * VelocityX + VelocityY * VelocityY);
+            float targetForwardSpeed = accelInput * MAX_SPEED;
+            forwardSpeed = MoveToward(forwardSpeed, targetForwardSpeed, longitudinalRate * dt);
+            lateralVelocity = MoveToward(lateralVelocity, Vector2.Zero, MAX_SPEED * LATERAL_DECELERATION_FACTOR * dt);
+            velocity = dir * forwardSpeed + lateralVelocity;
+            float speed = velocity.Length();
             if (speed > MAX_SPEED)
-            {
-                VelocityX = (VelocityX / speed) * MAX_SPEED;
-                VelocityY = (VelocityY / speed) * MAX_SPEED;
-            }
+                velocity *= MAX_SPEED / speed;
+
+            VelocityX = velocity.X;
+            VelocityY = velocity.Y;
+            speed = velocity.Length();
 
             // Physique angulaire avec inversion du braquage en marche arrière
             float targetAngularAccel = 0f;
@@ -163,8 +175,10 @@ namespace Soulfract
                 targetAngularAccel = turnInput * turnMultiplier * ANGULAR_ACCEL;
             }
 
-            AngularVelocity += targetAngularAccel * dt;
-            AngularVelocity *= ANGULAR_FRICTION;
+            if (targetAngularAccel != 0f)
+                AngularVelocity += targetAngularAccel * dt;
+            else
+                AngularVelocity = MoveToward(AngularVelocity, 0f, ANGULAR_DECEL * dt);
             AngularVelocity = Math.Clamp(AngularVelocity, -MAX_ANGULAR_SPEED, MAX_ANGULAR_SPEED);
             Angle += AngularVelocity * dt;
 
@@ -277,6 +291,21 @@ namespace Soulfract
             }
             float steerLerpSpeed = 8f;
             WheelRotation = MathHelper.Lerp(WheelRotation, targetSteerAngle, steerLerpSpeed * dt);
+        }
+
+        private static float MoveToward(float current, float target, float maxDelta)
+        {
+            float difference = target - current;
+            if (MathF.Abs(difference) <= maxDelta) return target;
+            return current + MathF.Sign(difference) * maxDelta;
+        }
+
+        private static Vector2 MoveToward(Vector2 current, Vector2 target, float maxDelta)
+        {
+            Vector2 difference = target - current;
+            float length = difference.Length();
+            if (length <= maxDelta || length < 0.0001f) return target;
+            return current + difference / length * maxDelta;
         }
 
         private bool IsColliding(Vector2 newPos, HashSet<string> destroyedObjects)
