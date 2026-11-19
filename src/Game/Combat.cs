@@ -146,7 +146,10 @@ namespace Soulfract
 
 		private static Vector2 GetPlayerAttackOrigin(Vector2 playerPos)
 		{
-			return GetPlayerVisualPosition(playerPos);
+			Vector2 origin = GetPlayerVisualPosition(playerPos);
+			if (World.IsPlayerIndoors)
+				origin.Y -= World.CurrentHouseFloorOffset;
+			return origin;
 		}
 
 		private static Vector2 GetPlayerAttackDirection(Vector2 playerPos, Vector2 targetPos, float facing)
@@ -279,6 +282,13 @@ namespace Soulfract
 		{
 			DrawAttackCone(GetPlayerAttackOrigin(playerPos), GetPlayerAttackDirection(playerPos, mouseWorld, facing), GetAttackRadius(heldItem),
 				new Color(100, 230, 130, 36), new Color(120, 255, 150, 220));
+		}
+
+		public static void DrawShieldDebugZone(Vector2 playerPos)
+		{
+			if (!IsShieldGuardActive) return;
+			DrawAttackCone(GetPlayerAttackOrigin(playerPos), _shieldAimDir, SCYTHE_ATTACK_RADIUS,
+				new Color(80, 175, 255, 32), new Color(100, 205, 255, 230));
 		}
 
 		private static void DrawAttackCone(Vector2 origin, Vector2 attackDirection, float radius, Color fillColor, Color outlineColor)
@@ -900,16 +910,16 @@ namespace Soulfract
 		// au joueur qu'elles ciblent réellement. targetConnectionId = -1 signifie "le joueur
 		// local du host" (comportement solo inchangé) ; sinon on relaie les dégâts au client
 		// concerné, qui les applique lui-même sur son propre HP via DamagePlayer.
-public static void DamagePlayerTarget(int amount, int targetConnectionId, string? sourceName = null, DeathCause cause = DeathCause.Generic, float poisonDuration = 0f)
+public static void DamagePlayerTarget(int amount, int targetConnectionId, string? sourceName = null, DeathCause cause = DeathCause.Generic, float poisonDuration = 0f, Vector2? sourcePos = null)
         {
             if (targetConnectionId == -1 || !NetworkManager.IsHost)
             {
-                DamagePlayer(amount, sourceName, cause);
+                DamagePlayer(amount, sourceName, cause, sourcePos);
                 if (poisonDuration > 0f)
                     ApplyPlayerPoison(poisonDuration);
                 return;
             }
-            NetworkManager.SendPlayerDamage(targetConnectionId, amount, poisonDuration);
+            NetworkManager.SendPlayerDamage(targetConnectionId, amount, poisonDuration, sourcePos);
 		}
 
 		/// <summary>
@@ -1027,6 +1037,7 @@ public static void DamagePlayerTarget(int amount, int targetConnectionId, string
 			// targetConnectionId == -1 signifie "joueur local" (voir DamagePlayerTarget) : le
 			// compagnon ne défend que CE joueur, pas un client distant touché ailleurs.
 			if (targetConnectionId != -1) return;
+			if (attacker != null) RememberShieldAttacker(attacker.WorldPos, attacker.GetDisplayName()); // direction du coup pour la parade (Shield.cs)
 			if (attacker == null || !attacker.IsAlive) return;
 			if (_crabCompanion != null && _crabCompanion.IsAlive)
 				_crabCompanion.PetCombatTarget = attacker;

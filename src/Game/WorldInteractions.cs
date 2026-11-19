@@ -1206,8 +1206,10 @@ namespace Soulfract
 			if (tileData.IsSleepable)
 			{
 				Vector2 sleepPos = GetFurnitureAnchorPosition(tileX, tileY, tileData);
-				PrepareTentOccupation(sleepPos, null);
-				SetSitting(true, sleepPos, 0f, "sleep", behindFurniture: tileData.Name.Equals("Tent", StringComparison.OrdinalIgnoreCase));
+				bool isTent = tileData.Name.Equals("Tent", StringComparison.OrdinalIgnoreCase);
+				if (isTent)
+					PrepareTentOccupation(sleepPos, null);
+				SetSitting(true, sleepPos, 0f, "sleep", behindFurniture: isTent);
 				AddNotification(new Notification($" Vous vous allongez sur {tileData.Name}.", new Color(150, 200, 255, 255), 2f));
 				return true;
 			}

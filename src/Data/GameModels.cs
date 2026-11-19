@@ -2026,7 +2026,8 @@ public readonly struct ProjectileRenderTag
 		public float Height;
 		// Les objets au sol ne doivent pas expirer automatiquement : ils restent présents
 		// jusqu'à ce qu'ils soient ramassés ou qu'un autre système les retire explicitement.
-		public float Lifetime = float.PositiveInfinity;
+		// PERF : durée de vie max pour éviter l'accumulation infinie (30 min par défaut).
+		public float Lifetime = 1800f;
 		public float AttractSpeed = 250f;
 		// Distance à partir de laquelle l'item est automatiquement attiré vers le joueur.
 		// Les items jetés (voir ThrowDraggedItem) atterrissent volontairement un peu plus
@@ -2336,6 +2337,30 @@ public readonly struct ProjectileRenderTag
 		public Vector2? StorageChestPos;
 		public HashSet<(int x, int y)> RoofTiles = new(); // Toutes les tuiles du toit
 		public Rectangle Bounds; // Rectangle englobant la maison
+	}
+
+	public sealed class HouseFloorTileData
+	{
+		public int BuildingId { get; set; }
+		public int Floor { get; set; }
+		public int X { get; set; }
+		public int Y { get; set; }
+		public int GroundTileId { get; set; }
+		public int ObjectId { get; set; }
+		public int OverlayId { get; set; }
+		public int WallCoveringId { get; set; }
+	}
+
+	public sealed class HouseFloorTileSaveData
+	{
+		public int BuildingId { get; set; }
+		public int Floor { get; set; }
+		public int LocalX { get; set; }
+		public int LocalY { get; set; }
+		public int GroundTileId { get; set; }
+		public int ObjectId { get; set; }
+		public int OverlayId { get; set; }
+		public int WallCoveringId { get; set; }
 	}
 
     // ─── REGISTRY DES OBJETS DU MONDE ───────────────────────────────────────────
@@ -3436,6 +3461,7 @@ public readonly struct ProjectileRenderTag
 		public float? GroundY = null;
 		public Vector2? TargetPosition = null;
 		public bool UseTargetLanding = false;
+		public float FloorOffsetY;
 		private bool _isAlive = true;   // Champ interne pour contrôler la vie
 
 		public Particle(Vector2 pos, Vector2 vel, Color color, float size, float lifetime)
@@ -4175,9 +4201,12 @@ public readonly struct ProjectileRenderTag
 						if (remoteTarget != null)
 							Program.DamagePlayerTarget(damageAmount, TargetConnectionId,
 								SourceEntity?.GetDisplayName() ?? "une flèche",
-								Program.InferDeathCauseFromSpecies(SourceEntity?.Species ?? ""));
+								Program.InferDeathCauseFromSpecies(SourceEntity?.Species ?? ""),
+								sourcePos: checkPos - dir * 200f);
 						else
-							Program.DamagePlayer(damageAmount);
+							//  La source est placée en arrière sur la trajectoire de la flèche : c'est la direction d'où
+							// elle vient qui compte pour la parade du bouclier (voir Shield.cs).
+							Program.DamagePlayer(damageAmount, sourcePos: checkPos - dir * 200f);
 					}
 					return true;
 				}

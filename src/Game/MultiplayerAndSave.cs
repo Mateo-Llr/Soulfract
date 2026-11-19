@@ -507,7 +507,7 @@ namespace Soulfract
 			_playerEntity.IsPlayer = true;
 			RebuildInventoryFromEquipment();
 			
-			_smoothedCameraTarget = GetPlayerCameraTarget(_playerPos);
+			SetCameraTargetPrecise(GetPlayerCameraTarget(_playerPos));
 			_cameraNeedsImmediateCenter = true;
 
 			Biome finalBiome = World.GetBiomeAt(
@@ -526,6 +526,7 @@ namespace Soulfract
 				DeathPosY = LastDeathPosition.Y,
 				PlayerPosX = _playerPos.X,
 				PlayerPosY = _playerPos.Y,
+				PlayerHouseFloor = World.CurrentHouseFloor,
 				PlayerFacing = _playerFacing,
 				IsGodMode = _godmode,
 				TravelDistance = _travelDistanceProgress,
@@ -553,6 +554,7 @@ namespace Soulfract
 				PlayerEyeColorB = EyeColor.B,
 				PlayerEyeColorA = EyeColor.A,
 				Skills = SkillSystem.ToSaveData(),
+				BloodEssence = GetBloodEssence(),
 				PreviouslyOwnedItemIds = PreviouslyOwnedItemIds.ToList(),
 				HotbarSlot = 0,
 				CameraZoom = 1f,
@@ -658,9 +660,10 @@ namespace Soulfract
 			_lastTravelDistancePos = _playerPos;
 			_playerEntity = new Entity(_playerPos, "human", true);
 			_playerEntity.IsPlayer = true;
-			_smoothedCameraTarget = GetPlayerCameraTarget(_playerPos);
+			SetCameraTargetPrecise(GetPlayerCameraTarget(_playerPos));
 			_cameraNeedsImmediateCenter = true;
 			SkillSystem.LoadFromSaveData(saveData.Skills);
+			SetBloodEssence(saveData.BloodEssence);
 			playerHP = saveData.PlayerHP;
 			playerMaxHP = saveData.PlayerMaxHP;
 			playerStamina = saveData.PlayerMaxStamina > 0 ? saveData.PlayerStamina : 100f;
@@ -932,6 +935,7 @@ namespace Soulfract
 				DeathPosY = LastDeathPosition.Y,
 				PlayerPosX = _playerPos.X,
 				PlayerPosY = _playerPos.Y,
+				PlayerHouseFloor = World.CurrentHouseFloor,
 				PlayerFacing = _playerFacing,
 				IsGodMode = _godmode,
 				TravelDistance = _travelDistanceProgress,
@@ -966,6 +970,7 @@ namespace Soulfract
 				PlayerThirst = playerThirst,
 				PlayerMaxThirst = playerMaxThirst,
 				Skills = SkillSystem.ToSaveData(),
+				BloodEssence = GetBloodEssence(),
 				PreviouslyOwnedItemIds = PreviouslyOwnedItemIds.ToList(),
 				HotbarSlot = 0,
 				CameraZoom = 1f,

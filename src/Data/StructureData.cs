@@ -21,6 +21,7 @@ namespace Soulfract
         public int Y { get; set; }
         public int GroundTileId { get; set; }
         public int PlacedTileId { get; set; } // 0 si aucun objet placé
+        public int WallCoveringId { get; set; }
         public int OverlayId { get; set; }    // 0 si aucun overlay (minerai, toit)
         public int DecorationIndex { get; set; } = -1;
         public int VariationIndex { get; set; } = -1;

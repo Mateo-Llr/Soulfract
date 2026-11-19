@@ -1908,6 +1908,25 @@ namespace Soulfract
                     wallCoveringsDict[PackTileKey(kv.Key.x, kv.Key.y, chunkX, chunkY)] = kv.Value;
             }
 
+            var houseFloorTiles = new List<HouseFloorTileSaveData>();
+            if (chunk.HouseFloorTiles != null)
+            {
+                foreach (var tile in chunk.HouseFloorTiles.Values)
+                {
+                    houseFloorTiles.Add(new HouseFloorTileSaveData
+                    {
+                        BuildingId = tile.BuildingId,
+                        Floor = tile.Floor,
+                        LocalX = tile.X - chunkX * World.CHUNK_SIZE,
+                        LocalY = tile.Y - chunkY * World.CHUNK_SIZE,
+                        GroundTileId = tile.GroundTileId,
+                        ObjectId = tile.ObjectId,
+                        OverlayId = tile.OverlayId,
+                        WallCoveringId = tile.WallCoveringId
+                    });
+                }
+            }
+
             var bannerHoldersDict = new Dictionary<int, BannerHolderSaveData>();
             if (chunk.BannerHolders != null)
             {
@@ -2168,6 +2187,7 @@ namespace Soulfract
                 RoofHeights = roofHeightsDict,
                 RoofTileInfo = roofTileInfoDict,
                 WallCoverings = wallCoveringsDict,
+                HouseFloorTiles = houseFloorTiles,
                 BannerHolders = bannerHoldersDict,
                 BuildingIds = buildingIdsDict,
                 Aquariums = aquariumsDict,
@@ -2547,6 +2567,7 @@ namespace Soulfract
                 RoofHeights = new Dictionary<(int x, int y), int>(),
                 RoofTileInfo = new Dictionary<(int x, int y), World.RoofTileInfo>(),
                 WallCoverings = new Dictionary<(int x, int y), int>(),
+                HouseFloorTiles = new Dictionary<(int buildingId, int floor, int x, int y), HouseFloorTileData>(),
                 BannerHolders = new Dictionary<(int x, int y), BannerHolderData>(),
                 TileMeta = new Dictionary<(int x, int y), Dictionary<string, string>>(),
                 IsGenerated = true,
@@ -2629,6 +2650,27 @@ namespace Soulfract
                 {
                     var (x, y) = UnpackTileKey(kv.Key, chunkX, chunkY);
                     chunk.WallCoverings[(x, y)] = kv.Value;
+                }
+            }
+
+            if (chunkData.HouseFloorTiles != null)
+            {
+                foreach (var tile in chunkData.HouseFloorTiles)
+                {
+                    int x = chunkX * World.CHUNK_SIZE + tile.LocalX;
+                    int y = chunkY * World.CHUNK_SIZE + tile.LocalY;
+                    var floorTile = new HouseFloorTileData
+                    {
+                        BuildingId = tile.BuildingId,
+                        Floor = tile.Floor,
+                        X = x,
+                        Y = y,
+                        GroundTileId = tile.GroundTileId,
+                        ObjectId = tile.ObjectId,
+                        OverlayId = tile.OverlayId,
+                        WallCoveringId = tile.WallCoveringId
+                    };
+                    chunk.HouseFloorTiles[(tile.BuildingId, tile.Floor, x, y)] = floorTile;
                 }
             }
             
@@ -3275,6 +3317,22 @@ namespace Soulfract
         public ColorSave Eye { get; set; } = new ColorSave { R = 100, G = 150, B = 200, A = 255 };
         public List<InventorySlotSave> InventorySlots { get; set; } = new();
         public EquipmentSave Equipment { get; set; } = new();
+
+        //  MULTIJOUEUR : progression propre au personnage. Ces systèmes étaient auparavant
+        //  purement locaux (comme si chaque joueur était un personnage neuf à chaque
+        //  connexion). Les quêtes, succès et recettes ne sont volontairement PAS inclus :
+        //  - quêtes : déjà reconstruites chaque frame depuis le snapshot du host (voir
+        //    NetworkManager.GetVillagerProxies) — les persister créerait un état dupliqué ;
+        //  - succès / recettes : stockés au niveau machine (fichier global, pas par
+        //    personnage), donc les mêler à une sauvegarde par joueur polluerait l'état partagé.
+        public SkillsSaveData? Skills { get; set; } = new();
+        public int BloodEssence { get; set; } = 0;
+        public SpellElement LeftClickSpellElement { get; set; } = SpellElement.Fire;
+        public SpellType LeftClickSpellType { get; set; } = SpellType.Projectile;
+        public PowerLevel LeftClickSpellPower { get; set; } = PowerLevel.Medium;
+        public SpellElement RightClickSpellElement { get; set; } = SpellElement.Fire;
+        public SpellType RightClickSpellType { get; set; } = SpellType.Projectile;
+        public PowerLevel RightClickSpellPower { get; set; } = PowerLevel.Medium;
         public string LastSeenUtc { get; set; } = "";
     }
 
@@ -3291,6 +3349,7 @@ namespace Soulfract
         public float DeathPosY { get; set; }
         public float PlayerPosX { get; set; }
         public float PlayerPosY { get; set; }
+        public int PlayerHouseFloor { get; set; }
         public float PlayerFacing { get; set; }
         public bool IsGodMode { get; set; } = false;
         public int PlayerHP { get; set; }
@@ -3365,6 +3424,9 @@ namespace Soulfract
         public List<RainCollectorSave> RainCollectors { get; set; } = new();
         public List<EnergyConnectionSave> EnergyConnections { get; set; } = new();
         public SkillsSaveData? Skills { get; set; } = new();
+        //  Essence de sang : n'était persistée nulle part auparavant (perdue au rechargement,
+        //  en solo comme en multijoueur). Même valeur que GuestPlayerSaveData.BloodEssence.
+        public int BloodEssence { get; set; } = 0;
         // Options de monde (activables/désactivables à la création)
         public bool WeaponsBreak { get; set; } = true;
         public bool FoodSpoils { get; set; } = true;
@@ -3600,6 +3662,7 @@ namespace Soulfract
         public Dictionary<int, int> RoofHeights { get; set; } = new();
         public Dictionary<int, RoofTileInfoSaveData> RoofTileInfo { get; set; } = new();
         public Dictionary<int, int> WallCoverings { get; set; } = new();
+        public List<HouseFloorTileSaveData> HouseFloorTiles { get; set; } = new();
         public Dictionary<int, BannerHolderSaveData> BannerHolders { get; set; } = new();
         public Dictionary<int, int> BuildingIds { get; set; } = new();
         public Dictionary<int, List<AquariumFishSaveData>> Aquariums { get; set; } = new();

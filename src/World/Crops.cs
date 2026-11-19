@@ -452,6 +452,7 @@ namespace Soulfract
 			public Dictionary<(int x, int y), CropData> Crops = new();
 			public Dictionary<(int x, int y), int> WallCoverings { get; set; } = new();
 			public Dictionary<(int x, int y), BannerHolderData> BannerHolders { get; set; } = new();
+			public Dictionary<(int buildingId, int floor, int x, int y), HouseFloorTileData> HouseFloorTiles { get; set; } = new();
 
 			//  SYSTÈME UNIFIÉ DE MÉTADONNÉES DE TUILE (extensible, additif) — pendant de
 			// Item.Meta côté monde. Sac extensible de paires clé/valeur par tuile pour toute
@@ -485,6 +486,7 @@ namespace Soulfract
 				Crops ??= new Dictionary<(int x, int y), CropData>();
 				WallCoverings ??= new Dictionary<(int x, int y), int>();
 				BannerHolders ??= new Dictionary<(int x, int y), BannerHolderData>();
+				HouseFloorTiles ??= new Dictionary<(int buildingId, int floor, int x, int y), HouseFloorTileData>();
 				TileMeta ??= new Dictionary<(int x, int y), Dictionary<string, string>>();
 				Entities ??= new List<Entity>();
 			}
@@ -972,6 +974,11 @@ namespace Soulfract
 		{
 			// Vérifier les coordonnées extrêmes
 			if (x == int.MinValue || x == int.MaxValue || y == int.MinValue || y == int.MaxValue)
+				return 0;
+
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+				return floorTile.GroundTileId;
+			if (IsUnbuiltCurrentHouseFloorTile(x, y))
 				return 0;
 
 			// Vérifier les overrides

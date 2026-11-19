@@ -1119,12 +1119,28 @@ namespace Soulfract
             return false;
         }
 
+        private readonly Dictionary<(int x, int y), (bool ok, double expires)> _caveRouteCache = new();
+
         private bool HasCaveRouteTo(Vector2 destination)
         {
             if (Vector2.DistanceSquared(WorldPos, destination) < 55f * 55f)
                 return true;
 
-            return Pathfinder.FindPath(WorldPos, destination, Program.GetDestroyedObjects(), 12, Species).Count > 0;
+            //  PERF : appelée en boucle (candidats de caisses/tentes) et SANS quota : chaque appel
+            // lançait un A* complet, souvent raté. Résultat mis en cache par case de destination
+            // et recherche soumise au budget temps.
+            var key = ((int)(destination.X / Program.TileSize), (int)(destination.Y / Program.TileSize));
+            double now = Raylib_cs.Raylib.GetTime();
+            if (_caveRouteCache.TryGetValue(key, out var cached) && cached.expires > now)
+                return cached.ok;
+
+            if (!AiPathBudget.CanSearch())
+                return false; // pas de verdict mis en cache : on retentera plus tard
+
+            bool ok = AiPathBudget.Find(WorldPos, destination, Program.GetDestroyedObjects(), 12, Species).Count > 0;
+            if (_caveRouteCache.Count > 64) _caveRouteCache.Clear();
+            _caveRouteCache[key] = (ok, now + (ok ? 20.0 : 8.0));
+            return ok;
         }
 
         // ==================== CAMPEMENT DU VEILLEUR ====================

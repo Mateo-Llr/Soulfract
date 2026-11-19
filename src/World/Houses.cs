@@ -10,6 +10,357 @@ namespace Soulfract
     {
 
 		private static HashSet<int> _currentIndoorGroupIds = new HashSet<int>();
+		private static int _activeHouseBuildingId;
+		private static int _currentHouseFloor;
+		private const int HouseUpperFloorGroundTileId = 57;
+		// The rendered upper-floor cell is one row above the player's logical tile.
+		private const int UpperFloorPlayerTileYOffset = -1;
+
+		// Vrai uniquement lorsque le joueur se trouve dans une enceinte de l'étage actif.
+		private static bool _playerInsideCurrentFloorEnclosure;
+		private static HashSet<(int x, int y)> _currentFloorEnclosedTiles = new();
+
+		/// <summary>Le joueur est sur un étage supérieur, mais hors de toute enceinte de cet étage.</summary>
+		public static bool IsCurrentFloorOpenAir
+			=> _isPlayerIndoors && _currentHouseFloor > 0 && !_playerInsideCurrentFloorEnclosure;
+
+		/// <summary>À utiliser à la place de _isPlayerIndoors pour le fond noir et le filtre de bâtiment.</summary>
+		public static bool HidesOutsideWorld => _isPlayerIndoors && !IsCurrentFloorOpenAir;
+
+		private static void RefreshCurrentFloorOpenAir(Vector2 playerPos)
+		{
+			_playerInsideCurrentFloorEnclosure = false;
+			_currentFloorEnclosedTiles.Clear();
+			if (!_isPlayerIndoors || _currentHouseFloor <= 0 || _activeHouseBuildingId == 0)
+				return;
+
+			var floorTiles = new Dictionary<(int x, int y), HouseFloorTileData>();
+			foreach (var chunk in GetChunksDict().Values)
+			{
+				foreach (var (key, tile) in chunk.HouseFloorTiles)
+				{
+					if (key.buildingId == _activeHouseBuildingId && key.floor == _currentHouseFloor)
+						floorTiles[(key.x, key.y)] = tile;
+				}
+			}
+
+			if (floorTiles.Count == 0
+				|| !TryGetEnclosedHouseFloorRoofTiles(floorTiles, out var enclosedTiles))
+				return;
+
+			_currentFloorEnclosedTiles = enclosedTiles.ToHashSet();
+			_playerInsideCurrentFloorEnclosure = _currentFloorEnclosedTiles.Contains((
+				(int)MathF.Floor(playerPos.X / Program.TileSize),
+				(int)MathF.Floor(playerPos.Y / Program.TileSize) + UpperFloorPlayerTileYOffset));
+		}
+
+		private static bool IsCurrentFloorEnclosedTile(int tileX, int tileY)
+			=> _currentFloorEnclosedTiles.Contains((tileX, tileY));
+
+		private static bool IsCurrentIndoorRenderTile(int tileX, int tileY, int buildingId)
+			=> _currentHouseFloor > 0
+				? IsCurrentFloorEnclosedTile(tileX, tileY)
+				: _currentIndoorGroupIds.Contains(buildingId);
+
+		public static int CurrentHouseFloor => _currentHouseFloor;
+		public static int CurrentHouseBuildingId => _activeHouseBuildingId;
+		public static float CurrentHouseFloorOffset => _isPlayerIndoors
+			? _currentHouseFloor * 3f * Program.TileSize
+			: 0f;
+		public static float CurrentHouseFloorGroundOffset => _isPlayerIndoors && _currentHouseFloor > 0
+			? CurrentHouseFloorOffset - Program.TileSize
+			: 0f;
+
+		private static bool IsUnbuiltCurrentHouseFloorTile(int x, int y)
+			=> _isPlayerIndoors
+				&& _currentHouseFloor > 0
+				&& _activeHouseBuildingId != 0
+				&& GetBuildingIdAt(x, y) == _activeHouseBuildingId;
+
+		private static bool TryGetCurrentHouseFloorTile(int x, int y, out HouseFloorTileData floorTile)
+		{
+			floorTile = null!;
+			if (!_isPlayerIndoors || _currentHouseFloor <= 0 || _activeHouseBuildingId == 0)
+				return false;
+
+			var chunk = GetChunkAt(x, y);
+			if (chunk == null)
+				return false;
+
+			return chunk.HouseFloorTiles.TryGetValue(
+				(_activeHouseBuildingId, _currentHouseFloor, x, y),
+				out floorTile!);
+		}
+
+		private static float GetCurrentHouseFloorCollisionOffsetAt(int x, int y)
+			=> TryGetCurrentHouseFloorTile(x, y, out _)
+				? CurrentHouseFloorGroundOffset
+				: 0f;
+
+		private static bool TryGetHouseFloorTile(int buildingId, int floor, int x, int y, out HouseFloorTileData floorTile)
+		{
+			floorTile = null!;
+			var chunk = GetChunkAt(x, y);
+			return chunk != null
+				&& chunk.HouseFloorTiles.TryGetValue((buildingId, floor, x, y), out floorTile!);
+		}
+
+		private static bool HasHouseFloorGroundAt(int floor, int x, int y)
+		{
+			var chunk = GetChunkAt(x, y);
+			if (chunk == null)
+				return false;
+
+			foreach (var (key, tile) in chunk.HouseFloorTiles)
+				if (key.floor == floor && key.x == x && key.y == y && tile.GroundTileId > 0)
+					return true;
+			return false;
+		}
+
+		private static int GetHouseFloorCount(int buildingId)
+		{
+			int highestFloor = 0;
+			foreach (var chunk in GetChunksDict().Values)
+			{
+				foreach (var key in chunk.HouseFloorTiles.Keys)
+				{
+					if (key.buildingId == buildingId)
+						highestFloor = Math.Max(highestFloor, key.floor);
+				}
+			}
+			return highestFloor;
+		}
+
+		private static bool CreateHouseFloor(HouseData house, int floor)
+		{
+			var roofTiles = new HashSet<(int x, int y)>(house.RoofTiles);
+			if (HouseInteriorSpots.TryGetValue(house.BuildingId, out var interiorSpots))
+				foreach (var spot in interiorSpots)
+					roofTiles.Add(spot.Tile);
+
+			foreach (var (position, buildingId) in BuildingIds)
+			{
+				if (buildingId == house.BuildingId)
+					roofTiles.Add(position);
+			}
+
+			foreach (var chunk in GetChunksDict().Values)
+			{
+				foreach (var (position, overlayId) in chunk.Overlays)
+				{
+					if (overlayId == 82 && GetBuildingIdAt(position.x, position.y) == house.BuildingId)
+						roofTiles.Add(position);
+				}
+			}
+
+			bool hasBounds = house.Bounds.Width > 0 && house.Bounds.Height > 0;
+			int minX = hasBounds ? (int)house.Bounds.X : int.MaxValue;
+			int maxX = hasBounds ? (int)(house.Bounds.X + house.Bounds.Width - 1) : int.MinValue;
+			int minY = hasBounds ? (int)house.Bounds.Y : int.MaxValue;
+			int maxY = hasBounds ? (int)(house.Bounds.Y + house.Bounds.Height - 1) : int.MinValue;
+			if (TryFindHouseBoundsForTile(house.DoorX, house.DoorY,
+				out int wallMinX, out int wallMaxX, out int wallMinY, out int wallMaxY,
+				out int doorX, out int doorY, out _))
+			{
+				minX = Math.Min(minX, wallMinX);
+				maxX = Math.Max(maxX, wallMaxX);
+				minY = Math.Min(minY, wallMinY);
+				maxY = Math.Max(maxY, wallMaxY);
+				hasBounds = true;
+				if (TryGetEnclosedRoofTiles(wallMinX, wallMaxX, wallMinY, wallMaxY, doorX, doorY, out var enclosedTiles))
+					roofTiles.UnionWith(enclosedTiles);
+			}
+
+			if (floor > 1)
+			{
+				foreach (var chunk in GetChunksDict().Values)
+				{
+					foreach (var (key, tile) in chunk.HouseFloorTiles)
+					{
+						if (key.buildingId != house.BuildingId || key.floor != floor - 1)
+							continue;
+						roofTiles.Add((tile.X, tile.Y));
+					}
+				}
+			}
+
+			if (!hasBounds && roofTiles.Count > 0)
+			{
+				minX = roofTiles.Min(tile => tile.x);
+				maxX = roofTiles.Max(tile => tile.x);
+				minY = roofTiles.Min(tile => tile.y);
+				maxY = roofTiles.Max(tile => tile.y);
+				hasBounds = true;
+			}
+			if (!hasBounds)
+				return false;
+
+			house.Bounds = new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+			house.RoofTiles = new HashSet<(int x, int y)>(roofTiles);
+			bool createdAny = false;
+
+			for (int x = minX; x <= maxX; x++)
+			{
+				for (int y = minY; y <= maxY; y++)
+				{
+					var position = (x, y);
+					bool isHouseCell = roofTiles.Contains(position)
+						|| GetBuildingIdAt(x, y) == house.BuildingId;
+					if (!isHouseCell)
+					{
+						int baseObjectId = GetObjectIdAt(x, y);
+						isHouseCell = IsWall(baseObjectId) || baseObjectId == 84;
+					}
+					if (!isHouseCell)
+						continue;
+
+					if (floor > 1)
+					{
+						if (!TryGetHouseFloorTile(house.BuildingId, floor - 1, x, y, out _))
+							continue;
+					}
+					var chunk = GetChunkAt(x, y);
+					if (chunk == null)
+						continue;
+
+					var floorKey = (house.BuildingId, floor, x, y);
+					if (chunk.HouseFloorTiles.ContainsKey(floorKey))
+						continue;
+
+					var tile = new HouseFloorTileData
+					{
+						BuildingId = house.BuildingId,
+						Floor = floor,
+						X = x,
+						Y = y,
+						GroundTileId = HouseUpperFloorGroundTileId,
+						ObjectId = 0
+					};
+					chunk.HouseFloorTiles[floorKey] = tile;
+					createdAny = true;
+				}
+			}
+
+			return createdAny;
+		}
+
+		private static void NormalizeExistingHouseFloors(int buildingId)
+		{
+			int floorCount = GetHouseFloorCount(buildingId);
+			for (int floor = 1; floor <= floorCount; floor++)
+			{
+				foreach (var chunk in GetChunksDict().Values)
+				{
+					foreach (var entry in chunk.HouseFloorTiles.ToList())
+					{
+						var key = entry.Key;
+						var tile = entry.Value;
+						if (key.buildingId != buildingId || key.floor != floor || tile.GroundTileId != 82)
+							continue;
+
+						if (floor > 1
+							&& !TryGetHouseFloorTile(buildingId, floor - 1, key.x, key.y, out _))
+						{
+							chunk.HouseFloorTiles.Remove(key);
+							continue;
+						}
+
+						tile.GroundTileId = HouseUpperFloorGroundTileId;
+					}
+				}
+			}
+		}
+
+		public static bool TryChangeHouseFloor(int delta)
+		{
+			if (!_isPlayerIndoors || _activeHouseBuildingId == 0 || delta == 0)
+				return false;
+			int previousFloor = _currentHouseFloor;
+			if (!Houses.TryGetValue(_activeHouseBuildingId, out var house))
+			{
+				RefreshAllHouses();
+				if (!Houses.TryGetValue(_activeHouseBuildingId, out house)
+					&& !TryRegisterHouseFromBuildingIds(_activeHouseBuildingId))
+					return false;
+				if (!Houses.TryGetValue(_activeHouseBuildingId, out house))
+					return false;
+			}
+
+			NormalizeExistingHouseFloors(_activeHouseBuildingId);
+
+			if (delta > 0)
+			{
+				int nextFloor = _currentHouseFloor + 1;
+				int floorCount = GetHouseFloorCount(_activeHouseBuildingId);
+				if (nextFloor > floorCount)
+				{
+					if (!CreateHouseFloor(house, nextFloor))
+						return false;
+				}
+				else
+				{
+					CreateHouseFloor(house, nextFloor);
+				}
+				_currentHouseFloor = nextFloor;
+			}
+			else
+			{
+				if (_currentHouseFloor == 0)
+					return false;
+				_currentHouseFloor--;
+			}
+
+			Vector2 playerPos = Program.GetPlayerPosition();
+			if (previousFloor == 0 && _currentHouseFloor > 0)
+				playerPos.Y += Program.TileSize;
+			else if (previousFloor > 0 && _currentHouseFloor == 0)
+				playerPos.Y -= Program.TileSize;
+			if (playerPos != Program.GetPlayerPosition())
+			{
+				Program.SetPlayerPosition(playerPos);
+				Program.GetPlayerEntity().WorldPos = playerPos;
+			}
+
+			RefreshCurrentFloorOpenAir(playerPos);
+			Program.InvalidateLightGrid();
+			Program.RequestImmediateCameraCenter();
+			return true;
+		}
+
+		public static void RestoreHouseFloor(int floor, Vector2 playerPos)
+		{
+			UpdatePlayerIndoorStatus(playerPos);
+			if (_isPlayerIndoors)
+			{
+				NormalizeExistingHouseFloors(_activeHouseBuildingId);
+				if (floor > 0 && Houses.TryGetValue(_activeHouseBuildingId, out var house))
+				{
+					for (int level = 1; level <= floor; level++)
+						CreateHouseFloor(house, level);
+				}
+			}
+			_currentHouseFloor = _isPlayerIndoors
+				? Math.Clamp(floor, 0, GetHouseFloorCount(_activeHouseBuildingId))
+				: 0;
+			RefreshCurrentFloorOpenAir(playerPos);
+		}
+
+		public static int GetWallCoveringIdAt(int x, int y)
+		{
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+				return floorTile.WallCoveringId;
+			return GetChunkAt(x, y)?.GetWallCoveringAt(x, y) ?? 0;
+		}
+
+		public static void SetWallCoveringAt(int x, int y, int coveringId)
+		{
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+			{
+				floorTile.WallCoveringId = coveringId;
+				return;
+			}
+			GetChunkAt(x, y)?.SetWallCoveringAt(x, y, coveringId);
+		}
 
 		// Texture affichée à la base des pans "verticaux" du toit (la noue), là où deux
 		// pentes se rejoignent en bas. Chargée une seule fois et mise en cache.
@@ -109,12 +460,19 @@ namespace Soulfract
 		// ni afficher les connexions autour de cette tuile.
 		private static bool HasVisibleInteriorTile(int tileX, int tileY)
 		{
-			if (!_isPlayerIndoors)
+			if (!HidesOutsideWorld)
 				return true;
 
 			int buildingId = GetBuildingIdAt(tileX, tileY);
-			if (buildingId == 0 || !_currentIndoorGroupIds.Contains(buildingId))
+			if (_currentHouseFloor > 0)
+			{
+				if (!IsCurrentFloorEnclosedTile(tileX, tileY))
+					return false;
+			}
+			else if (buildingId == 0 || !_currentIndoorGroupIds.Contains(buildingId))
+			{
 				return false;
+			}
 
 			int objectId = GetObjectIdAt(tileX, tileY);
 			if (IsWallToHide(objectId))
@@ -355,8 +713,8 @@ namespace Soulfract
 			return roofTiles.Count > 0;
 		}
 
-		// Un pan de toit est soit "horizontal" (le bâtiment est plus large que profond : reste
-		// PLAT, à la hauteur classique, comme un toit normal), soit "vertical" (plus profond
+		// Un pan de toit est soit "horizontal" (le bâtiment est plus large que profond :
+		// ses deux versants sont séparés par un faîtage horizontal), soit "vertical" (plus profond
 		// que large). Pour un pan vertical, CHAQUE COLONNE garde la hauteur classique comme
 		// base, puis on empile des roof_wall pour monter jusqu'à la hauteur de cette colonne
 		// (1 empilement sur les bords, +1 par colonne en s'approchant du milieu). Les tuiles
@@ -364,7 +722,7 @@ namespace Soulfract
 		// par-dessus, toutes décalées de la même hauteur, avec la texture roof_up (moitié
 		// gauche), roof_down (moitié droite) ou classique (colonne du milieu exacte, uniquement
 		// si la largeur est impaire).
-		public enum RoofTexKind { Default, Up, Down, Classic }
+		public enum RoofTexKind { Default, Up, Down, Classic, Back, Ridge }
 
 		public readonly struct RoofTileInfo
 		{
@@ -404,6 +762,77 @@ namespace Soulfract
 			foreach (var key in chunk.RoofTileInfo.Keys.ToList())
 				_roofTileInfo.Remove(key);
 			RestoreRoofTileInfo(chunk.RoofTileInfo);
+			RestoreHorizontalRoofStylingForLoadedRoofs(chunk);
+		}
+
+		private static void RestoreHorizontalRoofStylingForLoadedRoofs(ChunkData newlyLoadedChunk)
+		{
+			var loadedChunks = GetChunksDict().Values
+				.Append(newlyLoadedChunk)
+				.Distinct()
+				.ToList();
+			var roofsByBuilding = new Dictionary<int, HashSet<(int x, int y)>>();
+
+			foreach (var chunk in loadedChunks)
+			{
+				foreach (var (position, overlayId) in chunk.Overlays)
+				{
+					if (overlayId != 82)
+						continue;
+
+					int buildingId = BuildingIds.GetValueOrDefault(position, 0);
+					if (buildingId == 0
+						|| !_roofTileInfo.TryGetValue(position, out var info)
+						|| !info.IsHorizontalZone)
+						continue;
+
+					if (!roofsByBuilding.TryGetValue(buildingId, out var tiles))
+					{
+						tiles = new HashSet<(int x, int y)>();
+						roofsByBuilding[buildingId] = tiles;
+					}
+					tiles.Add(position);
+				}
+			}
+
+			foreach (var roof in roofsByBuilding.Values)
+			{
+				foreach (var (minX, maxX, minY, maxY) in DecomposeFootprintIntoRectangles(roof.ToList()))
+				{
+					int width = maxX - minX + 1;
+					int depth = maxY - minY + 1;
+					if (width < depth)
+						continue;
+
+					int ridgeY = GetHorizontalRoofRidgeY(minY, depth);
+					for (int x = minX; x <= maxX; x++)
+					{
+						for (int y = minY; y <= maxY; y++)
+						{
+							var position = (x, y);
+							if (!_roofTileInfo.TryGetValue(position, out var info))
+								continue;
+
+							RoofTexKind texKind = y < ridgeY
+								? RoofTexKind.Back
+								: y == ridgeY ? RoofTexKind.Ridge : RoofTexKind.Default;
+							var updatedInfo = new RoofTileInfo(
+								info.Height,
+								info.IsHorizontalZone,
+								info.WallStackCount,
+								texKind,
+								info.IsColumnAnchor);
+							_roofTileInfo[position] = updatedInfo;
+
+							foreach (var loadedChunk in loadedChunks)
+							{
+								if (loadedChunk.RoofTileInfo?.ContainsKey(position) == true)
+									loadedChunk.RoofTileInfo[position] = updatedInfo;
+							}
+						}
+					}
+				}
+			}
 		}
 
 		// Un pied de toit n'est pas forcément un rectangle (ex: forme en L composée d'une
@@ -472,9 +901,12 @@ namespace Soulfract
 			return zones;
 		}
 
+		private static int GetHorizontalRoofRidgeY(int minY, int depth)
+			=> minY + Math.Max(1, depth / 3);
+
 		// Calcule pour chaque tuile d'une zone rectangulaire :
-		// - orientation horizontale (largeur >= profondeur) -> toit plat à la hauteur
-		//   classique (roofHeightTiles), comme avant, aucun changement de position ;
+		// - orientation horizontale (largeur >= profondeur) -> hauteur classique et séparation
+		//   visuelle entre le versant arrière assombri, le faîtage horizontal et le versant avant ;
 		// - orientation verticale (profondeur > largeur) -> chaque COLONNE garde la hauteur
 		//   classique comme base, puis empile 1, 2, 3... roof_wall en s'approchant du milieu
 		//   (1 sur les bords), et les tuiles de toit de cette colonne (une par rangée de
@@ -515,15 +947,146 @@ namespace Soulfract
 
 					int height = roofHeightTiles + wallStackCount;
 
+					int ridgeY = GetHorizontalRoofRidgeY(zMinY, depth);
 					for (int y = zMinY; y <= zMaxY; y++)
 					{
 						bool isColumnAnchor = !isHorizontal && y == columnAnchorY;
-						result[(x, y)] = new RoofTileInfo(height, isHorizontal, wallStackCount, texKind, isColumnAnchor);
+						RoofTexKind tileTexKind = texKind;
+						if (isHorizontal)
+						{
+							tileTexKind = y < ridgeY
+								? RoofTexKind.Back
+								: y == ridgeY ? RoofTexKind.Ridge : RoofTexKind.Default;
+						}
+						result[(x, y)] = new RoofTileInfo(height, isHorizontal, wallStackCount, tileTexKind, isColumnAnchor);
 					}
 				}
 			}
 
 			return result;
+		}
+
+		private static Dictionary<(int buildingId, int floor, int x, int y), RoofTileInfo> GetUpperHouseRoofTiles()
+		{
+			var floorTilesByLevel = new Dictionary<(int buildingId, int floor), Dictionary<(int x, int y), HouseFloorTileData>>();
+			foreach (var chunk in GetChunksDict().Values)
+			{
+				foreach (var (key, tile) in chunk.HouseFloorTiles)
+				{
+					if (key.floor <= 0)
+						continue;
+					var level = (key.buildingId, key.floor);
+					if (!floorTilesByLevel.TryGetValue(level, out var floorTiles))
+					{
+						floorTiles = new Dictionary<(int x, int y), HouseFloorTileData>();
+						floorTilesByLevel[level] = floorTiles;
+					}
+					floorTiles[(key.x, key.y)] = tile;
+				}
+			}
+
+			var roofInfoByTile = new Dictionary<(int buildingId, int floor, int x, int y), RoofTileInfo>();
+			foreach (var (level, floorTiles) in floorTilesByLevel)
+			{
+				if (!TryGetEnclosedHouseFloorRoofTiles(floorTiles, out var roofTiles))
+					continue;
+
+				if (floorTilesByLevel.TryGetValue((level.buildingId, level.floor + 1), out var higherFloor))
+					roofTiles.RemoveAll(tile =>
+						higherFloor.TryGetValue(tile, out var higherTile) && higherTile.GroundTileId > 0);
+				if (roofTiles.Count == 0)
+					continue;
+
+				int roofHeightTiles = 1;
+				foreach (var (x, y) in roofTiles)
+				{
+					if (!floorTiles.TryGetValue((x, y), out var wallTile) || !IsWall(wallTile.ObjectId))
+						continue;
+					var wallTileData = WorldTileRegistry.GetTile(wallTile.ObjectId);
+					int wallHeightTiles = wallTileData?.Size != null && wallTileData.Size.Height > 1
+						? wallTileData.Size.Height
+						: 1;
+					roofHeightTiles = Math.Max(roofHeightTiles, Math.Max(1, wallHeightTiles - 1));
+				}
+
+				var heights = ComputeRoofHeights(roofTiles, roofHeightTiles);
+				foreach (var (position, info) in heights)
+					roofInfoByTile[(level.buildingId, level.floor, position.x, position.y)] = info;
+			}
+
+			return roofInfoByTile;
+		}
+
+		private static bool TryGetEnclosedHouseFloorRoofTiles(
+			Dictionary<(int x, int y), HouseFloorTileData> floorTiles,
+			out List<(int x, int y)> roofTiles)
+		{
+			roofTiles = new List<(int x, int y)>();
+			if (floorTiles.Count == 0)
+				return false;
+
+			int minX = floorTiles.Keys.Min(tile => tile.x);
+			int maxX = floorTiles.Keys.Max(tile => tile.x);
+			int minY = floorTiles.Keys.Min(tile => tile.y);
+			int maxY = floorTiles.Keys.Max(tile => tile.y);
+			if (maxX - minX + 1 < 3 || maxY - minY + 1 < 3)
+				return false;
+
+			bool IsSolid(int x, int y)
+				=> floorTiles.TryGetValue((x, y), out var tile) && IsWall(tile.ObjectId);
+
+			var wallTiles = new HashSet<(int x, int y)>();
+			for (int x = minX; x <= maxX; x++)
+				for (int y = minY; y <= maxY; y++)
+					if (IsSolid(x, y))
+						wallTiles.Add((x, y));
+			if (wallTiles.Count == 0)
+				return false;
+
+			int padMinX = minX - 1, padMaxX = maxX + 1;
+			int padMinY = minY - 1, padMaxY = maxY + 1;
+			var outside = new HashSet<(int x, int y)>();
+			var queue = new Queue<(int x, int y)>();
+			void TryEnqueueOutside(int x, int y)
+			{
+				if (x < padMinX || x > padMaxX || y < padMinY || y > padMaxY)
+					return;
+				var position = (x, y);
+				if (outside.Contains(position) || IsSolid(x, y))
+					return;
+				outside.Add(position);
+				queue.Enqueue(position);
+			}
+
+			for (int x = padMinX; x <= padMaxX; x++)
+			{
+				TryEnqueueOutside(x, padMinY);
+				TryEnqueueOutside(x, padMaxY);
+			}
+			for (int y = padMinY; y <= padMaxY; y++)
+			{
+				TryEnqueueOutside(padMinX, y);
+				TryEnqueueOutside(padMaxX, y);
+			}
+			while (queue.Count > 0)
+			{
+				var (x, y) = queue.Dequeue();
+				TryEnqueueOutside(x + 1, y);
+				TryEnqueueOutside(x - 1, y);
+				TryEnqueueOutside(x, y + 1);
+				TryEnqueueOutside(x, y - 1);
+			}
+
+			var interiorTiles = new List<(int x, int y)>();
+			for (int x = minX; x <= maxX; x++)
+				for (int y = minY; y <= maxY; y++)
+					if (!IsSolid(x, y) && !outside.Contains((x, y)))
+						interiorTiles.Add((x, y));
+			if (interiorTiles.Count == 0)
+				return false;
+
+			roofTiles = wallTiles.Concat(interiorTiles).Distinct().ToList();
+			return true;
 		}
 
 		private static void ApplyRoofToHouse(int buildingId, IEnumerable<(int x, int y)> roofTiles)
@@ -763,6 +1326,101 @@ namespace Soulfract
 			}
 
 			return bestPosition;
+		}
+
+		public static Vector2? FindBedApproachPosition(int buildingId, Vector2 sleepPosition, Entity requester)
+		{
+			if (!Houses.TryGetValue(buildingId, out var house))
+				return null;
+
+			int ts = Program.TileSize;
+			int centerX = (int)MathF.Floor(sleepPosition.X / ts);
+			int centerY = (int)MathF.Floor(sleepPosition.Y / ts);
+			WorldTileData? bedData = null;
+			(int x, int y, int w, int h) bedRect = default;
+
+			for (int x = centerX - 4; x <= centerX + 4 && bedData == null; x++)
+			{
+				for (int y = centerY - 4; y <= centerY + 4; y++)
+				{
+					var tileData = WorldTileRegistry.GetTile(GetObjectIdAt(x, y));
+					if (tileData?.IsSleepable != true)
+						continue;
+
+					var anchor = Program.GetFurnitureAnchorPosition(x, y, tileData);
+					if (Vector2.DistanceSquared(anchor, sleepPosition) > 0.01f)
+						continue;
+
+					bedData = tileData;
+					bedRect = GetCollisionRect(x, y, tileData, ts);
+					break;
+				}
+			}
+
+			if (bedData == null)
+				return null;
+
+			int left = (int)MathF.Floor(bedRect.x / (float)ts);
+			int right = (int)MathF.Floor((bedRect.x + bedRect.w - 1) / (float)ts);
+			int top = (int)MathF.Floor(bedRect.y / (float)ts);
+			int bottom = (int)MathF.Floor((bedRect.y + bedRect.h - 1) / (float)ts);
+			var candidateTiles = new HashSet<(int x, int y)>();
+			for (int x = left; x <= right; x++)
+			{
+				candidateTiles.Add((x, top - 1));
+				candidateTiles.Add((x, bottom + 1));
+			}
+			for (int y = top; y <= bottom; y++)
+			{
+				candidateTiles.Add((left - 1, y));
+				candidateTiles.Add((right + 1, y));
+			}
+
+			bool hasInteriorSpots = HouseInteriorSpots.TryGetValue(buildingId, out var interiorSpots);
+			var destroyed = Program.GetDestroyedObjects();
+			string species = requester.Species;
+			var candidates = new List<(Vector2 position, float distanceSq, int tileX, int tileY)>();
+			foreach (var (x, y) in candidateTiles)
+			{
+				if (hasInteriorSpots && !interiorSpots!.Any(spot => spot.Tile == (x, y)))
+					continue;
+				if (GetObjectIdAt(x, y) != 0)
+					continue;
+
+				var ground = WorldTileRegistry.GetTile(GetGroundTileIdAt(x, y));
+				if (ground?.Walkable != true)
+					continue;
+
+				var approachPosition = new Vector2(
+					x * ts + ts / 2f,
+					y * ts + ts / 2f - Program.FeetOffsetY);
+				int requesterTileX = (int)MathF.Floor(requester.WorldPos.X / ts);
+				int requesterTileY = (int)MathF.Floor((requester.WorldPos.Y + Program.FeetOffsetY) / ts);
+				bool isCurrentTile = requesterTileX == x && requesterTileY == y;
+
+				if (!isCurrentTile
+					&& (!Pathfinder.IsWorldPositionWalkable(approachPosition, destroyed, species)
+						|| IsCollidingEntity(approachPosition, destroyed, species)))
+					continue;
+
+				if (Program.entities.Any(entity => !ReferenceEquals(entity, requester) && entity.IsAlive
+					&& Vector2.DistanceSquared(entity.WorldPos, approachPosition) < 35f * 35f))
+					continue;
+
+				candidates.Add((approachPosition, Vector2.DistanceSquared(requester.WorldPos, approachPosition), x, y));
+			}
+
+			foreach (var candidate in candidates.OrderBy(candidate => candidate.distanceSq))
+			{
+				if (candidate.tileX == (int)MathF.Floor(requester.WorldPos.X / ts)
+					&& candidate.tileY == (int)MathF.Floor((requester.WorldPos.Y + Program.FeetOffsetY) / ts))
+					return candidate.position;
+
+				if (Pathfinder.FindPath(requester.WorldPos, candidate.position, destroyed, 12, species).Count > 0)
+					return candidate.position;
+			}
+
+			return null;
 		}
 
 		/// <summary>
@@ -1609,6 +2267,14 @@ namespace Soulfract
 					InteriorPosition = interiorPos,
 					IsOccupied = false
 				};
+				if (TryFindHouseBoundsForTile(doorX, doorY,
+					out int minX, out int maxX, out int minY, out int maxY,
+					out int detectedDoorX, out int detectedDoorY, out _))
+				{
+					house.Bounds = new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+					if (TryGetEnclosedRoofTiles(minX, maxX, minY, maxY, detectedDoorX, detectedDoorY, out var roofTiles))
+						house.RoofTiles = new HashSet<(int x, int y)>(roofTiles);
+				}
 				Houses[buildingId] = house;
 				RegisterDoorTile(doorX, doorY);
 			}
@@ -1975,10 +2641,8 @@ namespace Soulfract
 				? spots.Count(s => !s.Occupied && GetObjectIdAt(s.Tile.x, s.Tile.y) == 0)
 				: 0;
 
-			if (freeInteriorTiles < 5)
-				return 0;
-
 			int chairCount = 0;
+			int bedCount = 0;
 			int minX = (int)house.Bounds.X;
 			int minY = (int)house.Bounds.Y;
 			int maxX = minX + (int)house.Bounds.Width;
@@ -1990,11 +2654,24 @@ namespace Soulfract
 				{
 					int objectId = GetObjectIdAt(x, y);
 					if (objectId == 0) continue;
+					if (objectId == 87)
+						bedCount++;
 					var tileData = WorldTileRegistry.GetTile(objectId);
 					if (tileData?.IsSittable == true)
 						chairCount++;
 				}
 			}
+
+			if (bedCount > 0)
+			{
+				int interiorTileCount = HouseInteriorSpots.TryGetValue(buildingId, out var bedroomSpots)
+					? bedroomSpots.Count(spot => GetObjectIdAt(spot.Tile.x, spot.Tile.y) == 0)
+					: freeInteriorTiles;
+				return Math.Min(bedCount * 2, interiorTileCount);
+			}
+
+			if (freeInteriorTiles < 5)
+				return 0;
 
 			foreach (var bench in Benches.Values)
 			{
@@ -2553,27 +3230,44 @@ namespace Soulfract
 
 		public static bool ShouldRenderEntity(Vector2 worldPos)
 		{
+			if (IsCurrentFloorOpenAir)
+				return true;
+
+			bool hideOutside = HidesOutsideWorld;
 			int ts = Program.TileSize;
 			int tileX = (int)MathF.Floor(worldPos.X / ts);
 			int tileY = (int)MathF.Floor(worldPos.Y / ts);
+			if (hideOutside && _currentHouseFloor > 0)
+				return IsCurrentFloorEnclosedTile(tileX, tileY);
+
 			int buildingId = GetBuildingIdForPosition(worldPos, tileX, tileY, ts);
 
-			return _isPlayerIndoors
+			return hideOutside
 				? _currentIndoorGroupIds.Contains(buildingId)
 				: buildingId == 0;
 		}
 
+		public static bool ShouldRenderParticle(Particle particle)
+			=> ShouldRenderEntity(particle.Position + new Vector2(0f, particle.FloorOffsetY));
+
 		public static bool ShouldRenderEntity(Entity entity)
 		{
+			if (IsCurrentFloorOpenAir)
+				return true;
+
+			bool hideOutside = HidesOutsideWorld;
 			int ts = Program.TileSize;
 			Vector2 worldPos = entity.VisualWorldPos;
 			int tileX = (int)MathF.Floor(worldPos.X / ts);
 			int tileY = (int)MathF.Floor(worldPos.Y / ts);
+			if (hideOutside && _currentHouseFloor > 0)
+				return IsCurrentFloorEnclosedTile(tileX, tileY);
+
 			int buildingId = entity.IsSleeping && entity.HomeBuildingId > 0
 				? entity.HomeBuildingId
 				: GetBuildingIdForPosition(worldPos, tileX, tileY, ts);
 
-			return _isPlayerIndoors
+			return hideOutside
 				? _currentIndoorGroupIds.Contains(buildingId)
 				: buildingId == 0;
 		}
@@ -2609,6 +3303,26 @@ namespace Soulfract
 			int ts = Program.TileSize;
 			int tileX = (int)(playerPos.X / ts);
 			int tileY = (int)(playerPos.Y / ts);
+			int GetFloorTileYForPlayerTile(int y) => y + UpperFloorPlayerTileYOffset;
+			int GetBuildingIdForPlayerTile(int x, int y)
+			{
+				if (_currentHouseFloor > 0
+					&& _activeHouseBuildingId != 0)
+					return TryGetHouseFloorTile(_activeHouseBuildingId, _currentHouseFloor, x, GetFloorTileYForPlayerTile(y), out _)
+						? _activeHouseBuildingId
+						: 0;
+				return GetBuildingIdAt(x, y);
+			}
+			int GetObjectIdForPlayerTile(int x, int y)
+			{
+				if (_currentHouseFloor > 0
+					&& _activeHouseBuildingId != 0)
+					return TryGetHouseFloorTile(_activeHouseBuildingId, _currentHouseFloor, x, GetFloorTileYForPlayerTile(y), out var floorTile)
+						? floorTile.ObjectId
+						: 0;
+				return GetObjectIdAt(x, y);
+			}
+
 			// Note : les murs portent déjà le BuildingId de la maison à laquelle ils appartiennent
 			// (voir ApplyRoofToHouse, qui l'assigne à la fois aux murs et aux tuiles intérieures).
 			// Mais la hitbox de collision d'un mur est plus étroite que la tuile entière (CollisionSize /
@@ -2619,7 +3333,7 @@ namespace Soulfract
 			// dans la tuile pour savoir de quel côté du mur il "penche", et on lit le BuildingId de la
 			// première case voisine non-mur trouvée dans cette direction.
 			int startBuildingId;
-			int objIdAtPlayerTile = GetObjectIdAt(tileX, tileY);
+			int objIdAtPlayerTile = GetObjectIdForPlayerTile(tileX, tileY);
 			if (IsWall(objIdAtPlayerTile))
 			{
 				float fracX = playerPos.X / ts - tileX;
@@ -2636,23 +3350,31 @@ namespace Soulfract
 				foreach (var d in directions.OrderBy(d => d.dist))
 				{
 					int nx = tileX + d.dx, ny = tileY + d.dy;
-					if (IsWall(GetObjectIdAt(nx, ny))) continue; // toujours un mur, pas une case exploitable
-					resolvedBuildingId = GetBuildingIdAt(nx, ny);
+					if (IsWall(GetObjectIdForPlayerTile(nx, ny))) continue; // toujours un mur, pas une case exploitable
+					resolvedBuildingId = GetBuildingIdForPlayerTile(nx, ny);
 					resolved = true;
 					break;
 				}
-				startBuildingId = resolved ? resolvedBuildingId : GetBuildingIdAt(tileX, tileY);
+				startBuildingId = resolved ? resolvedBuildingId : GetBuildingIdForPlayerTile(tileX, tileY);
 			}
 			else
 			{
-				startBuildingId = GetBuildingIdAt(tileX, tileY);
+				startBuildingId = GetBuildingIdForPlayerTile(tileX, tileY);
 			}
 			if (startBuildingId == 0)
 			{
 				_isPlayerIndoors = false;
 				_currentIndoorGroupIds.Clear();
+				_activeHouseBuildingId = 0;
+				_currentHouseFloor = 0;
+				_playerInsideCurrentFloorEnclosure = false;
+				_currentFloorEnclosedTiles.Clear();
+				_currentFloorEnclosedTiles.Clear();
 				return;
 			}
+			if (_activeHouseBuildingId != startBuildingId)
+				_currentHouseFloor = 0;
+			_activeHouseBuildingId = startBuildingId;
 			var visited = new HashSet<(int x, int y)>();
 			var queue = new Queue<(int x, int y)>();
 			var groupIds = new HashSet<int>();
@@ -2661,13 +3383,13 @@ namespace Soulfract
 			while (queue.Count > 0)
 			{
 				var (cx, cy) = queue.Dequeue();
-				int bid = GetBuildingIdAt(cx, cy);
+				int bid = GetBuildingIdForPlayerTile(cx, cy);
 				if (bid != 0) groupIds.Add(bid);
 				foreach (var (dx, dy) in new[] { (1,0), (-1,0), (0,1), (0,-1) })
 				{
 					int nx = cx + dx, ny = cy + dy;
 					if (visited.Contains((nx, ny))) continue;
-					int neighborBid = GetBuildingIdAt(nx, ny);
+					int neighborBid = GetBuildingIdForPlayerTile(nx, ny);
 					if (neighborBid != 0)
 					{
 						visited.Add((nx, ny));
@@ -2677,6 +3399,8 @@ namespace Soulfract
 			}
 			_isPlayerIndoors = groupIds.Count > 0;
 			_currentIndoorGroupIds = groupIds;
+			// Coût nul au rez-de-chaussée ; sert à détecter les murs posés/retirés sur un étage.
+			RefreshCurrentFloorOpenAir(playerPos);
 		}
     }
 }

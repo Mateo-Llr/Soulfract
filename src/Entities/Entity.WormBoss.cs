@@ -220,7 +220,7 @@ namespace Soulfract
                             int damage = _wmLastAttackPattern == WormAttackPattern.Ambush
                                 ? (int)MathF.Ceiling(Attack * (hpPercent < 0.5f ? 1.5f : 1.25f))
                                 : Math.Max(8, Attack);
-                            Program.DamagePlayerTarget(damage, AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species));
+                            Program.DamagePlayerTarget(damage, AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species), sourcePos: headGroundPos);
                             Program.ApplyScreenShake(6f, 0.18f);
                             _wmHasDealtDamage = true;
                         }
@@ -437,18 +437,16 @@ namespace Soulfract
                 && AiTarget != Vector2.Zero)
             {
                 Rectangle slimeHitbox = World.GetEntityCollisionHitbox(WorldPos, Species, Program.TileSize);
-                Rectangle targetHitbox = World.GetEntityCollisionHitbox(
-                    AiTarget,
-                    Program.GetPlayerCollisionDimensions(),
-                    Program.TileSize);
+                Rectangle targetHitbox = World.GetPlayerCollisionHitbox(AiTarget, Program.TileSize);
                 if (Raylib.CheckCollisionRecs(slimeHitbox, targetHitbox))
                 {
+                    Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
                     Program.DamagePlayerTarget(
                         Math.Max(1, Attack),
                         AiTargetConnectionId,
                         GetDisplayName(),
-                        Program.InferDeathCauseFromSpecies(Species));
-                    Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
+                        Program.InferDeathCauseFromSpecies(Species),
+                        sourcePos: WorldPos);
                     Program.ApplyScreenShake(2f, 0.1f);
                     _slimeHasDealtDamageThisJump = true;
                 }
@@ -828,7 +826,7 @@ namespace Soulfract
                                 World.GetEntityGroundPosition(playerPos));
                             if (distToPlayer < GU_GROUND_DAMAGE_RADIUS)
                             {
-                                Program.DamagePlayerTarget(Math.Max(8, Attack), AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species));
+                                Program.DamagePlayerTarget(Math.Max(8, Attack), AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species), sourcePos: WorldPos);
                             }
                             Program.ApplyScreenShake(5f, 0.16f);
                             SpawnKhamsinSmoke(_guGroundPos, 1.2f); // réutilise le FX de poussière existant

@@ -79,6 +79,8 @@ namespace Soulfract
 			{
 				Vector2 mouseWorldForEyes = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 				Vector2 playerVisualPosForEyes = GetPlayerVisualPosition(playerPos);
+				if (World.IsPlayerIndoors)
+					playerVisualPosForEyes.Y -= World.CurrentHouseFloorOffset;
 				UpdatePupilLookAt(playerVisualPosForEyes, mouseWorldForEyes, facing);
 			}
 
@@ -105,6 +107,7 @@ namespace Soulfract
 				? _playerDeathPosition
 				: CorpseSystem.GetPlayerCorpsePosition(_playerDeathPosition);
 			_smoothedCameraTarget = Vector2.Lerp(_smoothedCameraTarget, deathTarget, Math.Min(1f, dt * 3f));
+			SetCameraTargetPrecise(_smoothedCameraTarget);
 			camera.Target = _smoothedCameraTarget;
 
 			//  Un clic pendant l'animation (crâne/texte) la fait sauter directement à l'état
@@ -291,7 +294,7 @@ namespace Soulfract
 							QuestSplashUI.Show(
 								Localization.Get("quest.splash.new", "Nouvelle quête"),
 								quest.GetReminderLine(targetName),
-								string.Format(Localization.Get("quest.offer_reward", "Récompense : {0}"), quest.GetRewardLine()),
+								Localization.GetOrDefault("quest.offer_reward", "Récompense : {0}", quest.GetRewardLine()),
 								new Color(255, 215, 100, 255),
 								new Color(255, 255, 255, 255));
 						}
@@ -613,7 +616,7 @@ namespace Soulfract
 					&& GameData.ItemDatabase.TryGetValue(GetItemId(heldThrowable.Name), out throwData)
 					&& throwData.IsThrowable;
 				
-				if (holdingThrowable && _throwCooldown <= 0f && !mouseOverUI)
+				if (holdingThrowable && _throwCooldown <= 0f && !mouseOverUI && !IsShieldBlocking)
 				{
 					if (Raylib.IsMouseButtonPressed(MouseButton.Left))
 					{
@@ -643,7 +646,7 @@ namespace Soulfract
 				Item? heldItemWeapon = InventoryRenderer.GetHotbarItem(hotbarSlot);
 				bool hasMagicWand = heldItemWeapon != null && GetItemId(heldItemWeapon.Name) == GameData.GetItemId("magic_wand");
 
-				if (hasMagicWand && !mouseOverUI && !SpellCraftingUI.IsOpen)
+				if (hasMagicWand && !mouseOverUI && !IsShieldBlocking && !SpellCraftingUI.IsOpen)
 				{
 					float now = (float)Raylib.GetTime();
 
@@ -843,7 +846,7 @@ namespace Soulfract
 
 					if (weaponState.IsReloading)
 					{
-						if ((Raylib.IsMouseButtonPressed(MouseButton.Left) || Raylib.IsMouseButtonPressed(MouseButton.Right)) && !mouseOverUI)
+						if ((Raylib.IsMouseButtonPressed(MouseButton.Left) || Raylib.IsMouseButtonPressed(MouseButton.Right)) && !mouseOverUI && !IsShieldBlocking)
 						{
 							PlayPistolDryFireSound();
 						}
@@ -861,7 +864,7 @@ namespace Soulfract
 						}
 						SaveRangedWeaponState(heldWeapon!, weaponState);
 					}
-					else if (weaponState.CurrentAmmo <= 0 && !mouseOverUI && ammoId > 0 && (Raylib.IsMouseButtonPressed(MouseButton.Left) || Raylib.IsMouseButtonPressed(MouseButton.Right)))
+					else if (weaponState.CurrentAmmo <= 0 && !mouseOverUI && !IsShieldBlocking && ammoId > 0 && (Raylib.IsMouseButtonPressed(MouseButton.Left) || Raylib.IsMouseButtonPressed(MouseButton.Right)))
 					{
 						int availableAmmoCount = GetItemCountInInventory(ammoId);
 						if (availableAmmoCount > 0)
@@ -875,7 +878,7 @@ namespace Soulfract
 							AddNotification(new Notification(ammoMessage, new Color(255, 100, 100, 255), 1f));
 						}
 					}
-					if (!weaponState.IsReloading && Raylib.IsMouseButtonDown(MouseButton.Right))
+					if (!weaponState.IsReloading && Raylib.IsMouseButtonDown(MouseButton.Right) && !IsShieldBlocking)
 					{
 						Vector2 mouseWorldPos = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
 						Vector2 playerAimOrigin = GetPlayerAimOrigin(_playerPos);
@@ -899,7 +902,7 @@ namespace Soulfract
 					}
 					
 					// Tir (clic gauche)
-					if (!mouseOverUI && !weaponState.IsReloading && weaponState.CurrentAmmo > 0 && Raylib.IsMouseButtonPressed(MouseButton.Left) && _shootCooldown <= 0f)
+					if (!mouseOverUI && !IsShieldBlocking && !weaponState.IsReloading && weaponState.CurrentAmmo > 0 && Raylib.IsMouseButtonPressed(MouseButton.Left) && _shootCooldown <= 0f)
 					{
 						if (ammoId > 0)
 						{
@@ -1450,9 +1453,9 @@ namespace Soulfract
 					_playerPos = MountedAnimal.WorldPos + offset;
 					SetSitting(true, _playerPos, 0f, "sit");
 
-					// Caméra
-					_smoothedCameraTarget = _playerPos;
-				}
+				// Caméra
+				SetCameraTargetPrecise(_playerPos);
+			}
 				else
 				{
 					bool isMoving = false;
@@ -1467,7 +1470,7 @@ namespace Soulfract
 					GameData.ItemDatabase.TryGetValue(GetItemId(heldItem.Name), out var heldThrowableData) &&
 					heldThrowableData.IsThrowable;
 					bool isAimingWithRangedWeapon = Raylib.IsMouseButtonDown(MouseButton.Right) &&
-					!mouseOverUI && PlayerCurrentCar == null &&
+					!mouseOverUI && !IsShieldBlocking && PlayerCurrentCar == null &&
 					((heldItem != null && GameData.IsRangedWeapon(heldItem.Name)) || isHoldingThrowable);
 
 					// --- Mouvement : clavier uniquement pour le joueur principal ---
@@ -1493,8 +1496,11 @@ namespace Soulfract
 					// gauche, on appuie aussi sur droite -> arrêt, toujours tourné à gauche).
 					// On ne met donc à jour `facing` que si un mouvement horizontal net est
 					// réellement demandé, sinon on conserve la valeur actuelle.
-					if (moveDir.X > 0f) facing = 1f;
-					else if (moveDir.X < 0f) facing = -1f;
+					if (!IsShieldBlocking)
+					{
+						if (moveDir.X > 0f) facing = 1f;
+						else if (moveDir.X < 0f) facing = -1f;
+					}
 
 					bool keyPressed = keyboardInputDetected && moveDir.LengthSquared() > 0.01f;
 					if (!keyboardInputDetected && TryGetPrimaryGamepadIndex(out int gamepadIndex))
@@ -1658,7 +1664,7 @@ namespace Soulfract
 						TriggerPlayerFootstepEffects();
 				}
 				
-				if (!mouseOverUI)
+				if (!mouseOverUI && !IsShieldBlocking)
 				{
 					//  Clic gauche : PLACER (si item plaçable) sinon ATTAQUER/CASSER
 					if (PlayerCurrentCar == null && Raylib.IsMouseButtonPressed(MouseButton.Left) && !leftClickOnOpenUIThisFrame)
@@ -1761,7 +1767,11 @@ namespace Soulfract
 				
 				if (_isSitting)
 				{
-					camera.Target = _sittingPosition;
+					Vector2 sittingCameraTarget = _sittingPosition;
+					if (World.IsPlayerIndoors)
+						sittingCameraTarget.Y -= World.CurrentHouseFloorOffset;
+					SetCameraTargetPrecise(sittingCameraTarget);
+					camera.Target = sittingCameraTarget;
 				}
 				else
 				{
@@ -1778,17 +1788,20 @@ namespace Soulfract
 			if (_isSitting)
 			{
 				playerVisualPosForCamera = GetSittingVisualPosition();
+				if (World.IsPlayerIndoors)
+					playerVisualPosForCamera.Y -= World.CurrentHouseFloorOffset;
 				playerDrawPosForCamera = playerVisualPosForCamera;
 				
 				if (_cameraNeedsImmediateCenter)
 				{
-					_smoothedCameraTarget = playerVisualPosForCamera;
+					SetCameraTargetPrecise(playerVisualPosForCamera);
 					camera.Target = _smoothedCameraTarget;
 					_cameraNeedsImmediateCenter = false;
 				}
 				else
 				{
 					_smoothedCameraTarget = Vector2.Lerp(_smoothedCameraTarget, playerVisualPosForCamera, dt * _cameraSmoothingSpeed);
+					SetCameraTargetPrecise(_smoothedCameraTarget);
 					camera.Target = _smoothedCameraTarget;
 				}
 			}
@@ -1799,7 +1812,7 @@ namespace Soulfract
 				
 				if (_cameraNeedsImmediateCenter)
 				{
-					_smoothedCameraTarget = playerVisualPosForCamera;
+					SetCameraTargetPrecise(playerVisualPosForCamera);
 					camera.Target = _smoothedCameraTarget;
 					_cameraNeedsImmediateCenter = false;
 				}
@@ -1810,7 +1823,7 @@ namespace Soulfract
 					bool isHoldingThrowable = heldItem != null &&
 						GameData.ItemDatabase.TryGetValue(GetItemId(heldItem.Name), out var heldThrowableData) &&
 						heldThrowableData.IsThrowable;
-					bool isAiming = Raylib.IsMouseButtonDown(MouseButton.Right) &&
+					bool isAiming = Raylib.IsMouseButtonDown(MouseButton.Right) && !IsShieldBlocking &&
 						PlayerCurrentCar == null &&
 						((heldItem != null && GameData.IsRangedWeapon(heldItem.Name)) || isHoldingThrowable);
 					if (isAiming)
@@ -1831,29 +1844,44 @@ namespace Soulfract
 					
 					float smoothingSpeed = isAiming ? 10f : 14f;
 					_aimCameraOffset = Vector2.Lerp(_aimCameraOffset, desiredAimOffset, dt * smoothingSpeed);
-					targetCameraPos += _aimCameraOffset;
+
+					double targetX = targetCameraPos.X + _aimCameraOffset.X;
+					double targetY = targetCameraPos.Y + _aimCameraOffset.Y;
+
+					if (!_preciseCameraTargetInitialized)
+					{
+						_preciseCameraTargetX = targetX;
+						_preciseCameraTargetY = targetY;
+					}
 
 					bool isFarFromWorldOrigin = MathF.Max(
 						MathF.Abs(targetCameraPos.X), MathF.Abs(targetCameraPos.Y)) > 100000f;
 					if (isFarFromWorldOrigin)
 					{
-						targetCameraPos = new Vector2(
-							MathF.Round(targetCameraPos.X * 16f) / 16f,
-							MathF.Round(targetCameraPos.Y * 16f) / 16f);
-						_smoothedCameraTarget = targetCameraPos;
+						targetX = Math.Round(targetX * 16f) / 16f;
+						targetY = Math.Round(targetY * 16f) / 16f;
+						_preciseCameraTargetX = targetX;
+						_preciseCameraTargetY = targetY;
+						_smoothedCameraTarget = new Vector2((float)targetX, (float)targetY);
 					}
 					else
 					{
 						// Si la caméra est trop loin du joueur, sauter directement au lieu de lisser
 						// pour éviter de charger/rendre tout le terrain intermédiaire
-						float cameraDistance = Vector2.Distance(_smoothedCameraTarget, targetCameraPos);
-						if (cameraDistance > 400f)
+						double cameraDistance = Math.Sqrt(
+							Math.Pow(_preciseCameraTargetX - targetX, 2) +
+							Math.Pow(_preciseCameraTargetY - targetY, 2));
+						if (cameraDistance > 400.0)
 						{
-							_smoothedCameraTarget = targetCameraPos;
+							_preciseCameraTargetX = targetX;
+							_preciseCameraTargetY = targetY;
+							_smoothedCameraTarget = new Vector2((float)targetX, (float)targetY);
 						}
 						else
 						{
-							_smoothedCameraTarget = Vector2.Lerp(_smoothedCameraTarget, targetCameraPos, dt * _cameraSmoothingSpeed);
+							_preciseCameraTargetX += (targetX - _preciseCameraTargetX) * dt * _cameraSmoothingSpeed;
+							_preciseCameraTargetY += (targetY - _preciseCameraTargetY) * dt * _cameraSmoothingSpeed;
+							_smoothedCameraTarget = new Vector2((float)_preciseCameraTargetX, (float)_preciseCameraTargetY);
 						}
 					}
 					
@@ -1867,7 +1895,6 @@ namespace Soulfract
 						_cameraSmoothingSpeed = 8f;
 					}
 					
-					camera.Target = _smoothedCameraTarget;
 				}
 			}
 			ApplyPreciseCameraTransform(ref camera);
@@ -2163,13 +2190,25 @@ namespace Soulfract
 								gi.TimeSinceDrop = 0f;
 							}
 						}
-					}
-					else if (!gi.IsAlive)
-					{
-						GroundItems.RemoveAt(i);
-					}
+}
+				else if (!gi.IsAlive)
+				{
+					GroundItems.RemoveAt(i);
 				}
 			}
+
+			// PERF : nettoyage des items au sol expirés ou en excès (max 500)
+			const int MaxGroundItems = 500;
+			if (GroundItems.Count > MaxGroundItems)
+			{
+				// Trier par TimeSinceDrop décroissant (les plus anciens en premier) et retirer l'excès
+				GroundItems.Sort((a, b) => b.TimeSinceDrop.CompareTo(a.TimeSinceDrop));
+				while (GroundItems.Count > MaxGroundItems)
+				{
+					GroundItems.RemoveAt(GroundItems.Count - 1);
+				}
+			}
+		}
             
 			//  PLAQUES DE PRESSION : contrairement au reste de la grille électrique (throttled à
 			// _energyUpdateInterval = 0.5s pour les performances), on échantillonne leur présence

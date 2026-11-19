@@ -438,9 +438,8 @@ namespace Soulfract
             if (NetworkManager.IsClient || attemptedMove.LengthSquared() < 0.0001f) return;
             if (PlayerCurrentWagonTile.HasValue) return; // dans un wagon : on ne pousse pas ses propres wagons liés
 
-            Rectangle playerHitbox = World.GetEntityCollisionHitbox(
+            Rectangle playerHitbox = World.GetPlayerCollisionHitbox(
                 playerPosition + attemptedMove,
-                GetPlayerCollisionDimensions(),
                 TileSize);
             foreach (LooseWagonState wagon in GetNearbyLooseWagons(playerPosition + attemptedMove))
                 PushLooseWagon(wagon, playerHitbox, attemptedMove, dt, pusherIsPlayer: true);

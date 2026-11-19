@@ -1988,7 +1988,7 @@
       "scale": 0.6,
       "speed": 85,
       "runSpeed": 130,
-      "maxHp": 8,
+      "maxHp": 8, 
       "attack": 1,
       "behavior": "passive",
       "portable": true,

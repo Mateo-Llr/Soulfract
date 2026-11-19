@@ -47,6 +47,7 @@ namespace Soulfract
 					renderItems.Add(new RenderItem
 					{
 						Y = gi.Position.Y,
+						SortLayer = IsCurrentFloorOpenAir ? CurrentHouseFloor * 2 : 0,
 						Kind = RenderItemKind.GroundItem,
 						Tag = new GroundItemRenderTag(gi, itemData, itemColor, isLootbag, shadowWidth, alphaBottom, gi.GroundVelocity.X * 0.5f, drawPos, itemSize, gi.Metadata, gi.CustomColor)
 					});
@@ -85,6 +86,7 @@ namespace Soulfract
 						renderItems.Add(new RenderItem
 						{
 							Y = ngi.PosY,
+							SortLayer = IsCurrentFloorOpenAir ? CurrentHouseFloor * 2 : 0,
 							DrawAction = () =>
 							{
 								float size = itemSize;

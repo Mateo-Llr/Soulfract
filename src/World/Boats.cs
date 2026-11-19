@@ -473,7 +473,12 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 			
 		}
 
-		private static bool CheckCollision(Vector2 groundPos, Rectangle playerRect, HashSet<string> destroyed, int ts)
+		private static bool CheckCollision(
+			Vector2 groundPos,
+			Rectangle playerRect,
+			HashSet<string> destroyed,
+			int ts,
+			bool useCurrentHouseFloor = false)
 		{
 			int playerTileX = (int)Math.Floor(groundPos.X / ts);
 			int playerTileY = (int)Math.Floor(groundPos.Y / ts);
@@ -483,13 +488,16 @@ var restoredItem = new Item(itemDef.Name, slotSave.Count, itemDef.Color, itemDef
 				int wX = playerTileX + dx, wY = playerTileY + dy;
 				string key = $"{wX}_{wY}";
 				if (destroyed.Contains(key)) continue;
-				//  Trou physique à la tuile "porte" : voir le commentaire sur _doorTiles.
-				if (IsDoorTile(wX, wY)) continue;
 				int tileId = GetTileIdAt(wX, wY);
+				// Les portes du rez-de-chaussée sont enregistrées par coordonnée ;
+				// un étage doit utiliser sa propre porte, pas hériter de cette ouverture.
+				if (useCurrentHouseFloor ? tileId == 84 : IsDoorTile(wX, wY)) continue;
 				var tileData = WorldTileRegistry.GetTile(tileId);
 				if (tileData == null || tileData.Walkable) continue;
 				
 				var (x, y, w, h) = GetCollisionRect(wX, wY, tileData, ts);
+				if (useCurrentHouseFloor)
+					y -= (int)GetCurrentHouseFloorCollisionOffsetAt(wX, wY);
 				// (L'ancrage bas-gauche est désormais géré directement dans GetCollisionRect,
 				// plus besoin de recorriger y ici pour les objets sur plusieurs tuiles.)
 				

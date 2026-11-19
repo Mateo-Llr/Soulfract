@@ -114,6 +114,11 @@ namespace Soulfract
 				if ((int)(p.Position.X / ts) == x && (int)(p.Position.Y / ts) == y) return true;
 			}
 
+			foreach (var p in NetworkManager.GetRemotePlayersAsLocalPlayers())
+			{
+				if ((int)(p.Position.X / ts) == x && (int)(p.Position.Y / ts) == y) return true;
+			}
+
 			foreach (var e in Program.GetEntities())
 			{
 				if (!e.IsAlive) continue;
@@ -1898,8 +1903,38 @@ namespace Soulfract
         {
             float playerBaseY = groundPos.Y + Program.FeetOffsetY;
             Rectangle playerRect = new Rectangle(groundPos.X - dim.X / 2f, playerBaseY - dim.Y, dim.X, dim.Y);
-			return CheckCollision(groundPos, playerRect, destroyed, Program.TileSize);
+			bool onUpperHouseFloor = _isPlayerIndoors && _currentHouseFloor > 0;
+			if (onUpperHouseFloor)
+			{
+				if (!HasCurrentHouseFloorSupport(playerRect, Program.TileSize))
+					return true;
+
+				playerRect = GetPlayerCollisionHitbox(groundPos, Program.TileSize);
+			}
+
+			return CheckCollision(groundPos, playerRect, destroyed, Program.TileSize, onUpperHouseFloor);
         }
+
+		private static bool HasCurrentHouseFloorSupport(Rectangle playerRect, int tileSize)
+		{
+			const float edgeEpsilon = 0.001f;
+			int minTileX = (int)MathF.Floor(playerRect.X / tileSize);
+			int maxTileX = (int)MathF.Floor((playerRect.X + playerRect.Width - edgeEpsilon) / tileSize);
+			float feetY = playerRect.Y + playerRect.Height - edgeEpsilon;
+			int floorTileY = (int)MathF.Floor(feetY / tileSize) + UpperFloorPlayerTileYOffset;
+
+			for (int x = minTileX; x <= maxTileX; x++)
+			{
+				if (!TryGetCurrentHouseFloorTile(x, floorTileY, out var floorTile))
+					return false;
+
+				var ground = WorldTileRegistry.GetTile(floorTile.GroundTileId);
+				if (ground == null || !ground.Walkable)
+					return false;
+			}
+
+			return true;
+		}
 
 		private const float MaxEntityPushAcceleration = 1200f;
 		private const float EntityPushGridCellSize = 128f;
@@ -2076,10 +2111,7 @@ namespace Soulfract
 
 			Vector2 movementDirection = Vector2.Normalize(attemptedMove);
 			float movementSpeed = attemptedMove.Length() / MathF.Max(dt, 0.0001f);
-			Rectangle playerBox = GetEntityCollisionHitbox(
-				playerPosition + attemptedMove,
-				Program.GetPlayerCollisionDimensions(),
-				Program.TileSize);
+			Rectangle playerBox = GetPlayerCollisionHitbox(playerPosition + attemptedMove, Program.TileSize);
 			Vector2 playerCenter = new(playerBox.X + playerBox.Width / 2f, playerBox.Y + playerBox.Height / 2f);
 
 			foreach (Entity entity in Program.GetEntities())
@@ -2145,10 +2177,7 @@ namespace Soulfract
 
 			Vector2 movementDirection = Vector2.Normalize(attemptedMove);
 			float movementSpeed = attemptedMove.Length() / MathF.Max(dt, 0.0001f);
-			Rectangle playerBox = GetEntityCollisionHitbox(
-				playerPosition + attemptedMove,
-				Program.GetPlayerCollisionDimensions(),
-				Program.TileSize);
+			Rectangle playerBox = GetPlayerCollisionHitbox(playerPosition + attemptedMove, Program.TileSize);
 			Vector2 playerCenter = new(playerBox.X + playerBox.Width / 2f, playerBox.Y + playerBox.Height / 2f);
 
 			foreach (var corpse in CorpseSystem.Corpses)
@@ -2229,8 +2258,22 @@ namespace Soulfract
 		{
 			Vector2 collisionPosition = entity.VisualWorldPos;
 			if (entity.IsPlayer)
-				return GetEntityCollisionHitbox(collisionPosition, Program.GetPlayerCollisionDimensions(), Program.TileSize);
+				return GetPlayerCollisionHitbox(collisionPosition, Program.TileSize);
 			return GetEntityCollisionHitbox(collisionPosition, entity.Species, Program.TileSize);
+		}
+
+		public static Rectangle GetPlayerCollisionHitbox(Vector2 worldPos, int ts)
+		{
+			Rectangle hitbox = GetEntityCollisionHitbox(worldPos, Program.GetPlayerCollisionDimensions(), ts);
+			hitbox.Y -= CurrentHouseFloorOffset;
+			return hitbox;
+		}
+
+		private static Rectangle GetPlayerDamageHitbox(Vector2 worldPos, string species, int ts)
+		{
+			Rectangle hitbox = GetEntityDamageHitbox(worldPos, species, ts);
+			hitbox.Y -= CurrentHouseFloorOffset;
+			return hitbox;
 		}
 
 		private static void ApplyEntitySeparation(Entity entity, Vector2 separation)
@@ -2424,6 +2467,8 @@ namespace Soulfract
         //  DESSIN DES FALAISES
 		public static Rectangle GetEntityHitbox(Entity entity, int ts)
         {
+			if (entity.IsPlayer)
+				return GetPlayerCollisionHitbox(entity.VisualWorldPos, ts);
 			return GetEntityCollisionHitbox(entity.VisualWorldPos, entity.Species, ts);
         }
 
@@ -2447,20 +2492,26 @@ namespace Soulfract
 		// Hitbox de dégâts : plus grande, centrée sur le corps pour les attaques et les impacts.
         public static Rectangle GetEntityDamageHitbox(Entity entity, int ts)
         {
+			Rectangle hitbox;
             if (entity.IsWorm)
             {
                 Vector2 dimensions = GetEntityDimensions(entity.Species)
                     * Math.Clamp(entity.Scale, 0.25f, 4f);
                 Vector2 damageDimensions = new(dimensions.X * 2f, dimensions.Y * 5.5f);
                 Vector2 center = entity.WormHitboxCenter;
-                return new Rectangle(
+                hitbox = new Rectangle(
                     center.X - damageDimensions.X / 2f,
                     center.Y - damageDimensions.Y / 2f,
                     damageDimensions.X,
                     damageDimensions.Y);
             }
-
-        	return GetEntityDamageHitbox(entity.VisualWorldPos, entity.Species, ts, entity.Scale);
+			else
+			{
+				hitbox = GetEntityDamageHitbox(entity.VisualWorldPos, entity.Species, ts, entity.Scale);
+			}
+			if (entity.IsPlayer)
+				hitbox.Y -= CurrentHouseFloorOffset;
+			return hitbox;
         }
 
 		//  MULTIJOUEUR : variante utilisable côté client, où l'on n'a que la position/espèce

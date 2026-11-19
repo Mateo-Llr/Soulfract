@@ -25,7 +25,7 @@ namespace Soulfract
 
 				if (_isUnderground)
 					Raylib.DrawRectangle(0, 0, sw, sh, new Color(0, 0, 0, 100));
-				if (_isPlayerIndoors)
+				if (HidesOutsideWorld)
 					Raylib.ClearBackground(Color.Black);
 
 				// Shader d'eau (caustiques procédurales) : horloge mise à jour une fois par
@@ -56,6 +56,7 @@ namespace Soulfract
 				bool[,] isWallToHide = ctx.isWallToHide;
 				bool[,] tileLit = ctx.tileLit;
 				bool drawBiomeBorders = ctx.drawBiomeBorders;
+				bool hideOutside = HidesOutsideWorld; // faux sur une terrasse (étage sans mur)
 
 				// =================================================================================
 				// 1. SOL ET DÉCORATIONS
@@ -73,7 +74,11 @@ namespace Soulfract
 							EnsureWaterShaderInactive();
 							continue;
 						}
-						int drawY = worldY * ts;
+						int floorOffset = buildingIds[ix, iy] == CurrentHouseBuildingId
+							&& !IsCurrentFloorOpenAir
+							? (int)CurrentHouseFloorGroundOffset
+							: 0;
+						int drawY = worldY * ts - floorOffset;
 						int groundId = groundIds[ix, iy];
 						int objectId = objectIds[ix, iy];
 						bool tileDrawVisible = ctx.IsWorldRectVisible(worldX * ts, drawY, ts, ts);
@@ -83,14 +88,14 @@ namespace Soulfract
 						if (tileDrawVisible)
 						{
 							// Filtre intérieur
-							if (_isPlayerIndoors)
+							if (hideOutside)
 							{
 								int tileBld = buildingIds[ix, iy];
-								if (!_currentIndoorGroupIds.Contains(tileBld)) continue;
+								if (!IsCurrentIndoorRenderTile(worldX, worldY, tileBld)) continue;
 							}
 
 							bool hideGround = false;
-							if (isWallToHide[ix, iy] && _isPlayerIndoors)
+							if (isWallToHide[ix, iy] && HidesOutsideWorld)
 							{
 								int tileAboveY = worldY - 1;
 								if (tileAboveY >= startY && tileAboveY <= endY)
@@ -102,7 +107,7 @@ namespace Soulfract
 
 							if (hideGround) EnsureWaterShaderInactive();
 
-							if (!hideGround)
+							if (!hideGround && groundId > 0)
 							{
 							// Sol
 							if (groundId == 10)

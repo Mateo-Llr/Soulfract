@@ -340,7 +340,15 @@ namespace Soulfract
 									int chunkEndX = FloorDivChunk(posX + structW - 1);
 									int chunkEndY = FloorDivChunk(posY + structH - 1);
 									if (chunkStartX != chunkEndX || chunkStartY != chunkEndY)
-										continue;
+									{
+										// Une structure s'écrit dans UN seul chunk. Plutôt que de rejeter la position
+										// (ce qui éliminait la plupart des grandes maisons), on la recale à l'intérieur
+										// du chunk de départ ; seules les structures plus grandes qu'un chunk sont ignorées.
+										if (structW > CHUNK_SIZE || structH > CHUNK_SIZE)
+											continue;
+										posX = Math.Clamp(posX, chunkStartX * CHUNK_SIZE, chunkStartX * CHUNK_SIZE + CHUNK_SIZE - structW);
+										posY = Math.Clamp(posY, chunkStartY * CHUNK_SIZE, chunkStartY * CHUNK_SIZE + CHUNK_SIZE - structH);
+									}
 
 									int rectLeft = posX - spacing;
 									int rectTop = posY - spacing;
@@ -421,8 +429,6 @@ namespace Soulfract
 										placed++;
 										placedOnThisRing = true;
 										doorPositions.Add(doorPos);
-										if (villageRand.NextDouble() < 0.65)
-											StructureManager.TryPlaceBenchNear(doorPos.x, doorPos.y, targetChunk, villageRand);
 										for (int cx = rectLeft; cx <= rectRight; cx++)
 											for (int cy = rectTop; cy <= rectBottom; cy++)
 												_villageClaimedTiles.Add((cx, cy));
@@ -435,6 +441,8 @@ namespace Soulfract
 											for (int cy = posY; cy < posY + structH; cy++)
 												candidateTiles.Add((cx, cy));
 										RegisterHouseInteriorSpots(buildingId, candidateTiles, doorPos.x, doorPos.y);
+										if (villageRand.NextDouble() < 0.65)
+											StructureManager.TryPlaceBenchNear(doorPos.x, doorPos.y, targetChunk, villageRand);
 										// Les chaises de village sont placées au moment de la génération de la
 										// structure, pas par les PNJ lorsqu'ils cherchent une maison.
 										TryPlaceVillageChair(buildingId);
@@ -443,14 +451,14 @@ namespace Soulfract
 
 										if (Houses.TryGetValue(buildingId, out var house))
 										{
-											//  PLUSIEURS VILLAGEOIS PAR MAISON : on loge entre 1 et
-											// (nombre de cases intérieures libres, plafonné à 4) habitants
-											// dans cette maison, sans jamais dépasser l'objectif de
-											// population du village.
+											// Le foyer compte entre un et deux habitants par chambre,
+											// sans dépasser les cases intérieures ni l'objectif du village.
 											int freeSpotsInHouse = HouseInteriorSpots.TryGetValue(buildingId, out var houseSpots) ? houseSpots.Count(sp => !sp.Occupied) : 1;
-											int maxOccupantsHere = Math.Max(1, Math.Min(freeSpotsInHouse, 4));
+											int bedroomCount = structure.Tiles.Count(tile => tile.PlacedTileId == 87);
+											int maxOccupantsHere = Math.Max(1, Math.Min(freeSpotsInHouse, bedroomCount * 2));
+											int minOccupantsHere = Math.Min(bedroomCount, maxOccupantsHere);
 											int remainingNeeded = targetVillagerCount - villagersHoused;
-											int occupantsToSpawn = Math.Max(1, Math.Min(maxOccupantsHere, villageRand.Next(1, maxOccupantsHere + 1)));
+											int occupantsToSpawn = villageRand.Next(minOccupantsHere, maxOccupantsHere + 1);
 											occupantsToSpawn = Math.Min(occupantsToSpawn, remainingNeeded);
 
 											for (int occ = 0; occ < occupantsToSpawn; occ++)
@@ -518,14 +526,16 @@ Vector2 assignedSpot = house.InteriorPosition;
 									break;
 							}
 
+							if (doorPositions.Count > 0)
+							{
+								// Même un village à une seule maison doit relier sa porte à la place.
+								DrawPathsBetweenDoors(doorPositions, 2, wellAnchor ?? (centralX, centralY));
+							}
+
 							if (placed >= 2)
 							{
 								if (villageRand.NextDouble() < 0.25)
 									TryPlaceVillageSpiritTotem(centralX, centralY, villageRand);
-
-								// Relier les portes au puits central (ou entre elles si le puits
-								// n'a pas pu être placé) une fois toutes les maisons connues.
-								DrawPathsBetweenDoors(doorPositions, 2, wellAnchor);
 
 								if (!infirmaryPlaced)
 								{

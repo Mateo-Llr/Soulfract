@@ -670,6 +670,10 @@ namespace Soulfract
         private List<Vector2> _currentPath = new List<Vector2>();
         private float _pathRecalcTimer = 0f;
         private const float PATH_RECALC_INTERVAL = 0.5f;
+        private Vector2 _lastValidatedPathNode;
+        private float _pathNodeValidationTimer;
+        private bool _hasValidatedPathNode;
+        private const float PATH_NODE_VALIDATION_INTERVAL = 0.1f;
 
         // ==================== DÉTECTION DE BLOCAGE (PNJ figé) ====================
         //  Deux façons différentes pour un PNJ de rester "coincé" avec une ligne rouge de
@@ -720,6 +724,9 @@ namespace Soulfract
         private float _sleepWakeCooldown = 0f;
         private bool _isSleeping = false;
         private Vector2 _sleepVisualPosition = Vector2.Zero;
+        private Vector2? _sleepApproachPosition;
+        private bool _isWalkingToSleepPosition;
+        private bool _sleepingBehindFurniture;
         //  Fallback nocturne si aucune maison ne propose de lit/chaise : le PNJ doit quand même
         // avoir une pose de repos valide au sol (assis ou endormi), au lieu de rester figé debout
         // comme un simple arrêt d'animation. Voir GetSleepVisualPosition.

@@ -56,7 +56,7 @@ namespace Soulfract
 
                 if (!_khHasDealtDamage && distToPlayer < 48f)
                 {
-                    Program.DamagePlayerTarget(Math.Max(6, Attack), AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species));
+                    Program.DamagePlayerTarget(Math.Max(6, Attack), AiTargetConnectionId, GetDisplayName(), Program.InferDeathCauseFromSpecies(Species), sourcePos: WorldPos);
                     Program.ApplyScreenShake(6f, 0.18f);
                     _khHasDealtDamage = true;
                 }
@@ -752,7 +752,7 @@ namespace Soulfract
                     if (dist <= zone.Radius && zone.DamageTickTimer <= 0f)
                     {
                         float dmg = zone.IsSand ? Math.Max(3f, Attack * 0.25f) : Math.Max(6f, Attack * 0.5f);
-                        Program.DamagePlayerTarget((int)MathF.Ceiling(dmg), AiTargetConnectionId, zone.IsSand ? "un tourbillon de sable" : "une flaque de lave", Program.InferDeathCauseFromSpecies(zone.IsSand ? "worm" : "khamsin"));
+                        Program.DamagePlayerTarget((int)MathF.Ceiling(dmg), AiTargetConnectionId, zone.IsSand ? "un tourbillon de sable" : "une flaque de lave", Program.InferDeathCauseFromSpecies(zone.IsSand ? "worm" : "khamsin"), sourcePos: zone.Pos);
                         zone.DamageTickTimer = 0.5f;
                     }
                 }
@@ -793,7 +793,7 @@ namespace Soulfract
             if (dist <= radius)
             {
                 float dmg = Math.Max(25f, Attack * 2.2f);
-                Program.DamagePlayerTarget((int)MathF.Ceiling(dmg), AiTargetConnectionId, "le voeu du Génie", Program.InferDeathCauseFromSpecies("khamsin"));
+                Program.DamagePlayerTarget((int)MathF.Ceiling(dmg), AiTargetConnectionId, "le voeu du Génie", Program.InferDeathCauseFromSpecies("khamsin"), sourcePos: _geWishTargetPos);
             }
         }
 

@@ -24,10 +24,12 @@ namespace Soulfract
 				{
 					if (boat == null) continue;
 				
-					if (_isPlayerIndoors)
+					if (HidesOutsideWorld)
 					{
-						int tileOverlay = GetBuildingIdAt((int)(boat.Position.X / ts), (int)(boat.Position.Y / ts));
-						if (!_currentIndoorGroupIds.Contains(tileOverlay))
+						int tileX = (int)(boat.Position.X / ts);
+						int tileY = (int)(boat.Position.Y / ts);
+						int tileOverlay = GetBuildingIdAt(tileX, tileY);
+						if (!IsCurrentIndoorRenderTile(tileX, tileY, tileOverlay))
 							continue;
 					}
 				
@@ -124,13 +126,13 @@ namespace Soulfract
 						var boatTileData = WorldTileRegistry.GetTile(boatObjectId);
 						if (boatTileData == null) continue;
 					
-						if (_isPlayerIndoors)
+						if (HidesOutsideWorld)
 						{
-							int tileOverlay = GetBuildingIdAt(
-								(int)(boat.GetTileWorldPos(relX, relY).X / ts),
-								(int)(boat.GetTileWorldPos(relX, relY).Y / ts)
-							);
-							if (!_currentIndoorGroupIds.Contains(tileOverlay))
+							Vector2 tilePosition = boat.GetTileWorldPos(relX, relY);
+							int boatTileX = (int)(tilePosition.X / ts);
+							int boatTileY = (int)(tilePosition.Y / ts);
+							int tileOverlay = GetBuildingIdAt(boatTileX, boatTileY);
+							if (!IsCurrentIndoorRenderTile(boatTileX, boatTileY, tileOverlay))
 								continue;
 						}
 					

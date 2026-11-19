@@ -10,6 +10,7 @@
   - [Août 2026](#aout-2026)
   - [Septembre 2026](#septembre-2026)
   - [Octobre 2026](#octobre-2026)
+  - [Novembre 2026](#novembre-2026)
 - [Potentiels ajouts futurs](#potentiels-ajouts-futurs)
   - [Items](#items)
   - [Features](#features)
@@ -651,9 +652,6 @@
 - [CHANGED] Refonte du système de lumière inspirée de Core Keeper
 - [FIXED] Correction de la disparition de l'équipement de drague
 - [CHANGED] Mise à jour des données de catégorie des chapeaux
-
-### 6 juillet
-- [ADDED] Ajout de l'accès aux étages des maisons
 
 ### 8 juillet
 - [ADDED] Ajout de la tenue antigaz, du masque a gaz, du chapeau pork pie, ainsi que les lunettes classes
@@ -1465,6 +1463,41 @@
 - [FIXED] Optimisation énorme du chargement des chunks, retirant le coup de lag lorsqu'on passe d'un chunk à l'autre.
 
 ---
+
+## Novembre 2026
+
+### 17 novembre
+
+- [FIXED] Les routes relient désormais aussi les villages à une seule maison et rejoignent le centre lorsque le puits n'a pas pu être placé
+- [FIXED] Les couches de teinture et accessoires d'équipement restent visibles au dézoom maximal
+
+### 18 novembre
+- [ADDED] Accès aux étages des maisons avec H (création) et J (descente)
+- [FIXED] Les étages gardent le joueur centré, affichent les murs selon la priorité du niveau, et présentent un plancher en bois sans murs automatiques ni toit inférieur dessous
+- [FIXED] Les toits suivent les murs réellement construits à chaque étage ; le toit inférieur reste visible uniquement où aucun plancher supérieur ne le recouvre
+- [FIXED] Les planchers couvrent aussi les emplacements des murs ; depuis une terrasse ouverte, le monde inférieur reste visible et les étages supérieurs sont masqués
+- [FIXED] Un mur isolé ne ferme plus un étage ; l'état intérieur reste lié au niveau actif, et les objets posés à l'étage sont abaissés d'une tuile
+- [FIXED] Le plancher supérieur est abaissé d'une tuile et les objets, entités et butins du monde inférieur restent visibles sur une terrasse ouverte
+- [FIXED] Les filtres de rendu extérieur utilisent l'état intérieur réel de l'étage actif, afin que le monde reste visible depuis les étages ouverts
+- [FIXED] Les murs du rez-de-chaussée restent derrière le plancher lorsqu'on se trouve à un étage supérieur ouvert
+- [FIXED] Le joueur est dessiné au niveau de son étage actif ; les entités du monde restent au niveau du rez-de-chaussée
+- [FIXED] La collision du joueur suit le niveau visuel, les hitboxes des objets d'étage sont alignées et le déplacement est bloqué hors des cases couvertes
+- [FIXED] La normalisation des étages existants ne supprime plus les murs de l'étage lorsqu'ils correspondent à ceux du niveau inférieur
+- [FIXED] L'intérieur d'un étage est déterminé à la position du joueur et les filtres visuels se limitent à l'enceinte réellement occupée
+- [FIXED] Les connexions des tuiles d'étage sont dessinées et les toits des pièces du dernier étage restent visibles depuis l'extérieur
+- [FIXED] Les hitboxes de collision et de dégâts du joueur suivent son étage, y compris dans le debug F3 et les poussées
+- [FIXED] La hitbox verte et la visée du joueur suivent la hauteur du plancher ; les collisions d'étage sont alignées sur les murs et les sols
+- [FIXED] Le support d'un étage est vérifié sous les pieds, ce qui corrige les limites de déplacement trop hautes et trop basses
+- [FIXED] Les coordonnées verticales du joueur sont converties vers les cellules de l'étage pour éviter une limite de plancher décalée d'une tuile
+- [FIXED] Le passage entre le rez-de-chaussée et les étages compense le décalage d'une tuile et restaure la position en redescendant
+- [FIXED] Les particules de pas du joueur suivent la hauteur de l'étage sans fausser le filtrage intérieur
+- [FIXED] La détection d'intérieur aux étages ne retombe plus sur les murs et tuiles du rez-de-chaussée
+- [FIXED] Le bord inférieur du plancher d'étage bloque désormais le déplacement quand les pieds dépassent du sol
+
+### 19 novembre
+
+- [FIXED] La touche J ouvre le menu de magie avec une baguette équipée au lieu de faire descendre d'un étage
+- [FIXED] Les étages supérieurs n'héritent plus des ouvertures de porte du rez-de-chaussée pour leurs collisions
 
 # Potentiels ajouts futurs
 

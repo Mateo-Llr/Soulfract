@@ -9,6 +9,11 @@ namespace Soulfract
     public partial class Entity
     {
         // Main update loop and related update logic
+
+        //  PERF : timers de throttle pour les scans O(N) sur toutes les entités.
+        private float _talkScanTimer = 0f;
+        private float _hostileScanTimer = 0f;
+
         // ==================== UPDATE ====================
         /// <summary>
         /// Détermine où ce PNJ doit regarder (pupilles + sourcils), selon un ordre de priorité :
@@ -236,9 +241,14 @@ namespace Soulfract
             UpdateBlink(dt);
             UpdateAlertSignal(dt, playerPos);
 
+            TrackRecentDamage(dt);
+
             if (_infirmaryRetryTimer > 0f)
                 _infirmaryRetryTimer = Math.Max(0f, _infirmaryRetryTimer - dt);
-            if (IsVillager && !IsTamed && IsAlive && CurrentHP < MaxHP
+            //  Avant : le moindre point de vie perdu envoyait le PNJ à l'infirmerie (un aller-retour par
+            // coup pris). Désormais il n'y va que sous un seuil de PV (NeedsInfirmaryCare) et y reste jusqu'à
+            // un niveau confortable (InfirmaryLeaveHp), pas jusqu'à "juste au-dessus du seuil".
+            if (IsVillager && !IsTamed && IsAlive && NeedsInfirmaryCare
                 && _infirmaryBuildingId < 0 && _infirmaryRetryTimer <= 0f)
                 TryStartInfirmaryCare();
 
@@ -352,7 +362,12 @@ namespace Soulfract
                 Vector2 spiritTotemPosition = new((SpiritTotemTileX + 0.5f) * Program.TileSize, (SpiritTotemTileY + 0.5f) * Program.TileSize);
                 bool IsVillageThreat(Entity target) => target.Behavior == "hostile"
                     && !string.Equals(target.Species, "human", StringComparison.OrdinalIgnoreCase)
-                    && target.CombatTargetEntity?.IsVillager == true
+                    //  CORRECTIF : une menace qui riposte contre un garde (ou contre moi) n'a plus de villageois
+                    // pour cible : avant, le garde perdait alors sa cible dès qu'il frappait le gobelin
+                    // (menace "invalide"), repartait en Idle, puis se faisait charger -> aller-retour.
+                    && (target.CombatTargetEntity?.IsVillager == true
+                        || target.CombatTargetEntity?.IsVillageGuard == true
+                        || ReferenceEquals(target.CombatTargetEntity, this))
                     && (!IsSpiritAnimal || (SpiritTotemTileX != int.MinValue && SpiritTotemTileY != int.MinValue
                         && Vector2.DistanceSquared(spiritTotemPosition, target.WorldPos) <= targetRange * targetRange));
 
@@ -376,8 +391,11 @@ namespace Soulfract
                     }
                 }
 
-                if (_combatTargetEntity == null)
+                _hostileScanTimer -= dt;
+                if (_combatTargetEntity == null && _hostileScanTimer <= 0f)
                 {
+                    //  PERF : scan de toutes les entités limité à ~4 fois par seconde (avec gigue).
+                    _hostileScanTimer = 0.25f + (float)Random.Shared.NextDouble() * 0.15f;
                     foreach (var candidate in Program.GetEntities())
                     {
                         if (ReferenceEquals(candidate, this) || !candidate.IsAlive || candidate.IsTamed || candidate.IsPlayer)
@@ -470,10 +488,20 @@ namespace Soulfract
                 }
             }
 
-            bool hasHomeAssignment = HomeBuildingId >= 0
+            bool hasHomeAssignment = false;
+            if (HomeBuildingId >= 0
                 && World.Houses.ContainsKey(HomeBuildingId)
-                && World.HouseInteriorSpots.TryGetValue(HomeBuildingId, out var assignedSpots)
-                && assignedSpots.Any(spot => Vector2.DistanceSquared(spot.WorldPos, HomePosition) < 16f);
+                && World.HouseInteriorSpots.TryGetValue(HomeBuildingId, out var assignedSpots))
+            {
+                foreach (var spot in assignedSpots)
+                {
+                    if (Vector2.DistanceSquared(spot.WorldPos, HomePosition) < 16f)
+                    {
+                        hasHomeAssignment = true;
+                        break;
+                    }
+                }
+            }
 
             // Une maison pleine n'est pas une maison invalide pour le PNJ déjà logé dedans.
             // La saturation ne doit empêcher QUE l'attribution d'un nouveau PNJ, pas forcer
@@ -596,15 +624,21 @@ namespace Soulfract
             else
             {
                 TalkCooldown -= dt;
+                _talkScanTimer -= dt;
                 //  IMPORTANT : le "TryCommitGoal(NpcPriority.Social)" ci-dessous est ce qui empêche
                 // cette envie spontanée de discuter d'écraser un objectif plus important déjà en
                 // cours (ex : un PNJ invité à jouer une partie de Pouilleux, qui détient la
                 // priorité Play, largement au-dessus de Social) — avant ce correctif, ce bloc
                 // modifiait AiState sans aucune vérification et pouvait donc faire décrocher un
                 // PNJ en plein milieu d'une invitation, même juste après avoir cliqué dessus.
-                if (TalkCooldown <= 0f && !IsTamed && Species == "human" && !IsPlayer && HomePosition != Vector2.Zero
+                if (TalkCooldown <= 0f && _talkScanTimer <= 0f && !IsTamed && Species == "human" && !IsPlayer && HomePosition != Vector2.Zero
                     && AiState != NpcAiState.GoToChestDeposit && AiState != NpcAiState.GoToChestWithdraw)
                 {
+                    //  PERF : avant, ce scan de TOUTES les entités tournait à chaque frame pour chaque
+                    // humain tant que TalkCooldown <= 0 (le cooldown n'est réarmé que par StartTalking).
+                    // On le limite à ~2 fois par seconde, avec gigue pour étaler la charge.
+                    float talkScanInterval = 0.4f + (float)Random.Shared.NextDouble() * 0.3f;
+                    _talkScanTimer = talkScanInterval;
                     const float talkDistance = 70f;
                     Entity? closestTalkTarget = null;
                     float closestDistSq = talkDistance * talkDistance;
@@ -645,7 +679,7 @@ namespace Soulfract
                             }
                         }
                     }
-                    else if (Random.Shared.NextDouble() < 0.002f && TryCommitGoal(NpcPriority.Social))
+                    else if (Random.Shared.NextDouble() < 0.12f * talkScanInterval && TryCommitGoal(NpcPriority.Social)) // 0.002/frame @60fps ≈ 0.12/s
                     {
                         StartTalking();
                     }
@@ -1215,7 +1249,11 @@ namespace Soulfract
                 _chaseElapsedTime += dt;
 
                 float visionDistance = VisionRange * Program.TileSize;
-                bool petOwnTarget = (petAttackActive || IsSpiritAnimal) && _combatTargetEntity != null;
+                //  CORRECTIF : "semée" / "trop loin" ne concernent que la poursuite du JOUEUR. Pour une cible
+                // entité (garde, gobelin, riposte...), la validité de la cible est déjà bornée par sa propre
+                // portée (500/800 px). Avant, ces règles annulaient la poursuite, puis _combatTargetEntity
+                // != null la relançait aussitôt (shouldChase forcé plus haut) : Chase <-> WalkToTarget en boucle.
+                bool petOwnTarget = _combatTargetEntity != null;
                 bool lostSight = !isRetaliating && !petOwnTarget && visionDistance > 0f
                     && distToPlayerSq > (visionDistance * 2f) * (visionDistance * 2f);
                 bool strayedTooFar = !isRetaliating && !petOwnTarget && _chaseElapsedTime > CHASE_LEASH_TIME
@@ -1476,7 +1514,7 @@ namespace Soulfract
                 }
                 else
                 {
-                    if (!Pathfinder.TryReservePathRequest())
+                    if (!AiPathBudget.CanSearch() || !Pathfinder.TryReservePathRequest())
                     {
                         // Le quota global protège le thread principal contre les pics d'A*.
                         // Ce n'est pas un échec de chemin : on laisse le PNJ retenter bientôt.
@@ -1526,12 +1564,14 @@ namespace Soulfract
                     // plus large (maison, étang, clôture du champ...) échouait donc trois fois à l'identique.
                     // Chaque échec consécutif élargit désormais la zone de recherche.
                     if (_pathFailStreak > 0)
-                        searchMargin = Math.Min(searchMargin * (1 + _pathFailStreak) + 6, 48);
-                    _currentPath = Pathfinder.FindPath(WorldPos, AiTarget, destroyed, searchMargin, Species);
+                        searchMargin = Math.Min(searchMargin * (1 + _pathFailStreak) + 6, 32); // 48 -> 32 : une recherche ratée explore toute la fenêtre (coût en marge²)
+                    _currentPath = AiPathBudget.Find(WorldPos, AiTarget, destroyed, searchMargin, Species);
 
                     if (_currentPath.Count == 0 && AiState == NpcAiState.GoHome && HomeBuildingId >= 0 && World.Houses.TryGetValue(HomeBuildingId, out var homeHouse))
                     {
-                        var doorPath = Pathfinder.FindPath(WorldPos, homeHouse.DoorWorldPos, destroyed, searchMargin, Species);
+                        var doorPath = AiPathBudget.CanSearch()
+                            ? AiPathBudget.Find(WorldPos, homeHouse.DoorWorldPos, destroyed, searchMargin, Species)
+                            : new List<Vector2>();
                         if (doorPath.Count > 0)
                         {
                             _currentPath = doorPath;
@@ -1596,7 +1636,7 @@ namespace Soulfract
                     if (AiTimer <= 0f) Decide();
                     break;
                 case NpcAiState.WalkToTarget:
-                    PerformMovement(dt, destroyed);
+                    PerformMovement(dt, destroyed, _isWalkingToSleepPosition ? 10f : 65f);
                     break;
                 case NpcAiState.Wander:
                     if (IsSlime)
@@ -1699,6 +1739,48 @@ namespace Soulfract
             ApplyResidualMomentum(dt, destroyed);
         }
 
+        private const float INFIRMARY_SEEK_HP_RATIO = 0.60f;   // seuil de base : en dessous (ou égal), le PNJ va se faire soigner
+        private const float INFIRMARY_LEAVE_HP_RATIO = 0.95f;  // niveau minimal de sortie de l'infirmerie
+        private const int INFIRMARY_SEEK_HITS_MARGIN = 2;      // il part se soigner s'il ne peut encaisser que ~2 coups comme les récents
+        private const int INFIRMARY_LEAVE_HITS_MARGIN = 3;     // il ne repart qu'avec une marge de ~3 coups au-dessus du seuil de départ
+        private const float RECENT_HIT_MEMORY = 45f;           // durée (s) pendant laquelle un gros coup reste en mémoire
+
+        private int _lastObservedHp = -1;
+        private int _recentHitSize;     // plus gros coup encaissé récemment (PV perdus d'un seul coup)
+        private float _recentHitAge;
+
+        //  Mesure les PV perdus d'une frame à l'autre : sert à dimensionner les seuils de soin selon la
+        // dangerosité réelle de ce qui frappe le PNJ (aucune dépendance au code de dégâts).
+        private void TrackRecentDamage(float dt)
+        {
+            if (_lastObservedHp < 0) _lastObservedHp = CurrentHP;
+            int lost = _lastObservedHp - CurrentHP;
+            if (lost > 0)
+            {
+                _recentHitSize = Math.Max(lost, _recentHitSize);
+                _recentHitAge = 0f;
+            }
+            else
+            {
+                _recentHitAge += dt;
+                if (_recentHitAge > RECENT_HIT_MEMORY) _recentHitSize = 0;
+            }
+            _lastObservedHp = CurrentHP;
+        }
+
+        //  Départ : 60 % des PV, ou plus tôt si les coups reçus sont gros (un adversaire qui frappe à 40 %
+        // des PV ne doit pas laisser le PNJ attendre d'être à 2 coups de la mort).
+        private int InfirmarySeekHp =>
+            Math.Min(MaxHP - 1, Math.Max((int)(MaxHP * INFIRMARY_SEEK_HP_RATIO), _recentHitSize * INFIRMARY_SEEK_HITS_MARGIN));
+
+        //  Sortie : jamais "pile au-dessus du seuil de départ". Au moins 95 % des PV et au moins ~3 coups
+        // de marge au-dessus du seuil de départ, sinon le PNJ repart se soigner au coup suivant.
+        private int InfirmaryLeaveHp =>
+            Math.Min(MaxHP, Math.Max((int)MathF.Ceiling(MaxHP * INFIRMARY_LEAVE_HP_RATIO),
+                                     InfirmarySeekHp + _recentHitSize * INFIRMARY_LEAVE_HITS_MARGIN));
+
+        private bool NeedsInfirmaryCare => MaxHP > 0 && CurrentHP < MaxHP && CurrentHP <= InfirmarySeekHp;
+
         private void HealAtInfirmary(float dt)
         {
             if (_infirmaryBuildingId < 0)
@@ -1718,7 +1800,7 @@ namespace Soulfract
 
             _infirmaryHealAccumulator -= healing;
             CurrentHP = Math.Min(MaxHP, CurrentHP + healing);
-            if (CurrentHP < MaxHP)
+            if (CurrentHP < InfirmaryLeaveHp)
                 return;
 
             World.ReleaseInfirmary(_infirmaryBuildingId, NetId);
@@ -1923,7 +2005,12 @@ namespace Soulfract
 
             int tileX = (int)(WorldPos.X / Program.TileSize);
             int tileY = (int)MathF.Floor((WorldPos.Y + Program.FeetOffsetY) / Program.TileSize);
-            return spots.Any(spot => spot.Tile.x == tileX && spot.Tile.y == tileY);
+            foreach (var spot in spots)
+            {
+                if (spot.Tile.x == tileX && spot.Tile.y == tileY)
+                    return true;
+            }
+            return false;
         }
 
         private string GetChestInventoryLog()

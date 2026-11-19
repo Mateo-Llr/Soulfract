@@ -44,7 +44,9 @@ namespace Soulfract
 
 							if (DebugOverlaySettings.EntityHitboxes)
 							{
-								Rectangle hitboxRect = GetEntityCollisionHitbox(entityDebugPos, entity.Species, ts);
+								Rectangle hitboxRect = entity.IsPlayer
+									? GetPlayerCollisionHitbox(entityDebugPos, ts)
+									: GetEntityCollisionHitbox(entityDebugPos, entity.Species, ts);
 								Rectangle damageHitboxRect = GetEntityDamageHitbox(entity, ts);
 								Raylib.DrawRectangleLinesEx(hitboxRect, 2, Color.Red);
 								Raylib.DrawRectangleLinesEx(damageHitboxRect, 2, Color.Blue);
@@ -65,8 +67,8 @@ namespace Soulfract
 
 					if (DebugOverlaySettings.EntityHitboxes && drawPlayer)
 					{
-						Rectangle playerCollision = GetEntityCollisionHitbox(playerPos, Program.GetPlayerCollisionDimensions(), ts);
-						Rectangle playerDamage = GetEntityDamageHitbox(playerPos, Program.PlayerMorphSpecies, ts);
+						Rectangle playerCollision = GetPlayerCollisionHitbox(playerPos, ts);
+						Rectangle playerDamage = GetPlayerDamageHitbox(playerPos, Program.PlayerMorphSpecies, ts);
 						Raylib.DrawRectangleLinesEx(playerCollision, 2, Color.Red);
 						Raylib.DrawRectangleLinesEx(playerDamage, 2, Color.Blue);
 						Raylib.DrawText("joueur local", (int)playerDamage.X, (int)(playerDamage.Y - 12), 10, Color.White);
@@ -102,6 +104,7 @@ namespace Soulfract
 								var dhTileData = WorldTileRegistry.GetTile(dhObjectId);
 								if (dhTileData == null) continue;
 								var (dhX, dhY, dhW, dhH) = GetCollisionRect(dhx, dhy, dhTileData, ts);
+								dhY -= (int)GetCurrentHouseFloorCollisionOffsetAt(dhx, dhy);
 								Raylib.DrawRectangleLinesEx(new Rectangle(dhX, dhY, dhW, dhH), 2, Color.Lime);
 							}
 						}

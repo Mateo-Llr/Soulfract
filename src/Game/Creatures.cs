@@ -23,7 +23,6 @@ namespace Soulfract
             NetworkManager.RequestDropCreature(netId, targetPos);
             _clientCarriedNetId = null;
             _clientCarriedSpecies = "";
-            activeNotifications.Add(new Notification("Créature reposée", new Color(0, 255, 200, 255), 1.5f));
             return true;
         }
 

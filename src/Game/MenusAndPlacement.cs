@@ -208,7 +208,10 @@ namespace Soulfract
 				}
 				
 				int seedDrawX = seedTileX * ts + (previewTreeData?.DrawOffset?.X ?? 0);
-				int seedDrawY = seedTileY * ts - seedDrawH + ts;
+				int seedFloorOffset = World.IsPlayerIndoors
+					? (int)World.CurrentHouseFloorGroundOffset
+					: 0;
+				int seedDrawY = seedTileY * ts - seedFloorOffset - seedDrawH + ts;
 				
 				Color seedGhostColor = new Color(255, 255, 255, 180);
 				
@@ -402,7 +405,12 @@ namespace Soulfract
 			}
 
 			int drawX = tileX * ts;
-			int drawY = tileY * ts;
+			bool isCurrentHouseFloor = World.IsPlayerIndoors
+				&& World.CurrentHouseFloor > 0
+				&& World.GetBuildingIdAt(tileX, tileY) == World.CurrentHouseBuildingId;
+			int drawY = tileY * ts - (isCurrentHouseFloor
+				? (int)World.CurrentHouseFloorGroundOffset
+				: 0);
 
 			int w = ts, h = ts;
 
@@ -419,7 +427,6 @@ namespace Soulfract
 
 				drawY = drawY - h + ts;
 			}
-
 			UpdateSelectAnimation(Raylib.GetFrameTime());
 			if (_selectTextures.Count > 0 && _selectTextures[_selectAnimFrame].Id != 0)
 			{

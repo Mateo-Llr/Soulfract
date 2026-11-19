@@ -641,16 +641,16 @@ namespace Soulfract
 
         // ───────────────────────── RENDU PAR LOTS ─────────────────────────
         /// <summary>À appeler une fois par frame après la boucle d'affichage des particules (mode monde).</summary>
-        public static void DrawBatched(List<Particle> list)
+        public static void DrawBatched(List<Particle> list, Func<Particle, bool>? shouldDraw = null)
         {
             EnsureGlow();
             for (int i = 0; i < list.Count; i++)
-                if (list[i] is SpellFxParticle fx && !fx.Additive) fx.Draw();
+                if (list[i] is SpellFxParticle fx && !fx.Additive && (shouldDraw == null || shouldDraw(list[i]))) fx.Draw();
 
             bool begun = false;
             for (int i = 0; i < list.Count; i++)
             {
-                if (list[i] is SpellFxParticle fx && fx.Additive)
+                if (list[i] is SpellFxParticle fx && fx.Additive && (shouldDraw == null || shouldDraw(list[i])))
                 {
                     if (!begun) { BeginAdd(); begun = true; }
                     fx.Draw();

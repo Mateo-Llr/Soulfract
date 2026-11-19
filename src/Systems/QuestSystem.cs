@@ -73,25 +73,25 @@ namespace Soulfract
             {
                 // Pas de tiers pour cette quête : l'animal apprivoisé m'est ramené à moi-même
                 // (le donneur), donc pas de targetName à mentionner ici.
-                return string.Format(Localization.Get("quest.offer_line_tame", "Dis, tu ne saurais pas apprivoiser {0} et me l'amener ?"), Localization.GetLocalizedSpeciesName(TargetSpecies));
+                return Localization.GetOrDefault("quest.offer_line_tame", "Dis, tu ne saurais pas apprivoiser {0} et me l'amener ?", Localization.GetLocalizedSpeciesName(TargetSpecies));
             }
-            return string.Format(Localization.Get("quest.offer_line", "Dis-moi, pourrais-tu apporter {0}x {1} à {2} ? Je te revaudrai ça."), ItemQty, GetLocalizedItemName(), targetName);
+            return Localization.GetOrDefault("quest.offer_line", "Dis-moi, pourrais-tu apporter {0}x {1} à {2} ? Je te revaudrai ça.", ItemQty, GetLocalizedItemName(), targetName);
         }
 
         public string GetReminderLine(string targetName)
         {
             if (Type == QuestType.TameAndBring)
             {
-                return string.Format(Localization.Get("quest.reminder_line_tame", "Apprivoiser {0} et me l'amener."), Localization.GetLocalizedSpeciesName(TargetSpecies));
+                return Localization.GetOrDefault("quest.reminder_line_tame", "Apprivoiser {0} et me l'amener.", Localization.GetLocalizedSpeciesName(TargetSpecies));
             }
-            return string.Format(Localization.Get("quest.reminder_line", "Livrer {0}x {1} à {2}."), ItemQty, GetLocalizedItemName(), targetName);
+            return Localization.GetOrDefault("quest.reminder_line", "Livrer {0}x {1} à {2}.", ItemQty, GetLocalizedItemName(), targetName);
         }
 
         // Ligne affichée dans la bulle de confirmation quand le joueur approche du PNJ cible
         // avec un animal apprivoisé correspondant à proximité.
         public string GetGiftOfferLine(string targetName)
         {
-            return string.Format(Localization.Get("quest.gift_offer_line", "Veux-tu offrir cet animal à {0} ?"), targetName);
+            return Localization.GetOrDefault("quest.gift_offer_line", "Veux-tu offrir cet animal à {0} ?", targetName);
         }
 
         public string GetRewardLine()
@@ -100,7 +100,7 @@ namespace Soulfract
             {
                 string rewardName = GetLocalizedRewardItemName();
                 if (!string.IsNullOrWhiteSpace(rewardName))
-                    return string.Format(Localization.Get("quest.reward_item", "{0}x {1}"), RewardItemQty, rewardName);
+                    return Localization.GetOrDefault("quest.reward_item", "{0}x {1}", RewardItemQty, rewardName);
             }
             return Localization.Get("quest.reward_small_thanks", "un petit merci");
         }
@@ -1142,7 +1142,7 @@ namespace Soulfract
             _mode = "offer";
             var targetName = target?.DisplayName ?? target?.FirstName ?? Localization.Get("quest.unknown_target", "???");
             _bodyText = giver.ActiveQuest.GetOfferLine(giver.DisplayName ?? Localization.Get("quest.unknown_target", "???"), targetName);
-            _rewardText = string.Format(Localization.Get("quest.offer_reward", "Récompense : {0}"), giver.ActiveQuest.GetRewardLine());
+            _rewardText = Localization.GetOrDefault("quest.offer_reward", "Récompense : {0}", giver.ActiveQuest.GetRewardLine());
             _acceptButtonPressed = false;
             _declineButtonPressed = false;
             _isGiftConfirm = false;
@@ -1839,13 +1839,15 @@ namespace Soulfract
     // Affiche la liste complète des quêtes actives et permet de les parcourir en overlay.
     public static class QuestJournalUI
     {
-        private const int WINDOW_WIDTH = 720;
-        private const int WINDOW_HEIGHT = 500;
-        private const int HEADER_HEIGHT = 44;
-        private const int ENTRY_HEIGHT = 86;
+        private const int BASE_WINDOW_WIDTH = 840;
+        private const int BASE_WINDOW_HEIGHT = 700;
+        private const int COLUMN_COUNT = 3;
+        private const int BASE_CARD_WIDTH = 210;
+        private const int BASE_CARD_HEIGHT = 250;
+        private const int BASE_CARD_GAP = 14;
 
         private static bool _isOpen = false;
-        private static Vector2 _windowPos = new Vector2(180, 120);
+        private static Vector2 _windowPos = Vector2.Zero;
         private static Vector2 _dragOffset = Vector2.Zero;
         private static bool _isDragging = false;
         private static int _scrollOffset = 0;
@@ -1854,8 +1856,8 @@ namespace Soulfract
 
         public static int GetWindowX() => (int)_windowPos.X;
         public static int GetWindowY() => (int)_windowPos.Y;
-        public static int GetWindowWidth() => WINDOW_WIDTH;
-        public static int GetWindowHeight() => WINDOW_HEIGHT;
+        public static int GetWindowWidth() => GetScaledSize(BASE_WINDOW_WIDTH);
+        public static int GetWindowHeight() => GetScaledSize(BASE_WINDOW_HEIGHT);
 
         public static void Open()
         {
@@ -1863,6 +1865,9 @@ namespace Soulfract
             _isOpen = true;
             _scrollOffset = 0;
             _isDragging = false;
+            _windowPos = new Vector2(
+                (Raylib.GetScreenWidth() - GetWindowWidth()) / 2f,
+                (Raylib.GetScreenHeight() - GetWindowHeight()) / 2f);
         }
 
         public static void Close()
@@ -1884,14 +1889,16 @@ namespace Soulfract
             Vector2 mousePos = Raylib.GetMousePosition();
             int sw = Raylib.GetScreenWidth();
             int sh = Raylib.GetScreenHeight();
+            int windowWidth = GetWindowWidth();
+            int windowHeight = GetWindowHeight();
 
-            _windowPos.X = Math.Clamp(_windowPos.X, -WINDOW_WIDTH + 80, sw - 80);
-            _windowPos.Y = Math.Clamp(_windowPos.Y, 0, sh - 80);
+            _windowPos.X = Math.Clamp(_windowPos.X, -windowWidth + GetScaledSize(80), sw - GetScaledSize(80));
+            _windowPos.Y = Math.Clamp(_windowPos.Y, 0, sh - GetScaledSize(80));
 
             int x = (int)_windowPos.X;
             int y = (int)_windowPos.Y;
 
-            Rectangle titleBar = new Rectangle(x, y, WINDOW_WIDTH, HEADER_HEIGHT);
+            Rectangle titleBar = new Rectangle(x, y, windowWidth, GetScaledSize(62));
             if (Raylib.CheckCollisionPointRec(mousePos, titleBar) && Raylib.IsMouseButtonPressed(MouseButton.Left))
             {
                 _isDragging = true;
@@ -1904,20 +1911,23 @@ namespace Soulfract
             if (Raylib.IsMouseButtonReleased(MouseButton.Left))
                 _isDragging = false;
 
-            int listX = x + 18;
-            int listY = y + HEADER_HEIGHT + 14;
-            int listW = WINDOW_WIDTH - 36;
-            int listH = WINDOW_HEIGHT - HEADER_HEIGHT - 28;
+            GetListRect(x, y, windowWidth, windowHeight, out int listX, out int listY, out int listW, out int listH);
             Rectangle listRect = new Rectangle(listX, listY, listW, listH);
 
             var quests = GetQuestEntries(entities);
-            int totalHeight = Math.Max(0, quests.Count * ENTRY_HEIGHT);
-            int maxScroll = Math.Max(0, totalHeight - listH);
+            int cardHeight = GetScaledSize(BASE_CARD_HEIGHT);
+            int cardGap = GetScaledSize(BASE_CARD_GAP);
+            int rowCount = (quests.Count + COLUMN_COUNT - 1) / COLUMN_COUNT;
+            int totalHeight = Math.Max(0, rowCount * cardHeight + Math.Max(0, rowCount - 1) * cardGap);
+            int rowStep = cardHeight + cardGap;
+            int maxScroll = totalHeight <= listH
+                ? 0
+                : ((totalHeight - listH + rowStep - 1) / rowStep) * rowStep;
 
             float wheel = Raylib.GetMouseWheelMove();
             if (wheel != 0 && Raylib.CheckCollisionPointRec(mousePos, listRect))
             {
-                _scrollOffset -= (int)(wheel * ENTRY_HEIGHT);
+                _scrollOffset -= (int)(wheel * rowStep);
                 _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
             }
         }
@@ -1925,89 +1935,385 @@ namespace Soulfract
         public static void Draw(List<Entity> entities)
         {
             if (!_isOpen) return;
+            DrawBoard(entities);
+        }
 
+        private static void DrawBoard(List<Entity> entities)
+        {
             int x = (int)_windowPos.X;
             int y = (int)_windowPos.Y;
-            int listX = x + 18;
-            int listY = y + HEADER_HEIGHT + 14;
-            int listW = WINDOW_WIDTH - 36;
-            int listH = WINDOW_HEIGHT - HEADER_HEIGHT - 28;
+            int windowWidth = GetWindowWidth();
+            int windowHeight = GetWindowHeight();
+            GetListRect(x, y, windowWidth, windowHeight, out int listX, out int listY, out int listW, out int listH);
 
-            Raylib.DrawRectangleRounded(new Rectangle(x + 4, y + 4, WINDOW_WIDTH, WINDOW_HEIGHT), 0.1f, 12, new Color(0, 0, 0, 100));
-            Raylib.DrawRectangleRounded(new Rectangle(x, y, WINDOW_WIDTH, WINDOW_HEIGHT), 0.1f, 12, new Color(24, 20, 16, 240));
-            Raylib.DrawRectangleRoundedLines(new Rectangle(x, y, WINDOW_WIDTH, WINDOW_HEIGHT), 0.1f, 12, 2f, new Color(210, 180, 110, 255));
+            var windowRect = new Rectangle(x, y, windowWidth, windowHeight);
+            Raylib.DrawRectangle(x + GetScaledSize(5), y + GetScaledSize(7), windowWidth, windowHeight, new Color(0, 0, 0, 110));
+            if (UIManager.RegularPanelTexture != null && UIManager.RegularPanelTexture.IsValid)
+                UIManager.RegularPanelTexture.Draw(windowRect, Color.White);
+            else
+            {
+                Raylib.DrawRectangleRec(windowRect, new Color(61, 43, 29, 250));
+                Raylib.DrawRectangleLinesEx(windowRect, GetScaledSize(3), new Color(210, 180, 110, 255));
+            }
 
-            Raylib.DrawRectangleRounded(new Rectangle(x, y, WINDOW_WIDTH, HEADER_HEIGHT), 0.1f, 12, new Color(34, 28, 20, 255));
-            FontManager.DrawText(Localization.Get("quest.log.title", "Journal des quêtes"), x + 18, y + 12, 20, new Color(240, 220, 150, 255));
-            FontManager.DrawText(Localization.Get("quest.log.close_hint", "G/Echap pour fermer"), x + WINDOW_WIDTH - 180, y + 16, 12, new Color(180, 180, 180, 255));
+            var headerRect = new Rectangle(x + GetScaledSize(24), y + GetScaledSize(18), windowWidth - GetScaledSize(48), GetScaledSize(62));
+            if (UIManager.ScrollPanelTexture != null && UIManager.ScrollPanelTexture.IsValid)
+                UIManager.ScrollPanelTexture.Draw(headerRect, Color.White);
+            else
+                Raylib.DrawRectangleRec(headerRect, new Color(65, 43, 28, 230));
+
+            string title = Localization.Get("quest.log.title", "Journal des quêtes");
+            int titleFont = GetScaledFontSize(28);
+            int titleWidth = FontManager.MeasureText(title, titleFont);
+            FontManager.DrawText(title, x + (windowWidth - titleWidth) / 2, (int)headerRect.Y + GetScaledSize(10), titleFont, new Color(250, 231, 184, 255));
+            string closeHint = Localization.Get("quest.log.close_hint", "G/Échap pour fermer");
+            int hintFont = GetScaledFontSize(12);
+            int hintWidth = FontManager.MeasureText(closeHint, hintFont);
+            FontManager.DrawText(closeHint, x + windowWidth - hintWidth - GetScaledSize(28), (int)headerRect.Y + GetScaledSize(16), hintFont, new Color(75, 58, 42, 255));
 
             var quests = GetQuestEntries(entities);
+            int cardHeight = GetScaledSize(BASE_CARD_HEIGHT);
+            int cardGap = GetScaledSize(BASE_CARD_GAP);
+            int rowStep = cardHeight + cardGap;
+            int rowCount = (quests.Count + COLUMN_COUNT - 1) / COLUMN_COUNT;
+            int totalHeight = Math.Max(0, rowCount * cardHeight + Math.Max(0, rowCount - 1) * cardGap);
+            int maxScroll = totalHeight <= listH
+                ? 0
+                : ((totalHeight - listH + rowStep - 1) / rowStep) * rowStep;
+            _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
+
             if (quests.Count == 0)
             {
-                FontManager.DrawText(Localization.Get("quest.log.none", "Aucune quête en cours pour le moment."), x + 24, y + 90, 16, Color.LightGray);
+                DrawWrappedText(Localization.Get("quest.log.none", "Aucune quête en cours pour le moment."),
+                    listX + GetScaledSize(16), listY + GetScaledSize(20), listW - GetScaledSize(32),
+                    GetScaledFontSize(18), Color.LightGray, 2);
                 return;
             }
 
-            int totalHeight = Math.Max(0, quests.Count * ENTRY_HEIGHT);
-            int maxScroll = Math.Max(0, totalHeight - listH);
-            _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
+            Vector2 mousePos = Raylib.GetMousePosition();
+            int cardWidth = Math.Min(
+                GetScaledSize(BASE_CARD_WIDTH),
+                (listW - cardGap * (COLUMN_COUNT - 1)) / COLUMN_COUNT);
+            int firstVisibleRow = _scrollOffset / rowStep;
+            int lastVisibleRow = Math.Min(rowCount, firstVisibleRow + Math.Max(1, listH / rowStep));
+            int hoveredIndex = -1;
 
-            int firstVisible = _scrollOffset / ENTRY_HEIGHT;
-            int lastVisible = Math.Min(quests.Count, firstVisible + (listH / ENTRY_HEIGHT) + 2);
-
-            for (int i = firstVisible; i < lastVisible; i++)
+            for (int row = firstVisibleRow; row < lastVisibleRow; row++)
             {
-                var entry = quests[i];
-                int entryY = listY + i * ENTRY_HEIGHT - _scrollOffset;
-                if (entryY + ENTRY_HEIGHT < listY || entryY > listY + listH) continue;
-
-                Rectangle rect = new Rectangle(listX, entryY, listW - 10, ENTRY_HEIGHT - 8);
-                Raylib.DrawRectangleRounded(rect, 0.06f, 8, new Color(38, 34, 28, 220));
-                Raylib.DrawRectangleRoundedLines(rect, 0.06f, 8, 1.5f, new Color(120, 100, 70, 180));
-
-                Rectangle giverPanel = new Rectangle(rect.X + 12, rect.Y + 10, 54, 54);
-                Raylib.DrawRectangleRounded(giverPanel, 0.2f, 8, new Color(70, 55, 38, 240));
-                Raylib.DrawRectangleRoundedLines(giverPanel, 0.2f, 8, 1f, new Color(200, 170, 110, 180));
-                DrawNpcPreview(entry.GiverEntity, giverPanel);
-                FontManager.DrawText(entry.GiverName, (int)giverPanel.X - 2, (int)giverPanel.Y + 64, 10, new Color(220, 220, 220, 255));
-
-                string statusText = entry.Quest.State switch
+                for (int column = 0; column < COLUMN_COUNT; column++)
                 {
-                    QuestState.Offered => Localization.Get("quest.status.offered", "Proposée"),
-                    QuestState.Accepted => Localization.Get("quest.status.accepted", "En cours"),
-                    QuestState.Delivered => Localization.Get("quest.status.delivered", "À valider"),
-                    _ => Localization.Get("quest.status.in_progress", "En cours")
-                };
+                    int index = row * COLUMN_COUNT + column;
+                    if (index >= quests.Count) break;
 
-                FontManager.DrawText($"{entry.GiverName} • {statusText}", (int)rect.X + 84, (int)rect.Y + 10, 16, new Color(240, 210, 130, 255));
-                string objectiveText = entry.Quest.Type == QuestType.TameAndBring
-                    ? string.Format(Localization.Get("quest.log.objective_tame", "Apprivoiser {0} et l'amener à {1}"), Localization.GetLocalizedSpeciesName(entry.Quest.TargetSpecies), entry.TargetName)
-                    : string.Format(Localization.Get("quest.log.objective", "Apporter {0}x {1} à {2}"), entry.Quest.ItemQty, entry.Quest.GetLocalizedItemName(), entry.TargetName);
-                FontManager.DrawText(objectiveText, (int)rect.X + 84, (int)rect.Y + 34, 14, Color.White);
-
-                int rewardX = (int)rect.X + (int)rect.Width - 88;
-                int rewardY = (int)rect.Y + 10;
-                var rewardItem = CreateRewardItem(entry.Quest);
-                Rectangle rewardRect = new Rectangle(rewardX, rewardY, 44, 44);
-                Raylib.DrawRectangleRounded(rewardRect, 0.15f, 8, new Color(40, 38, 30, 220));
-                if (rewardItem != null)
-                {
-                    ItemRenderer.DrawItemPadded(rewardItem, (int)rewardRect.X + 4, (int)rewardRect.Y + 4, 36, 2);
+                    var entry = quests[index];
+                    int cardsInRow = Math.Min(COLUMN_COUNT, quests.Count - row * COLUMN_COUNT);
+                    int rowWidth = cardsInRow * cardWidth + (cardsInRow - 1) * cardGap;
+                    int rowX = listX + (listW - rowWidth) / 2;
+                    var cardRect = new Rectangle(
+                        rowX + column * (cardWidth + cardGap),
+                        listY + row * rowStep - _scrollOffset,
+                        cardWidth,
+                        cardHeight);
+                    bool hovered = Raylib.CheckCollisionPointRec(mousePos, cardRect)
+                        && Raylib.CheckCollisionPointRec(mousePos, new Rectangle(listX, listY, listW, listH));
+                    if (hovered) hoveredIndex = index;
+                    DrawQuestCard(entry, entities, cardRect, hovered);
                 }
-                FontManager.DrawText($"x{entry.Quest.RewardItemQty}", (int)rewardRect.X + 48, (int)rewardRect.Y + 14, 13, new Color(150, 220, 150, 255));
-                FontManager.DrawText(Localization.Get("quest.log.reward", "Récompense"), (int)rewardRect.X + 48, (int)rewardRect.Y + 30, 11, new Color(180, 180, 180, 255));
             }
 
             if (totalHeight > listH)
             {
-                int scrollbarX = x + WINDOW_WIDTH - 20;
-                int scrollbarY = listY;
-                int scrollbarHeight = Math.Max(30, (int)((float)listH / totalHeight * listH));
-                float scrollPercent = totalHeight == 0 ? 0f : (float)_scrollOffset / (totalHeight - listH);
-                int scrollbarOffset = (int)(scrollPercent * (listH - scrollbarHeight));
-                Raylib.DrawRectangleRounded(new Rectangle(scrollbarX, scrollbarY + scrollbarOffset, 8, scrollbarHeight), 0.25f, 4, new Color(90, 80, 60, 200));
+                int scrollbarWidth = GetScaledSize(8);
+                int scrollbarHeight = Math.Max(GetScaledSize(30), (int)((float)listH / totalHeight * listH));
+                int scrollbarOffset = (int)((float)_scrollOffset / maxScroll * (listH - scrollbarHeight));
+                Raylib.DrawRectangleRounded(
+                    new Rectangle(listX + listW - scrollbarWidth, listY + scrollbarOffset, scrollbarWidth, scrollbarHeight),
+                    0.35f,
+                    5,
+                    new Color(120, 82, 50, 230));
+            }
+
+            if (hoveredIndex >= 0)
+                DrawQuestTooltip(quests[hoveredIndex], mousePos);
+        }
+
+        private static void DrawQuestCard(
+            (Quest Quest, Entity? GiverEntity, string GiverName, string TargetName) entry,
+            List<Entity> entities,
+            Rectangle rect,
+            bool hovered)
+        {
+            Color paperTint = entry.Quest.State == QuestState.Delivered
+                ? new Color(232, 241, 211, 255)
+                : new Color(255, 242, 216, 255);
+            if (UIManager.ScrollPanelTexture != null && UIManager.ScrollPanelTexture.IsValid)
+                UIManager.ScrollPanelTexture.Draw(rect, hovered ? Color.White : paperTint);
+            else
+            {
+                Raylib.DrawRectangleRec(rect, entry.Quest.State == QuestState.Delivered
+                    ? new Color(208, 221, 175, 255)
+                    : new Color(222, 195, 146, 255));
+                Raylib.DrawRectangleLinesEx(rect, GetScaledSize(2), new Color(105, 72, 43, 255));
+            }
+
+            int padding = GetScaledSize(12);
+            int headerHeight = GetScaledSize(32);
+            int footerHeight = GetScaledSize(34);
+            int portraitHeight = GetScaledSize(112);
+            string posterTitle = GetPosterTitle(entry.Quest);
+            int posterTitleFont = GetScaledFontSize(18);
+            int titleWidth = FontManager.MeasureText(posterTitle, posterTitleFont);
+            FontManager.DrawText(
+                posterTitle,
+                (int)(rect.X + (rect.Width - titleWidth) / 2f),
+                (int)rect.Y + GetScaledSize(9),
+                posterTitleFont,
+                new Color(58, 39, 25, 255));
+
+            Entity? targetEntity = entry.Quest.Type == QuestType.TameAndBring
+                ? null
+                : entities.FirstOrDefault(e => e.NetId == entry.Quest.TargetId);
+            string statusText = GetQuestStatus(entry.Quest);
+            int statusFont = GetScaledFontSize(11);
+            int statusWidth = FontManager.MeasureText(statusText, statusFont) + GetScaledSize(16);
+            var targetRect = new Rectangle(
+                rect.X + padding,
+                rect.Y + headerHeight,
+                rect.Width - padding * 2,
+                portraitHeight);
+            DrawTargetPreview(entry.Quest, targetEntity, entry.TargetName, targetRect);
+
+            string targetName = entry.Quest.Type == QuestType.TameAndBring
+                ? Localization.GetLocalizedSpeciesName(entry.Quest.TargetSpecies)
+                : entry.TargetName;
+            int nameFont = GetScaledFontSize(16);
+            int nameWidth = (int)rect.Width - padding * 2;
+            int nameY = (int)targetRect.Y + portraitHeight + GetScaledSize(7);
+            string nameLine = WrapJournalText(targetName, nameWidth, nameFont).FirstOrDefault() ?? "";
+            int measuredNameWidth = FontManager.MeasureText(nameLine, nameFont);
+            FontManager.DrawText(nameLine, (int)(rect.X + (rect.Width - measuredNameWidth) / 2f),
+                nameY, nameFont, new Color(58, 39, 25, 255));
+
+            int objectiveY = nameY + nameFont + GetScaledSize(4);
+            int footerY = (int)rect.Y + (int)rect.Height - footerHeight;
+            string shortDetails = entry.Quest.Type == QuestType.TameAndBring
+                ? entry.Quest.GetReminderLine(entry.GiverName)
+                : string.Format(
+                    Localization.Get("quest.log.objective", "Apporter {0}x {1} à {2}"),
+                    entry.Quest.ItemQty,
+                    entry.Quest.GetLocalizedItemName(),
+                    entry.TargetName);
+            DrawWrappedText(shortDetails, (int)rect.X + padding, objectiveY,
+                (int)rect.Width - padding * 2, GetScaledFontSize(12), new Color(58, 49, 39, 255), 2);
+
+            Raylib.DrawRectangle((int)rect.X + padding, footerY, (int)rect.Width - padding * 2, GetScaledSize(1), new Color(115, 82, 52, 110));
+
+            var rewardItem = CreateRewardItem(entry.Quest);
+            int rewardIconSize = GetScaledSize(22);
+            if (rewardItem != null)
+                ItemRenderer.DrawItemPadded(rewardItem, (int)rect.X + padding, footerY + GetScaledSize(6), rewardIconSize, 2);
+            int rewardTextX = (int)rect.X + padding + rewardIconSize + GetScaledSize(6);
+            int statusX = (int)rect.X + (int)rect.Width - statusWidth - padding;
+            DrawWrappedText(entry.Quest.GetRewardLine(), rewardTextX, footerY + GetScaledSize(8),
+                Math.Max(GetScaledSize(35), statusX - rewardTextX - GetScaledSize(8)), GetScaledFontSize(11),
+                new Color(73, 57, 35, 255), 2);
+
+            Color statusColor = entry.Quest.State == QuestState.Delivered
+                ? new Color(82, 111, 54, 255)
+                : new Color(127, 83, 43, 255);
+            var statusRect = new Rectangle(statusX, footerY + GetScaledSize(7), statusWidth, GetScaledSize(20));
+            Raylib.DrawRectangleRounded(statusRect, 0.3f, 5, new Color(88, 65, 40, 45));
+            FontManager.DrawText(statusText, (int)statusRect.X + GetScaledSize(8), (int)statusRect.Y + GetScaledSize(3), statusFont, statusColor);
+        }
+
+        private static void DrawTargetPreview(Quest quest, Entity? target, string targetName, Rectangle rect)
+        {
+            Raylib.DrawRectangleRec(rect, new Color(83, 105, 117, 255));
+            Raylib.DrawRectangle((int)rect.X + GetScaledSize(2), (int)rect.Y + GetScaledSize(2),
+                (int)rect.Width - GetScaledSize(4), (int)rect.Height - GetScaledSize(4),
+                new Color(115, 139, 148, 255));
+
+            if (quest.Type == QuestType.TameAndBring)
+            {
+                DrawSpeciesPosterPreview(quest.TargetSpecies, rect);
+            }
+            else if (target != null)
+            {
+                DrawSharedPortrait(target, rect);
+            }
+            else
+            {
+                string marker = quest.Type == QuestType.TameAndBring
+                    ? Localization.GetLocalizedSpeciesName(quest.TargetSpecies)
+                    : targetName;
+                string initial = string.IsNullOrWhiteSpace(marker) ? "?" : marker[..1].ToUpperInvariant();
+                int fontSize = GetScaledFontSize(25);
+                int textWidth = FontManager.MeasureText(initial, fontSize);
+                FontManager.DrawText(initial, (int)(rect.X + (rect.Width - textWidth) / 2), (int)(rect.Y + (rect.Height - fontSize) / 2), fontSize, new Color(238, 215, 174, 255));
+            }
+
+            Raylib.DrawRectangleLinesEx(rect, GetScaledSize(2), new Color(62, 43, 33, 255));
+        }
+
+        private static string GetPosterTitle(Quest quest)
+        {
+            return quest.Type == QuestType.TameAndBring
+                ? Localization.GetOrDefault("quest.poster.taming", "QUÊTE DE DRESSAGE")
+                : Localization.GetOrDefault("quest.poster.delivery", "QUÊTE DE LIVRAISON");
+        }
+
+        private static void DrawSpeciesPosterPreview(string species, Rectangle bounds)
+        {
+            string speciesKey = species.Trim().ToLowerInvariant();
+            if (!SpeciesData.Skeletons.TryGetValue(speciesKey, out var skeleton) || skeleton.Count == 0)
+                return;
+
+            float speciesScale = SpeciesData.GetSpeciesInfo(speciesKey)?.Scale ?? 1f;
+            float customScale = Math.Clamp(1.55f / Math.Max(0.7f, speciesScale), 0.25f, 2.2f);
+            Vector2 position = new(bounds.X + bounds.Width / 2f, bounds.Y + bounds.Height * 0.94f);
+            Raylib.BeginScissorMode((int)bounds.X, (int)bounds.Y, (int)bounds.Width, (int)bounds.Height);
+            EntityRenderer.DrawEntity(
+                speciesKey,
+                "idle",
+                0,
+                0f,
+                1f,
+                position,
+                Color.White,
+                new Texture2D(),
+                new Texture2D(),
+                Color.Black,
+                SpeciesData.Skeletons,
+                customScale: customScale,
+                drawShadow: false);
+            Raylib.EndScissorMode();
+        }
+
+        private static void DrawQuestTooltip(
+            (Quest Quest, Entity? GiverEntity, string GiverName, string TargetName) entry,
+            Vector2 mousePos)
+        {
+            int screenWidth = Raylib.GetScreenWidth();
+            int screenHeight = Raylib.GetScreenHeight();
+            int tooltipWidth = GetScaledSize(330);
+            int tooltipHeight = GetScaledSize(212);
+            int margin = GetScaledSize(12);
+            int x = (int)mousePos.X + margin;
+            int y = (int)mousePos.Y + margin;
+            if (x + tooltipWidth > screenWidth - margin)
+                x = (int)mousePos.X - tooltipWidth - margin;
+            x = Math.Clamp(x, margin, Math.Max(margin, screenWidth - tooltipWidth - margin));
+            y = Math.Clamp(y, margin, Math.Max(margin, screenHeight - tooltipHeight - margin));
+
+            var tooltipRect = new Rectangle(x, y, tooltipWidth, tooltipHeight);
+            if (UIManager.ScrollPanelTexture != null && UIManager.ScrollPanelTexture.IsValid)
+                UIManager.ScrollPanelTexture.Draw(tooltipRect, Color.White);
+            else
+            {
+                Raylib.DrawRectangleRec(tooltipRect, new Color(224, 199, 157, 250));
+                Raylib.DrawRectangleLinesEx(tooltipRect, GetScaledSize(2), new Color(105, 72, 43, 255));
+            }
+
+            int padding = GetScaledSize(14);
+            int portraitSize = GetScaledSize(54);
+            var portraitRect = new Rectangle(x + padding, y + padding, portraitSize, portraitSize);
+            if (entry.GiverEntity != null)
+                DrawSharedPortrait(entry.GiverEntity, portraitRect);
+            else
+            {
+                Raylib.DrawRectangleRec(portraitRect, new Color(91, 62, 39, 210));
+                string initial = string.IsNullOrWhiteSpace(entry.GiverName) ? "?" : entry.GiverName[..1].ToUpperInvariant();
+                FontManager.DrawText(initial, (int)portraitRect.X + GetScaledSize(18), (int)portraitRect.Y + GetScaledSize(12), GetScaledFontSize(24), new Color(238, 215, 174, 255));
+            }
+
+            int textX = (int)portraitRect.X + portraitSize + GetScaledSize(10);
+            int textWidth = tooltipWidth - (textX - x) - padding;
+            DrawWrappedText(entry.GiverName, textX, y + padding + GetScaledSize(3), textWidth, GetScaledFontSize(17), new Color(58, 39, 25, 255), 2);
+            DrawWrappedText(GetQuestStatus(entry.Quest), textX, y + padding + GetScaledSize(31), textWidth, GetScaledFontSize(12), new Color(112, 78, 42, 255), 1);
+
+            int separatorY = y + padding + portraitSize + GetScaledSize(10);
+            Raylib.DrawRectangle(x + padding, separatorY, tooltipWidth - padding * 2, GetScaledSize(1), new Color(115, 82, 52, 130));
+            DrawWrappedText(GetQuestObjective(entry), x + padding, separatorY + GetScaledSize(10),
+                tooltipWidth - padding * 2, GetScaledFontSize(13), new Color(58, 49, 39, 255), 4);
+
+            string reward = $"{Localization.Get("quest.log.reward", "Récompense")} : {entry.Quest.GetRewardLine()}";
+            DrawWrappedText(reward, x + padding, y + tooltipHeight - GetScaledSize(42),
+                tooltipWidth - padding * 2, GetScaledFontSize(13), new Color(74, 91, 43, 255), 2);
+        }
+
+        private static string GetQuestObjective((Quest Quest, Entity? GiverEntity, string GiverName, string TargetName) entry)
+        {
+            return entry.Quest.Type == QuestType.TameAndBring
+                ? entry.Quest.GetReminderLine(entry.TargetName)
+                : string.Format(
+                    Localization.Get("quest.log.objective", "Apporter {0}x {1} à {2}"),
+                    entry.Quest.ItemQty,
+                    entry.Quest.GetLocalizedItemName(),
+                    entry.TargetName);
+        }
+
+        private static string GetQuestStatus(Quest quest)
+        {
+            return quest.State switch
+            {
+                QuestState.Offered => Localization.Get("quest.status.offered", "Proposée"),
+                QuestState.Accepted => Localization.Get("quest.status.accepted", "En cours"),
+                QuestState.Delivered => Localization.Get("quest.status.delivered", "À valider"),
+                _ => Localization.Get("quest.status.in_progress", "En cours")
+            };
+        }
+
+        private static void DrawWrappedText(string text, int x, int y, int maxWidth, int fontSize, Color color, int maxLines)
+        {
+            foreach (string line in WrapJournalText(text, maxWidth, fontSize).Take(maxLines))
+            {
+                FontManager.DrawText(line, x, y, fontSize, color);
+                y += fontSize + GetScaledSize(3);
             }
         }
+
+        private static List<string> WrapJournalText(string text, int maxWidth, int fontSize)
+        {
+            var lines = new List<string>();
+            string currentLine = "";
+            foreach (string word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string candidate = string.IsNullOrEmpty(currentLine) ? word : $"{currentLine} {word}";
+                if (string.IsNullOrEmpty(currentLine) || FontManager.MeasureText(candidate, fontSize) <= maxWidth)
+                    currentLine = candidate;
+                else
+                {
+                    lines.Add(currentLine);
+                    currentLine = word;
+                }
+            }
+            if (!string.IsNullOrEmpty(currentLine))
+                lines.Add(currentLine);
+            return lines;
+        }
+
+        private static void GetListRect(int x, int y, int windowWidth, int windowHeight, out int listX, out int listY, out int listW, out int listH)
+        {
+            int horizontalPadding = GetScaledSize(32);
+            listX = x + horizontalPadding;
+            listY = y + GetScaledSize(100);
+            listW = windowWidth - horizontalPadding * 2;
+            listH = windowHeight - GetScaledSize(142);
+        }
+
+        private static float GetLayoutScale()
+        {
+            float screenFit = Math.Min(
+                Raylib.GetScreenWidth() / (float)BASE_WINDOW_WIDTH,
+                Raylib.GetScreenHeight() / (float)BASE_WINDOW_HEIGHT);
+            return Math.Max(0.1f, Math.Min(Math.Max(UIManager.LayoutScale, 0.75f), screenFit));
+        }
+
+        private static int GetScaledSize(int value)
+            => Math.Max(1, (int)MathF.Round(value * GetLayoutScale()));
+
+        private static int GetScaledFontSize(int value)
+            => Math.Max(9, (int)MathF.Round(value * GetLayoutScale()));
 
         private static List<(Quest Quest, Entity? GiverEntity, string GiverName, string TargetName)> GetQuestEntries(List<Entity> entities)
         {

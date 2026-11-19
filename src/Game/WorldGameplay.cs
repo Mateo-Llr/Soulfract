@@ -637,13 +637,21 @@ namespace Soulfract
 			const float SLEEP_OCCUPANCY_RADIUS = 18f;
 			float radiusSq = SLEEP_OCCUPANCY_RADIUS * SLEEP_OCCUPANCY_RADIUS;
 
-			if (IsSitting && IsSittingBehindFurniture
+			if (IsSitting && _sittingPose == "sleep"
 				&& Vector2.DistanceSquared(GetSittingVisualPosition(), sleepPosition) <= radiusSq)
 				return true;
 
-			return entities.Any(entity => entity != ignoredEntity
-				&& entity.IsSleeping
-				&& Vector2.DistanceSquared(entity.VisualWorldPos, sleepPosition) <= radiusSq);
+			return entities.Any(entity =>
+			{
+				if (entity == ignoredEntity || !entity.IsAlive)
+					return false;
+
+				Vector2 reservedPosition = entity.IsSleeping
+					? entity.VisualWorldPos
+					: entity.SleepTargetPosition;
+				return reservedPosition != Vector2.Zero
+					&& Vector2.DistanceSquared(reservedPosition, sleepPosition) <= radiusSq;
+			});
 		}
 
 		public static void PrepareTentOccupation(Vector2 tentPosition, Entity? incomingNpc)
@@ -1594,7 +1602,8 @@ namespace Soulfract
 		private static Vector2 GetPlayerCameraTarget(Vector2 playerPos)
 		{
 			float underwaterVisualOffset = World.IsUnderwater ? -_underwaterElevation : 0f;
-			return new Vector2(playerPos.X, playerPos.Y + underwaterVisualOffset);
+			float houseFloorOffset = World.IsPlayerIndoors ? World.CurrentHouseFloorOffset : 0f;
+			return new Vector2(playerPos.X, playerPos.Y + underwaterVisualOffset - houseFloorOffset);
 		}
 
 		private static void SpawnCrabCompanion()
@@ -1680,7 +1689,8 @@ namespace Soulfract
 			int groundId = World.GetGroundTileIdAt(tileX, tileY);
 			Color particleColor = World.GetParticleColorForGround(groundId);
 			
-			Vector2 footPos = new Vector2(_playerPos.X, _playerPos.Y + FeetOffsetY);
+			float floorOffsetY = World.CurrentHouseFloorOffset;
+			Vector2 footPos = new Vector2(_playerPos.X, _playerPos.Y - floorOffsetY + FeetOffsetY);
 			
 			Random rand = new Random();
 			int count = rand.Next(1, 3);
@@ -1692,7 +1702,10 @@ namespace Soulfract
 				);
 				float size = rand.Next(2, 5);
 				float lifetime = rand.Next(300, 600) / 1000f;
-				_particles.Add(new Particle(footPos, vel, particleColor, size, lifetime));
+				_particles.Add(new Particle(footPos, vel, particleColor, size, lifetime)
+				{
+					FloorOffsetY = floorOffsetY
+				});
 			}
 		}
 
@@ -1706,57 +1719,72 @@ namespace Soulfract
 			return MIN_DARKNESS + (MAX_DARKNESS - MIN_DARKNESS) * factor;
 		}
 
-		//  FILTRE COLORIMÉTRIQUE JOUR/NUIT ────────────────────────────────────────────
-		// Léger voile de couleur plaqué sur tout l'écran, qui évolue avec l'heure en jeu
-		// (_gameTime / DAY_CYCLE_DURATION, exactement le même référentiel que
-		// GetDarknessAlpha) : bleu-violet la nuit, rose saumon plus soutenu au petit
-		// matin (la "rosée"), très léger orange au coucher du soleil, et rien en plein
-		// jour. Purement cosmétique, indépendant du masque de lumière (DrawLighting,
-		// qui assombrit/éclaire) : ceci ne fait qu'ajouter une teinte par-dessus.
+		//  AMBIANCE COLORÉE JOUR/NUIT ─────────────────────────────────────────────────
+		// Avant : un voile semi-transparent plaqué PAR-DESSUS l'écran (alpha ~10-35). Ça
+		// délavait l'image (on "mélange" du gris/rose avec les couleurs du jeu au lieu de
+		// les teinter) et ça se superposait à un masque de lumière resté, lui, parfaitement
+		// gris : deux couches indépendantes qui ne parlaient pas la même langue.
 		//
-		// Chaque point-clé est un couple (dayProgress, Color) où dayProgress suit la
-		// même convention que GetDarknessAlpha : 0 = minuit, 0.25 = ~6h du matin,
-		// 0.5 = midi, 0.75 = ~18h, 1 = minuit suivant. La couleur est interpolée
-		// linéairement entre les deux points-clés qui encadrent l'heure actuelle, ce
-		// qui donne une transition parfaitement fluide (frame par frame, jamais de
-		// saut) au fil de la journée en jeu.
-		private static readonly (float t, Color color)[] _dayNightFilterKeyframes = new (float, Color)[]
+		// Maintenant : UNE SEULE couche. La couleur ambiante du moment de la journée est
+		// injectée directement dans le masque de lumière (blend Multiplied), donc :
+		//   - la nuit n'est plus "grise" mais bleu nuit, les ombres gardent leur teinte ;
+		//   - l'aube/le crépuscule teintent vraiment la scène (multiplication = les
+		//     couleurs du jeu sont filtrées, pas recouvertes) sans perdre en saturation ;
+		//   - les lumières locales (torches, etc.) s'ajoutent à cette ambiance exactement
+		//     comme avant, et les entités (GetEntityLightTint) reçoivent la même teinte.
+		//
+		// L'INTENSITÉ lumineuse reste pilotée par GetDarknessAlpha (inchangé). Ici on ne
+		// définit que la TEINTE (multiplicateur RGB, 255 = neutre) pour chaque moment.
+		// dayProgress : 0 = minuit, 0.25 = ~6h, 0.5 = midi, 0.75 = ~18h, 1 = minuit.
+		private static readonly (float t, Color tint)[] _timeOfDayTintKeyframes = new (float, Color)[]
 		{
-			// Coeur de nuit : bleu-violet
-			(0.00f, new Color((byte)65,  (byte)60,  (byte)120, (byte)24)),
-			// Fin de nuit, juste avant l'aube : encore bleu-violet
-			(0.20f, new Color((byte)65,  (byte)60,  (byte)120, (byte)24)),
-			// Petit matin / rosée : rose saumon, plus foncé (pic d'intensité de cette teinte)
-			(0.27f, new Color((byte)205, (byte)95,  (byte)108, (byte)34)),
-			// Matin bien avancé : la teinte rosée se dissipe
-			(0.38f, new Color((byte)255, (byte)205, (byte)190, (byte)10)),
-			// Plein jour : aucun filtre
-			(0.50f, new Color((byte)255, (byte)255, (byte)255, (byte)0)),
-			(0.62f, new Color((byte)255, (byte)255, (byte)255, (byte)0)),
-			// Fin d'après-midi : l'orange du couchant apparaît doucement
-			(0.70f, new Color((byte)255, (byte)205, (byte)150, (byte)9)),
-			// Coucher de soleil : orange léger
-			(0.78f, new Color((byte)255, (byte)178, (byte)112, (byte)18)),
-			// Crépuscule : transition vers le bleu-violet de la nuit
-			(0.88f, new Color((byte)110, (byte)75,  (byte)130, (byte)22)),
+			// Nuit profonde : bleu nuit (clair de lune)
+			(0.00f, new Color((byte)135, (byte)155, (byte)255, (byte)255)),
+			// Fin de nuit : le bleu se réchauffe à peine
+			(0.19f, new Color((byte)145, (byte)160, (byte)250, (byte)255)),
+			// Aube : rose-saumon (la "rosée")
+			(0.25f, new Color((byte)255, (byte)175, (byte)160, (byte)255)),
+			// Matin : lumière dorée qui se dissipe
+			(0.31f, new Color((byte)255, (byte)218, (byte)185, (byte)255)),
+			(0.40f, new Color((byte)255, (byte)244, (byte)232, (byte)255)),
+			// Plein jour : neutre
+			(0.50f, new Color((byte)255, (byte)255, (byte)255, (byte)255)),
+			(0.60f, new Color((byte)255, (byte)255, (byte)255, (byte)255)),
+			// Fin d'après-midi : lumière dorée
+			(0.68f, new Color((byte)255, (byte)238, (byte)205, (byte)255)),
+			// Coucher de soleil : orange
+			(0.75f, new Color((byte)255, (byte)158, (byte)100, (byte)255)),
+			// Crépuscule : orange -> magenta/violet
+			(0.82f, new Color((byte)228, (byte)115, (byte)150, (byte)255)),
+			// Début de nuit : violet -> bleu nuit
+			(0.90f, new Color((byte)150, (byte)130, (byte)245, (byte)255)),
 			// Retour à minuit (boucle avec le premier point-clé)
-			(1.00f, new Color((byte)65,  (byte)60,  (byte)120, (byte)24)),
+			(1.00f, new Color((byte)135, (byte)155, (byte)255, (byte)255)),
 		};
 
-		private static Color GetDayNightFilterColor(float dayProgress)
+		// Force globale de la teinte : 0 = aucune teinte (comportement gris d'origine),
+		// 1 = teintes ci-dessus à fond. Point de réglage rapide si c'est trop/pas assez marqué.
+		private const float TIME_OF_DAY_TINT_STRENGTH = 0.9f;
+
+		/// <summary>Teinte (multiplicateur RGB, 255 = neutre) du moment de la journée, sans l'intensité.</summary>
+		private static Color GetTimeOfDayTint(float dayProgress)
 		{
-			var kf = _dayNightFilterKeyframes;
+			var kf = _timeOfDayTintKeyframes;
+			Color result = kf[0].tint;
 			for (int i = 0; i < kf.Length - 1; i++)
 			{
 				if (dayProgress >= kf[i].t && dayProgress <= kf[i + 1].t)
 				{
 					float span = kf[i + 1].t - kf[i].t;
 					float localT = span > 0.0001f ? (dayProgress - kf[i].t) / span : 0f;
-					return LerpColor(kf[i].color, kf[i + 1].color, localT);
+					// smoothstep : pas de cassure de pente aux points-clés (un lerp linéaire
+					// laissait voir les "angles" de la courbe sous forme de changements de ton).
+					localT = localT * localT * (3f - 2f * localT);
+					result = LerpColor(kf[i].tint, kf[i + 1].tint, localT);
+					break;
 				}
 			}
-			// Repli (ne devrait pas arriver vu que le premier/dernier point-clé couvrent 0..1)
-			return kf[0].color;
+			return LerpColor(Color.White, result, TIME_OF_DAY_TINT_STRENGTH);
 		}
 
 		private static Color LerpColor(Color a, Color b, float t)
@@ -1769,21 +1797,29 @@ namespace Soulfract
 				(byte)(a.A + (b.A - a.A) * t));
 		}
 
-		// Dessine le voile colorimétrique par-dessus toute la scène (coordonnées écran,
-		// donc à appeler APRÈS EndMode2D, comme DrawLighting). Ne s'applique pas en
-		// sous-sol/intérieur (World.IsUnderground) : un filtre calé sur l'heure du ciel
-		// n'a pas de sens là où on ne voit pas le ciel.
-		public static void DrawDayNightColorFilter()
+		/// <summary>
+		/// Couleur ambiante finale (intensité x teinte) servant de fond au masque de lumière
+		/// et de base à la teinte des entités. En sous-sol : gris pur comme avant (pas de ciel,
+		/// donc pas de teinte horaire).
+		/// </summary>
+		public static Color GetAmbientLightColor()
 		{
-			if (World.IsUnderground) return;
+			float ambientLight = 1f - GetDarknessAlpha();
+			if (World.IsUnderground)
+			{
+				byte g = (byte)Math.Clamp(ambientLight * 255f, 0f, 255f);
+				return new Color(g, g, g, (byte)255);
+			}
 
 			float dayProgress = (_gameTime % DAY_CYCLE_DURATION) / DAY_CYCLE_DURATION;
-			Color tint = GetDayNightFilterColor(dayProgress);
-			if (tint.A <= 0) return;
-
-			int sw = Raylib.GetRenderWidth();
-			int sh = Raylib.GetRenderHeight();
-			Raylib.DrawRectangle(0, 0, sw, sh, tint);
+			Color tint = GetTimeOfDayTint(dayProgress);
+			// La météo (pluie/orage) se multiplie à l'ambiance : même couche, pas de voile en plus.
+			Color weather = Weather.GetAmbientMultiplier();
+			return new Color(
+				(byte)Math.Clamp(ambientLight * tint.R * weather.R / 255f, 0f, 255f),
+				(byte)Math.Clamp(ambientLight * tint.G * weather.G / 255f, 0f, 255f),
+				(byte)Math.Clamp(ambientLight * tint.B * weather.B / 255f, 0f, 255f),
+				(byte)255);
 		}
 
 		static void InitLightMask(int width, int height)
@@ -1836,8 +1872,9 @@ namespace Soulfract
 
 		static void DrawLighting(Camera2D camera, Vector2? playerPosition = null)
 		{
-			float darknessAlpha = GetDarknessAlpha();
-			if (darknessAlpha <= 0.01f) return;
+			Color ambient = GetAmbientLightColor();
+			// Rien à dessiner si l'ambiance est (quasi) pleinement neutre : plein jour, sans teinte.
+			if (ambient.R >= 250 && ambient.G >= 250 && ambient.B >= 250) return;
 			//  On utilise la taille réelle du framebuffer (GetRenderWidth/Height) et non
 			// GetScreenWidth/Height : en plein écran (notamment avec la mise à l'échelle
 			// DPI de Windows), ces deux valeurs peuvent différer, ce qui laissait une bande
@@ -1845,8 +1882,6 @@ namespace Soulfract
 			int sw = Raylib.GetRenderWidth();
 			int sh = Raylib.GetRenderHeight();
 			if (_lightMask.Id == 0 || _lightMask.Texture.Width != sw || _lightMask.Texture.Height != sh) InitLightMask(sw, sh);
-			float ambientLight = 1.0f - darknessAlpha;
-			byte ambientByte = (byte)(ambientLight * 255);
 
 			//  NOUVEAU SYSTÈME : la lumière est calculée en coordonnées de GRILLE pure (une
 			// tuile = une seule valeur, jamais de décalage Y visuel appliqué ici — ça, c'est
@@ -1877,10 +1912,10 @@ namespace Soulfract
 
 			int gridW = gridEndX - gridStartX + 1;
 			int gridH = gridEndY - gridStartY + 1;
-			var (texW, texH) = UpdateLightmapTexture(lightGrid, gridStartX, gridStartY, gridW, gridH, ambientByte);
+			var (texW, texH) = UpdateLightmapTexture(lightGrid, gridStartX, gridStartY, gridW, gridH, ambient);
 
 			Raylib.BeginTextureMode(_lightMask);
-			Raylib.ClearBackground(new Color((byte)ambientByte, (byte)ambientByte, (byte)ambientByte, (byte)255));
+			Raylib.ClearBackground(ambient);
 			// La texture basse résolution (grille logique, éventuellement regroupée par blocs de
 			// "step" tuiles — voir UpdateLightmapTexture) est étirée sur exactement la zone monde
 			// qu'elle couvre, puis projetée à l'écran via la caméra — le filtrage bilinéaire de la
@@ -1930,7 +1965,7 @@ namespace Soulfract
 		/// Retourne (texW, texH) : la portion utile de la texture à dessiner.
 		/// </summary>
 		static (int texW, int texH) UpdateLightmapTexture(Dictionary<(int x, int y), TileLight> lightGrid,
-			int gridStartX, int gridStartY, int gridW, int gridH, byte ambientByte)
+			int gridStartX, int gridStartY, int gridW, int gridH, Color ambient)
 		{
 			if (gridW <= 0 || gridH <= 0) return (0, 0);
 
@@ -1938,7 +1973,7 @@ namespace Soulfract
 			int texW = (gridW + step - 1) / step;
 			int texH = (gridH + step - 1) / step;
 
-			Image img = Raylib.GenImageColor(texW, texH, new Color(ambientByte, ambientByte, ambientByte, (byte)255));
+			Image img = Raylib.GenImageColor(texW, texH, ambient);
 
 			if (step == 1)
 			{
@@ -1949,7 +1984,7 @@ namespace Soulfract
 					int px = kv.Key.x - gridStartX;
 					int py = kv.Key.y - gridStartY;
 					if (px < 0 || px >= texW || py < 0 || py >= texH) continue;
-					DrawLightTexel(ref img, px, py, kv.Value, ambientByte);
+					DrawLightTexel(ref img, px, py, kv.Value, ambient);
 				}
 			}
 			else
@@ -1965,7 +2000,7 @@ namespace Soulfract
 						int sampleX = gridStartX + tx * step + step / 2;
 						int sampleY = gridStartY + ty * step + step / 2;
 						if (lightGrid.TryGetValue((sampleX, sampleY), out var light))
-							DrawLightTexel(ref img, tx, ty, light, ambientByte);
+							DrawLightTexel(ref img, tx, ty, light, ambient);
 					}
 				}
 			}
@@ -1978,14 +2013,15 @@ namespace Soulfract
 			return (texW, texH);
 		}
 
-		static void DrawLightTexel(ref Image img, int px, int py, TileLight light, byte ambientByte)
+		static void DrawLightTexel(ref Image img, int px, int py, TileLight light, Color ambient)
 		{
 			// On COMBINE additivement avec l'ambiant (comme le faisait le blend additif
 			// précédent) plutôt que de l'écraser, pour garder le comportement "la lumière
 			// s'ajoute à la pénombre ambiante" au lieu de l'y substituer brutalement.
-			byte r = (byte)Math.Clamp(ambientByte + light.Color.R * light.Intensity, 0f, 255f);
-			byte g = (byte)Math.Clamp(ambientByte + light.Color.G * light.Intensity, 0f, 255f);
-			byte b = (byte)Math.Clamp(ambientByte + light.Color.B * light.Intensity, 0f, 255f);
+			// L'ambiant est désormais COLORÉ (teinte du moment de la journée).
+			byte r = (byte)Math.Clamp(ambient.R + light.Color.R * light.Intensity, 0f, 255f);
+			byte g = (byte)Math.Clamp(ambient.G + light.Color.G * light.Intensity, 0f, 255f);
+			byte b = (byte)Math.Clamp(ambient.B + light.Color.B * light.Intensity, 0f, 255f);
 			Raylib.ImageDrawPixel(ref img, px, py, new Color(r, g, b, (byte)255));
 		}
 
@@ -2003,18 +2039,16 @@ namespace Soulfract
 			int tileX = (int)Math.Floor(worldFootPosition.X / ts);
 			int tileY = (int)Math.Floor(worldFootPosition.Y / ts);
 
-			float darknessAlpha = GetDarknessAlpha();
-			float ambientLight = 1f - darknessAlpha;
-			byte ambientByte = (byte)Math.Clamp(ambientLight * 255f, 0f, 255f);
+			Color ambient = GetAmbientLightColor();
 
 			if (_lightGridCache.TryGetValue((tileX, tileY), out var tileLight))
 			{
-				byte r = (byte)Math.Clamp(ambientByte + tileLight.Color.R * tileLight.Intensity, 0f, 255f);
-				byte g = (byte)Math.Clamp(ambientByte + tileLight.Color.G * tileLight.Intensity, 0f, 255f);
-				byte b = (byte)Math.Clamp(ambientByte + tileLight.Color.B * tileLight.Intensity, 0f, 255f);
+				byte r = (byte)Math.Clamp(ambient.R + tileLight.Color.R * tileLight.Intensity, 0f, 255f);
+				byte g = (byte)Math.Clamp(ambient.G + tileLight.Color.G * tileLight.Intensity, 0f, 255f);
+				byte b = (byte)Math.Clamp(ambient.B + tileLight.Color.B * tileLight.Intensity, 0f, 255f);
 				return new Color(r, g, b, (byte)255);
 			}
-			return new Color(ambientByte, ambientByte, ambientByte, (byte)255);
+			return ambient;
 		}
 
 		static List<Rectangle> GetOpaqueWallsInRadius(Vector2 lightPos, float radius)

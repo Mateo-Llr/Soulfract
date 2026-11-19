@@ -82,11 +82,7 @@ namespace Soulfract
 
 		private static void ApplyPreciseCameraTransform(ref Camera2D camera)
 		{
-			double expectedAnchorX = _preciseCameraTargetInitialized ? Math.Round(_preciseCameraTargetX) : double.NaN;
-			double expectedAnchorY = _preciseCameraTargetInitialized ? Math.Round(_preciseCameraTargetY) : double.NaN;
-			if (!_preciseCameraTargetInitialized ||
-				Math.Abs(camera.Target.X - expectedAnchorX) > 0.01 ||
-				Math.Abs(camera.Target.Y - expectedAnchorY) > 0.01)
+			if (!_preciseCameraTargetInitialized)
 			{
 				_preciseCameraTargetX = camera.Target.X;
 				_preciseCameraTargetY = camera.Target.Y;
@@ -99,6 +95,14 @@ namespace Soulfract
 			camera.Offset = new Vector2(
 				ScreenWidth / 2f - (float)((_preciseCameraTargetX - anchorX) * camera.Zoom),
 				ScreenHeight / 2f - (float)((_preciseCameraTargetY - anchorY) * camera.Zoom));
+		}
+
+		private static void SetCameraTargetPrecise(Vector2 target)
+		{
+			_smoothedCameraTarget = target;
+			_preciseCameraTargetX = target.X;
+			_preciseCameraTargetY = target.Y;
+			_preciseCameraTargetInitialized = true;
 		}
 
 		// Plus la valeur est basse, plus c'est fluide (5-12)
@@ -369,6 +373,11 @@ namespace Soulfract
 		public static int GetBloodEssence() => _bloodEssence;
 
 		public static void AddBloodEssence(int amount) => _bloodEssence = Math.Max(0, _bloodEssence + amount);
+
+		//  MULTIJOUEUR : restauration directe de la valeur reçue du host (voir
+		// Program.ApplyGuestSaveData) — AddBloodEssence ne convient pas car la valeur
+		// sauvegardée doit remplacer l'état local, pas s'y ajouter.
+		public static void SetBloodEssence(int amount) => _bloodEssence = Math.Max(0, amount);
 
 		public static bool SpendBloodEssence(int amount)
 		{
@@ -736,6 +745,7 @@ namespace Soulfract
 
 		public static void ApplyScreenShake(float intensity, float duration)
 		{
+			if (_shieldBlockedThisFrame) return;
 			_shakeIntensity = Math.Max(_shakeIntensity, intensity);
 			_shakeDuration = Math.Max(_shakeDuration, duration);
 		}

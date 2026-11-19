@@ -567,7 +567,7 @@ namespace Soulfract
             
             return result.Id != 0 ? result : (_defaultValid ? _defaultIcon : new Texture2D());
         }
-        
+
         private static Texture2D GetModeIconTexture(TamedAnimalMode mode)
         {
             if (!_texturesLoaded) return new Texture2D();

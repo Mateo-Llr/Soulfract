@@ -713,24 +713,48 @@ namespace Soulfract
         public static float CurrentIntensity => _intensity;
     public static float StormIntensity => _stormIntensity;
 
+        /// <summary>
+        /// Multiplicateur de couleur (255 = neutre) de la météo, à combiner avec l'ambiance
+        /// jour/nuit dans le masque de lumière (voir GetAmbientLightColor). Remplace l'ancien
+        /// voile bleu semi-transparent : une pluie assombrit et refroidit les couleurs de la
+        /// scène au lieu de les recouvrir d'un aplat qui les délavait.
+        /// </summary>
+        public static Color GetAmbientMultiplier()
+        {
+            if (World.IsUnderground || _intensity <= 0.001f) return Color.White;
+
+            float storm = Math.Clamp(_stormIntensity, 0f, 1f);
+            // Pluie : gris-bleu doux ; orage : plus sombre et plus froid.
+            float r = MathHelper.Lerp(170f, 135f, storm);
+            float g = MathHelper.Lerp(185f, 150f, storm);
+            float b = MathHelper.Lerp(215f, 190f, storm);
+            float k = Math.Clamp(_intensity, 0f, 1f);
+            return new Color(
+                (byte)MathHelper.Lerp(255f, r, k),
+                (byte)MathHelper.Lerp(255f, g, k),
+                (byte)MathHelper.Lerp(255f, b, k),
+                (byte)255);
+        }
+
+        /// <summary>
+        /// Flash d'éclair plein écran. À appeler APRÈS DrawLighting : sinon le masque de
+        /// lumière multiplie le flash et il devient invisible la nuit. (La teinte de la pluie,
+        /// elle, passe maintenant par GetAmbientMultiplier.)
+        /// </summary>
         public static void DrawScreenTint()
         {
-            if (World.IsUnderground || _intensity <= 0.001f) return;
+            if (World.IsUnderground || Current != WeatherType.Storm || _lightningFlashTimer <= 0f) return;
 
-            int screenWidth = Raylib.GetScreenWidth();
-            int screenHeight = Raylib.GetScreenHeight();
-            byte alpha = (byte)Math.Clamp(_intensity * (Current == WeatherType.Storm ? 92f : 58f), 0f, 130f);
-            Color tint = new Color((byte)36, (byte)50, (byte)82, alpha);
-            Raylib.DrawRectangle(0, 0, screenWidth, screenHeight, tint);
+            // Taille réelle du framebuffer (comme DrawLighting) : GetScreenWidth/Height peut
+            // être plus petit en plein écran avec mise à l'échelle DPI et laisser une bande.
+            int screenWidth = Raylib.GetRenderWidth();
+            int screenHeight = Raylib.GetRenderHeight();
 
-            if (Current == WeatherType.Storm && _lightningFlashTimer > 0f)
-            {
-                float flash = _lightningFlashTimer > 0.16f
-                    ? 1f
-                    : Math.Clamp(_lightningFlashTimer / 0.16f, 0f, 1f);
-                byte flashAlpha = (byte)(145f * flash);
-                Raylib.DrawRectangle(0, 0, screenWidth, screenHeight, new Color(215, 230, 255, (int)flashAlpha));
-            }
+            float flash = _lightningFlashTimer > 0.16f
+                ? 1f
+                : Math.Clamp(_lightningFlashTimer / 0.16f, 0f, 1f);
+            byte flashAlpha = (byte)(145f * flash);
+            Raylib.DrawRectangle(0, 0, screenWidth, screenHeight, new Color(215, 230, 255, (int)flashAlpha));
         }
     }
 }

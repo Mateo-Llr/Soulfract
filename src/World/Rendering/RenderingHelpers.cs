@@ -120,6 +120,7 @@ namespace Soulfract
 
 		private static void AddHouseResidentDoorIcons(List<RenderItem> renderItems, List<Entity> entities, Rectangle viewBounds)
 		{
+			if (HidesOutsideWorld) return;
 			foreach (var house in Houses.Values)
 			{
 				if (house.BuildingId <= 0) continue;

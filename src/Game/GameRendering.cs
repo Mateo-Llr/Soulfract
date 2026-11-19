@@ -145,7 +145,9 @@ namespace Soulfract
 				List<LocalPlayer> remotePlayersToRender = null;
 				if (NetworkManager.IsOnline)
 				{
-					remotePlayersToRender = new List<LocalPlayer>();
+					//  PERF : liste réutilisée d'une frame à l'autre (plus d'allocation à chaque Draw).
+					_remotePlayersRenderBuffer.Clear();
+					remotePlayersToRender = _remotePlayersRenderBuffer;
 					foreach (var rp in NetworkManager.GetRemotePlayersAsLocalPlayers())
 					{
 						bool isDeadNow = rp.HP <= 0;
@@ -183,7 +185,10 @@ namespace Soulfract
 					playersToRender: remotePlayersToRender, spellProjectiles: _spellProjectiles,
 					drawPlayer: !captureWorldForReveal || _worldRevealAlpha >= 0.82f);
 				if (showDebug && DebugOverlaySettings.VehicleAndAttackHitboxes)
+				{
 					DrawAttackDebugZone(playerPos, mouseWorldPos, facing, heldItem);
+					DrawShieldDebugZone(playerPos);
+				}
 				PerfStats.EndSection(PerfStats.Section.WorldDraw);
 				PerfStats.StartSection(PerfStats.Section.WorldEffects);
 				//  PORTAGE DE CRÉATURES : dessinée désormais à l'intérieur même de World.cs / EntityRenderer,
@@ -276,7 +281,7 @@ namespace Soulfract
 					int fontSize = Math.Clamp(20 + (dmg.Damage / 5), 18, 28);
 					
 					bool isHeal = (dmg.Color.G > 150 && dmg.Color.R < 150);
-					string displayText = isHeal ? $"+{dmg.Damage}" : $"-{dmg.Damage}";
+					string displayText = GetDamageText(dmg.Damage, isHeal); //  PERF : chaînes mises en cache
 					
 					int textX = (int)dmg.Position.X - 15;
 					int textY = (int)dmg.Position.Y - 30 + (int)yOffset;
@@ -301,9 +306,10 @@ namespace Soulfract
 				}
 				// ==================== FIN DÉGÂTS FLOTTANTS ====================
 				
-				SpellVfx.DrawBatched(_particles);
+				SpellVfx.DrawBatched(_particles, World.ShouldRenderParticle);
 				foreach (var particle in _particles)
 				{
+					if (!World.ShouldRenderParticle(particle)) continue;
 					if (particle is SpellFxParticle)
 					{
 						continue;
@@ -361,7 +367,8 @@ namespace Soulfract
 					if (hotbarSlot < slots.Count && !slots[hotbarSlot].IsEmpty) held = slots[hotbarSlot].Item;
 					if (held != null)
 					{
-						var itemData = GameData.ItemDatabase.Values.FirstOrDefault(d => d.Name == held.Name);
+						var itemDb = GameData.ItemDatabase;
+						var itemData = FirstByNameCached(itemDb.Values, itemDb, itemDb.Count, held.Name, d => d.Name); //  PERF : résultat mémorisé
 						itemData.PlaceableId = ResolvePlaceableId(held, itemData);
 						if (itemData.ID != 0 && (itemData.Type == ItemType.Placeable || itemData.IsSeed))
 						{
@@ -383,9 +390,10 @@ namespace Soulfract
 				Weather.Update(Raylib.GetFrameTime(), camera);
 				Weather.Draw(camera);
 				
-				Vector2 mouseWorld = Raylib.GetScreenToWorld2D(Raylib.GetMousePosition(), camera);
+				Vector2 mouseWorld = mouseWorldPos; //  PERF : identique au calcul fait en début de frame
 				int ts = Program.TileSize;
 
+				var steamEngineTile = WorldTileRegistry.GetTile(401); //  PERF : hors de la boucle
 				foreach (var kv in World.SteamEngines)
 				{
 					var (x, y) = kv.Key;
@@ -394,7 +402,7 @@ namespace Soulfract
 					float drawX = x * ts;
 					float drawY = y * ts;
 					
-					var tileData = WorldTileRegistry.GetTile(401);
+					var tileData = steamEngineTile;
 					int machineTilesW = tileData?.Size?.Width ?? 1;
 					int machineTilesH = tileData?.Size?.Height ?? 1;
 					if (tileData?.Size != null)
@@ -415,6 +423,7 @@ namespace Soulfract
 					}
 				}
 				
+				var dynamoTile = WorldTileRegistry.GetTile(403); //  PERF : hors de la boucle
 				foreach (var kv in World.Dynamos)
 				{
 					int x = kv.Key.x;
@@ -424,7 +433,7 @@ namespace Soulfract
 					float drawX = x * ts;
 					float drawY = y * ts;
 					
-					var tileData = WorldTileRegistry.GetTile(403);
+					var tileData = dynamoTile;
 					if (tileData?.Size != null)
 					{
 						drawX += tileData.DrawOffset?.X ?? 0;
@@ -481,6 +490,7 @@ namespace Soulfract
 				}
 
 				// ====== CHARGEURS DE BATTERIE : détection du survol (infobulle dessinée après EndMode2D) ======
+				var batteryChargerTile = WorldTileRegistry.GetTile(405); //  PERF : hors de la boucle
 				foreach (var kv in World.BatteryChargers)
 				{
 					int x = kv.Key.x;
@@ -492,7 +502,7 @@ namespace Soulfract
 					float drawX = x * ts;
 					float drawY = y * ts;
 
-					var tileData = WorldTileRegistry.GetTile(405);
+					var tileData = batteryChargerTile;
 					if (tileData?.Size != null)
 					{
 						drawX += tileData.DrawOffset?.X ?? 0;
@@ -509,6 +519,7 @@ namespace Soulfract
 				}
 
 				// ====== COLLECTEURS DE PLUIE : survol + jauge au-dessus de la tuile ======
+				var rainCollectorTile = WorldTileRegistry.GetTile(116); //  PERF : hors de la boucle
 				foreach (var kv in World.RainCollectors)
 				{
 					int x = kv.Key.x;
@@ -521,7 +532,7 @@ namespace Soulfract
 					float drawX = x * ts;
 					float drawY = y * ts;
 
-					var tileData = WorldTileRegistry.GetTile(116);
+					var tileData = rainCollectorTile;
 					if (tileData?.Size != null)
 					{
 						drawX += tileData.DrawOffset?.X ?? 0;
@@ -591,17 +602,13 @@ namespace Soulfract
 				
 				if (_gameState == GameState.Playing || _gameState == GameState.Paused)
 				{
-					Weather.DrawScreenTint();
-				}
-
-				if (_gameState == GameState.Playing || _gameState == GameState.Paused)
-				{
 					PerfStats.StartSection(PerfStats.Section.ScreenLighting);
+					//  Lumière + ambiance colorée du moment de la journée (bleu nuit, rose à
+					// l'aube, orange au couchant) : tout est géré dans le masque de lumière,
+					// il n'y a plus de voile séparé par-dessus.
 					DrawLighting(camera);
-					//  Léger voile de couleur (bleu-violet la nuit, rose saumon à l'aube,
-					// orange au coucher de soleil), dessiné après le masque de lumière comme
-					// une couche cosmétique en plus, pas un remplacement.
-					DrawDayNightColorFilter();
+					// Flash d'éclair APRÈS la lumière (sinon le masque l'assombrit la nuit).
+					Weather.DrawScreenTint();
 					PerfStats.EndSection(PerfStats.Section.ScreenLighting);
 				}
 				PerfStats.StartSection(PerfStats.Section.ScreenOverlays);
@@ -745,8 +752,7 @@ namespace Soulfract
 				
 				if (showDebug)
 				{
-					float playerBaseY = playerPos.Y + FeetOffsetY;
-					Rectangle playerHitboxWorld = new Rectangle(playerPos.X - hitboxDim.X / 2f, playerBaseY - hitboxDim.Y, hitboxDim.X, hitboxDim.Y);
+					Rectangle playerHitboxWorld = World.GetPlayerCollisionHitbox(playerPos, TileSize);
 					Vector2 topLeft = Raylib.GetWorldToScreen2D(new Vector2(playerHitboxWorld.X, playerHitboxWorld.Y), camera);
 					Vector2 bottomRight = Raylib.GetWorldToScreen2D(new Vector2(playerHitboxWorld.X + playerHitboxWorld.Width, playerHitboxWorld.Y + playerHitboxWorld.Height), camera);
 					Rectangle playerHitbox = new Rectangle(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
@@ -1044,6 +1050,62 @@ namespace Soulfract
 				PerfStats.EndSection(PerfStats.Section.ScreenOverlays);
 			Raylib.EndDrawing();
 			PerfStats.EndSection(PerfStats.Section.FrameDraw);
+		}
+
+
+		// ==================== HELPERS PERF (Draw) ====================
+
+		// Liste réutilisée pour les joueurs distants à dessiner (vidée à chaque frame).
+		private static readonly List<LocalPlayer> _remotePlayersRenderBuffer = new List<LocalPlayer>();
+
+		// Textes "+N" / "-N" des dégâts flottants, construits une seule fois par valeur.
+		private const int DamageTextCacheSize = 1024;
+		private static readonly string?[] _damageTextMinus = new string?[DamageTextCacheSize];
+		private static readonly string?[] _damageTextPlus = new string?[DamageTextCacheSize];
+
+		private static string GetDamageText(int damage, bool isHeal)
+		{
+			if ((uint)damage < (uint)DamageTextCacheSize)
+			{
+				var cache = isHeal ? _damageTextPlus : _damageTextMinus;
+				return cache[damage] ??= (isHeal ? $"+{damage}" : $"-{damage}");
+			}
+			return isHeal ? $"+{damage}" : $"-{damage}";
+		}
+
+		// Cache générique "premier élément dont Name == name" (évite de nommer le type des entrées de ItemDatabase).
+		// Invalidé si la base change (autre instance ou nombre d'entrées différent).
+		private static class NameLookupCache<T>
+		{
+			internal static bool Valid;
+			internal static object? Source;
+			internal static int Count;
+			internal static string? Name;
+			internal static T Value = default!;
+		}
+
+		private static T FirstByNameCached<T>(IEnumerable<T> values, object source, int count, string? name, Func<T, string?> nameOf)
+		{
+			if (NameLookupCache<T>.Valid
+				&& ReferenceEquals(NameLookupCache<T>.Source, source)
+				&& NameLookupCache<T>.Count == count
+				&& string.Equals(NameLookupCache<T>.Name, name))
+			{
+				return NameLookupCache<T>.Value;
+			}
+
+			T found = default!; // même résultat que FirstOrDefault : default si absent
+			foreach (var v in values)
+			{
+				if (string.Equals(nameOf(v), name)) { found = v; break; }
+			}
+
+			NameLookupCache<T>.Source = source;
+			NameLookupCache<T>.Count = count;
+			NameLookupCache<T>.Name = name;
+			NameLookupCache<T>.Value = found;
+			NameLookupCache<T>.Valid = true;
+			return found;
 		}
 
     }

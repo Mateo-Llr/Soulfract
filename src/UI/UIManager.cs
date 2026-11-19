@@ -8,6 +8,7 @@ namespace Soulfract
     {
         // Panneaux principaux
         public static NineSliceTexture? InventoryPanel { get; private set; }
+        public static NineSliceTexture? RegularPanelTexture { get; private set; }
         public static NineSliceTexture? BookPanelTexture { get; private set; }
         public static NineSliceTexture? WoodPanel { get; private set; }
         public static NineSliceTexture? SlotTexture { get; private set; }
@@ -65,6 +66,7 @@ namespace Soulfract
             UIScale = scale;
             
             InventoryPanel = new NineSliceTexture("assets/gui/inventory", UIScale);
+            RegularPanelTexture = new NineSliceTexture("assets/gui/regular", UIScale);
             BookPanelTexture = new NineSliceTexture("assets/gui/book", UIScale);
             WoodPanel = new NineSliceTexture("assets/gui/wood", UIScale);
             SlotTexture = new NineSliceTexture("assets/gui/slot", UIScale);
@@ -120,6 +122,7 @@ namespace Soulfract
             if (!_initialized) return;
 
             if (InventoryPanel != null) InventoryPanel.Scale = UIScale;
+            if (RegularPanelTexture != null) RegularPanelTexture.Scale = UIScale;
             if (BookPanelTexture != null) BookPanelTexture.Scale = UIScale;
             if (WoodPanel != null) WoodPanel.Scale = UIScale;
             if (SlotTexture != null) SlotTexture.Scale = UIScale;
@@ -145,6 +148,7 @@ namespace Soulfract
         public static void Unload()
         {
             if (InventoryPanel != null) InventoryPanel.Unload();
+            if (RegularPanelTexture != null) RegularPanelTexture.Unload();
             if (BookPanelTexture != null) BookPanelTexture.Unload();
             if (WoodPanel != null) WoodPanel.Unload();
             if (SlotTexture != null) SlotTexture.Unload();

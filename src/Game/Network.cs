@@ -141,7 +141,7 @@ namespace Soulfract
 			entities.Clear();
 			SetPlayerPosition(new Vector2(transition.PosX, transition.PosY));
 			_playerFacing = 1f;
-			_smoothedCameraTarget = GetPlayerCameraTarget(_playerPos);
+			SetCameraTargetPrecise(GetPlayerCameraTarget(_playerPos));
 			_cameraNeedsImmediateCenter = true;
 			World.UpdateActiveChunks(_playerPos, (float)Raylib.GetTime(), entities);
 		}

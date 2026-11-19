@@ -383,13 +383,25 @@ void main()
 					if (_gameState == GameState.Playing && _cameraNeedsImmediateCenter)
 					{
 						Vector2 immediateTarget = _isSitting ? _sittingPosition : GetPlayerCameraTarget(_playerPos);
-						_smoothedCameraTarget = immediateTarget;
+						SetCameraTargetPrecise(immediateTarget);
 						camera.Target = immediateTarget;
 						ApplyPreciseCameraTransform(ref camera);
 						_cameraNeedsImmediateCenter = false;
 					}
 					ApplyPreciseCameraTransform(ref camera);
 				bool debugPanelClickConsumed = _showDebug && Renderer.HandleDebugMenuInput();
+				bool shieldCanAct = _gameState == GameState.Playing
+					&& _mainMenuFadePhase == MainMenuFadePhase.None
+					&& !_fadeOutOverlayActive && !debugPanelClickConsumed
+					&& !CharacterAnimationEditorUI.IsOpen && !_isSoulArrivalCinematic && !IsSoulMaterializing
+					&& !IsPlayerRagdolled && PlayerCurrentCar == null
+					&& !ChatSystem.IsOpen && !InventoryRenderer.IsInventoryOpen
+					&& !QuestDialogUI.IsOpen && !QuestJournalUI.IsOpen
+					&& !_radialMenu.IsOpen && !CartesGameUI.IsOpen && !SpellCraftingUI.IsOpen
+					&& !IsMouseOverAnyUI()
+					&& !(SettingsManager.Settings.HotbarStyle == "classic"
+						&& Raylib.CheckCollisionPointRec(Raylib.GetMousePosition(), HudRenderer.GetClassicHotbarBounds()));
+				UpdateShield(dt, shieldCanAct, ref facing);
 				if (_mainMenuFadePhase == MainMenuFadePhase.None && !debugPanelClickConsumed && !CharacterAnimationEditorUI.IsOpen && !_isSoulArrivalCinematic && !IsSoulMaterializing)
 					HandleInput(camera, dt);
                     

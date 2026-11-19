@@ -313,7 +313,7 @@ namespace Soulfract
 					int targetConnId = target.Id - 1000; // voir NetworkManager.GetRemotePlayersAsLocalPlayers
 					if (NetworkManager.IsHost)
 					{
-						DamagePlayerTarget(pvpDamage, targetConnId);
+						DamagePlayerTarget(pvpDamage, targetConnId, sourcePos: playerPos);
 					}
 					else
 					{
@@ -1223,6 +1223,8 @@ namespace Soulfract
 		static (int tileX, int tileY, float dist, int objectId) FindTileUnderMouse(Vector2 mouseWorld, int ts)
 		{
 			EnsureMaxObjectSizeCached();
+			if (World.IsPlayerIndoors)
+				mouseWorld.Y += World.CurrentHouseFloorGroundOffset;
 
 			// Stabilité numérique : quand le joueur/la caméra est proche de l'origine du monde
 			// (ce qui est très fréquent, puisque c'est là que la partie démarre), les calculs de
@@ -1469,21 +1471,18 @@ namespace Soulfract
 				var groundTileData = WorldTileRegistry.GetTile(groundIdAtTile);
 				if (groundTileData == null || !groundTileData.Walkable || World.GetObjectIdAt(tileX, tileY) != 0)
 				{
-					activeNotifications.Add(new Notification($"Impossible de reposer la créature ici !", new Color(255, 100, 100, 255), 1.5f));
 					return;
 				}
 
 				Vector2 targetPos = new Vector2(tileX * ts + ts / 2f, tileY * ts + ts / 2f);
 				if (World.IsCollidingEntity(targetPos, destroyedObjects, _carriedCreature.Species))
 				{
-					activeNotifications.Add(new Notification($"Impossible de reposer la créature ici !", new Color(255, 100, 100, 255), 1.5f));
 					return;
 				}
 
 				_carriedCreature.WorldPos = targetPos;
 				_carriedCreature.AnimState = "idle";
 				entities.Add(_carriedCreature);
-				activeNotifications.Add(new Notification($"Créature reposée", new Color(0, 255, 200, 255), 1.5f));
 				_carriedCreature = null;
 				return;
 			}

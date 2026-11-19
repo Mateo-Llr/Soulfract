@@ -129,18 +129,26 @@ namespace Soulfract
             if (_currentPath.Count > 0)
             {
                 //  Revalidation légère : si la case visée par le prochain nœud vient de devenir
-                // bloquée (objet posé, mur reconstruit, etc.) depuis le calcul du chemin, on ne
-                // continue pas à foncer dessus en attendant le prochain recalcul (jusqu'à 0.5s,
-                // voir _pathRecalcTimer) — c'est exactement ce qui donnait l'impression que le
-                // PNJ "traversait" l'obstacle : la ligne verte pointait vers une case qui n'était
-                // plus praticable, et MoveTowardTarget continuait de s'y diriger jusqu'à ce que
-                // IsCollidingEntity le stoppe physiquement dessus.
-                if (!Pathfinder.IsWorldPositionWalkable(_currentPath[0], destroyed, Species))
+                // bloquée depuis le calcul du chemin, on invalide le chemin. Le test est limité à
+                // 10 Hz (et immédiat quand le nœud change) : le contrôle de collision bloque déjà
+                // tout déplacement dans un obstacle entre deux vérifications.
+                Vector2 nextNode = _currentPath[0];
+                _pathNodeValidationTimer -= dt;
+                bool nodeChanged = !_hasValidatedPathNode || nextNode != _lastValidatedPathNode;
+                if (nodeChanged || _pathNodeValidationTimer <= 0f)
                 {
-                    _currentPath.Clear();
-                    _pathRecalcTimer = 0f;
-                    AnimState = "walk";
-                    return;
+                    _lastValidatedPathNode = nextNode;
+                    _hasValidatedPathNode = true;
+                    _pathNodeValidationTimer = PATH_NODE_VALIDATION_INTERVAL;
+                    if (!Pathfinder.IsWorldPositionWalkable(nextNode, destroyed, Species))
+                    {
+                        _currentPath.Clear();
+                        _pathRecalcTimer = 0f;
+                        _hasValidatedPathNode = false;
+                        _pathNodeValidationTimer = 0f;
+                        AnimState = "walk";
+                        return;
+                    }
                 }
                 target = _currentPath[0];
             }
@@ -651,7 +659,7 @@ namespace Soulfract
         {
             Rectangle targetDamageHitbox = _combatTargetEntity != null
                 ? World.GetEntityDamageHitbox(_combatTargetEntity, Program.TileSize)
-                : World.GetEntityDamageHitbox(targetPos, "human", Program.TileSize);
+                : World.GetEntityDamageHitbox(targetPos, Program.PlayerMorphSpecies, Program.TileSize);
             return World.GetDistanceToDamageHitbox(World.GetEntityGroundPosition(WorldPos), targetDamageHitbox);
         }
 
@@ -681,6 +689,12 @@ namespace Soulfract
             _isEngaging = false;
             _engageWaitTimer = 0f;
             _engageTimeout = 0f;
+            _engageBestDistance = 0f;
+            _engageElapsed = 0f;
+            _combatPathMode = false;
+            _combatLosTimer = 0f;
+            _combatLosClear = false;
+            _combatLosClearTime = 0f;
             _engagementTargetEntity = null;
             _engagementPlayerConnectionId = -1;
             _contextMap?.Reset();
@@ -718,8 +732,18 @@ namespace Soulfract
 
             if (_isEngaging)
             {
+                //  Avant : la charge expirait après ENGAGE_TIMEOUT même quand le mob était presque
+                // arrivé, puis il repartait en orbite (aller-retour sans jamais frapper). Désormais
+                // chaque progression réelle vers la cible prolonge la charge ; seul un blocage
+                // (ou le plafond dur de 3x le timeout) l'annule.
+                _engageElapsed += dt;
+                if (distance < _engageBestDistance - ENGAGE_PROGRESS_STEP)
+                {
+                    _engageBestDistance = distance;
+                    _engageTimeout = Math.Max(_engageTimeout, ENGAGE_PROGRESS_GRACE);
+                }
                 _engageTimeout -= dt;
-                if (_engageTimeout <= 0f)
+                if (_engageTimeout <= 0f || _engageElapsed >= ENGAGE_TIMEOUT * 3f)
                 {
                     _isEngaging = false;
                     _engageWaitTimer = RandomRange(0.35f, 0.8f);
@@ -739,6 +763,8 @@ namespace Soulfract
 
             _isEngaging = true;
             _engageTimeout = ENGAGE_TIMEOUT;
+            _engageBestDistance = distance;
+            _engageElapsed = 0f;
         }
 
         private float GetOrbitDistance()
@@ -755,17 +781,17 @@ namespace Soulfract
             return World.IsCollidingEntity(position, destroyed, Species);
         }
 
-        private bool HasClearLine(Vector2 from, Vector2 to, HashSet<string> destroyed)
+        private bool HasClearLine(Vector2 from, Vector2 to, HashSet<string> destroyed, float maxProbe = 220f, float stepLength = 22f)
         {
             Vector2 delta = to - from;
             float length = delta.Length();
             if (length < 50f)
                 return true;
 
-            Vector2 step = delta / length * 22f;
+            Vector2 step = delta / length * stepLength;
             Vector2 probe = from;
-            float probeLength = MathF.Min(length, 220f);
-            for (float travelled = 22f; travelled < probeLength; travelled += 22f)
+            float probeLength = MathF.Min(length, maxProbe);
+            for (float travelled = stepLength; travelled < probeLength; travelled += stepLength)
             {
                 probe += step;
                 if (ContextProbeBlocked(probe, destroyed, to, 26f))
@@ -938,6 +964,57 @@ namespace Soulfract
         }
 
         // ---- Approche, orbite et déclenchement (mêlée) ----
+        // ---- Correctifs IA de combat : état additionnel ----
+        private Entity? _attackTarget;            // cible figée au début de l'attaque (évite de frapper le joueur si la cible-entité disparaît)
+        private bool _attackOnEntity;             // l'attaque en cours vise une entité (mob/PNJ) et non le joueur
+        private float _engageBestDistance;        // meilleure distance atteinte pendant la charge (détecte les vraies progressions)
+        private float _engageElapsed;             // durée totale de la charge en cours (plafond dur)
+        private bool _combatPathMode;             // hystérésis : true = on suit le A*, false = steering local
+        private float _combatLosTimer;            // cache de la ligne de vue vers la cible (recalculée toutes les 0,15 s)
+        private bool _combatLosClear;
+        private float _combatLosClearTime;        // durée continue pendant laquelle la ligne de vue est dégagée
+        //  INTERRUPTEUR DE DIAGNOSTIC : false = désactive toute la logique "ligne de vue -> chemin" et
+        // revient au comportement par distance seule. Utile pour vérifier si un lag vient d'ici.
+        private const bool COMBAT_LOS_PATHING = true;
+        private const float COMBAT_LOS_INTERVAL = 0.25f;
+        private const float COMBAT_LOS_STEP = 32f;          // pas de sonde plus grossier que HasClearLine par défaut (22 px)
+        private const float COMBAT_LOS_CLEAR_HOLD = 0.4f;   // ligne dégagée requise avant de quitter le mode chemin
+        private const float ENGAGE_PROGRESS_STEP = 12f;     // px gagnés pour considérer que la charge avance
+        private const float ENGAGE_PROGRESS_GRACE = 0.8f;   // sursis accordé à chaque progression (s)
+        private const float PATH_MODE_HYSTERESIS = 45f;     // écart entre seuil d'entrée et de sortie du mode A*
+        private const float ENTITY_TARGET_REACH_BONUS = 14f; // tolérance d'impact contre une cible mobile (mob vs mob)
+
+        //  Ligne de vue VERS LA CIBLE sur toute la distance de combat (avant : sonde plafonnée à 220 px,
+        // donc un mur à 300 px était invisible et le steering local visait "tout droit" à travers lui).
+        private void UpdateCombatLineOfSight(float dt, HashSet<string> destroyed, Vector2 targetPos, float maxProbe)
+        {
+            if (!COMBAT_LOS_PATHING)
+            {
+                _combatLosClear = true;
+                _combatLosClearTime = COMBAT_LOS_CLEAR_HOLD;
+                return;
+            }
+
+            //  PERF : au-delà de la portée de steering le mob suit de toute façon le chemin (mode A*) :
+            // inutile de sonder la ligne de vue. On évite donc la trentaine de tests de collision.
+            if (Vector2.DistanceSquared(WorldPos, targetPos) > maxProbe * maxProbe)
+            {
+                _combatLosClear = false;
+                _combatLosClearTime = 0f;
+                _combatLosTimer = 0f;   // re-sondage immédiat dès que la cible entre dans la zone
+                return;
+            }
+
+            _combatLosTimer -= dt;
+            if (_combatLosTimer <= 0f)
+            {
+                // Gigue : évite que tous les mobs sondent la même frame.
+                _combatLosTimer = COMBAT_LOS_INTERVAL + (float)Random.Shared.NextDouble() * 0.1f;
+                _combatLosClear = HasClearLine(WorldPos, targetPos, destroyed, maxProbe, COMBAT_LOS_STEP);
+            }
+            _combatLosClearTime = _combatLosClear ? _combatLosClearTime + dt : 0f;
+        }
+
         void MeleePositioning(float dt, HashSet<string> destroyed, Vector2 targetPos, CombatProfile p)
         {
             AiTarget = targetPos;
@@ -949,23 +1026,55 @@ namespace Soulfract
 
             float triggerRange = AttackHitRange + (p.FrontOnly ? STRIKE_REACH_TOLERANCE : 0f);
             bool requiresPathfinding = p.Kind == CombatImpactKind.Spores || IsMounted;
-            if (distToTarget > orbit + COMBAT_CONTEXT_RANGE
-                || (requiresPathfinding && distToTarget > triggerRange))
+            //  Hystérésis : un seuil unique faisait osciller le mob entre "suivre le A*" et "steering
+            // local" (qui recule/orbite) pile à la frontière -> allers-retours sur place.
+            float pathEnter = orbit + COMBAT_CONTEXT_RANGE;
+            //  CORRECTIF : la distance seule ne suffit pas. Un obstacle (mur, meuble, porte) entre le mob
+            // et sa cible rend le steering local inutilisable : il visait en ligne droite (ligne rouge du
+            // debug), butait sur l'obstacle, et la carte de danger le repoussait -> zigzag sur place pendant
+            // que le chemin A* (ligne verte) existait bel et bien. Tant que la ligne de vue est bloquée,
+            // on suit donc le chemin, quelle que soit la distance.
+            UpdateCombatLineOfSight(dt, destroyed, targetPos, pathEnter + 60f);
+            //  _pathFailStreak > 0 : un A* vient d'échouer pour ce mob (cible injoignable) : on ne force pas
+            // le mode chemin, sinon on relancerait des recherches A* ruineuses qui échouent à chaque fois.
+            bool lineBlocked = COMBAT_LOS_PATHING && !_combatLosClear && _pathFailStreak == 0;
+            if (distToTarget > pathEnter || lineBlocked)
+                _combatPathMode = true;
+            else if (distToTarget < pathEnter - PATH_MODE_HYSTERESIS && _combatLosClearTime >= COMBAT_LOS_CLEAR_HOLD)
+                _combatPathMode = false;
+
+            // Au contact avec ligne dégagée : pas besoin d'attendre la fin du délai pour frapper.
+            bool inStrikeRange = IsStrikeOnTarget(p, targetPos) && _combatLosClear;
+
+            if (!inStrikeRange && (_combatPathMode || requiresPathfinding))
             {
+                //  Pas de chemin disponible (quota A* atteint, recalcul en cours) mais ligne dégagée :
+                // on fonce en steering local au lieu de rester figé (MoveTowardTarget ne bouge pas
+                // en Chase tant que _currentPath est vide).
+                if (!requiresPathfinding && _currentPath.Count == 0 && HasClearLine(WorldPos, targetPos, destroyed))
+                {
+                    CombatContextMove(dt, destroyed, targetPos, distToTarget,
+                        inner: orbit - 25f, outer: orbit + 10f, approachBand: ORBIT_APPROACH_BAND, charging: true);
+                    return;
+                }
+
                 Speed = RunSpeed;
                 PerformMovement(dt, destroyed, requiresPathfinding ? triggerRange : orbit + 15f);
                 AnimState = _currentPath.Count > 0 ? "run" : "idle";
                 return;
             }
 
-            if (_isEngaging && distToTarget <= triggerRange && _postAttackCooldown <= 0f)
+            //  Contre une entité (mob vs mob), on frappe dès qu'on est à portée et prêt : le système de
+            // "engagers" + hésitation sert à étaler les attaques sur le joueur, pas à faire patienter
+            // deux mobs qui sont déjà au contact.
+            if ((_isEngaging || _combatTargetEntity != null) && inStrikeRange && _postAttackCooldown <= 0f)
             {
                 _isEngaging = false;
                 BeginAttack(targetPos);
                 return;
             }
 
-            if (requiresPathfinding && distToTarget <= triggerRange)
+            if (requiresPathfinding && inStrikeRange)
             {
                 Speed = 0f;
                 AnimState = IsRidingMount ? "sit" : "idle";
@@ -986,10 +1095,14 @@ namespace Soulfract
             TickEngagement(dt, dist, RANGED_PREFERRED_MAX + 110f);
             Facing = targetGround.X >= myGround.X ? 1f : -1f;
 
-            if (dist > RANGED_PREFERRED_MAX + COMBAT_CONTEXT_RANGE)
+            UpdateCombatLineOfSight(dt, destroyed, targetPos, RANGED_PREFERRED_MAX + COMBAT_CONTEXT_RANGE + 60f);
+            //  Même correctif que pour la mêlée : cible hors de portée OU cachée derrière un obstacle
+            // -> on suit le chemin au lieu de tourner sur place / tirer dans un mur.
+            if (dist > RANGED_PREFERRED_MAX + COMBAT_CONTEXT_RANGE
+                || (COMBAT_LOS_PATHING && !_combatLosClear && _pathFailStreak == 0))
             {
                 AiTarget = targetPos;
-                Speed = BaseSpeed;
+                Speed = _combatLosClear ? BaseSpeed : RunSpeed;
                 MoveTowardTarget(dt, destroyed, RANGED_PREFERRED_MAX * 0.8f);
                 return;
             }
@@ -1011,6 +1124,8 @@ namespace Soulfract
             _attackPhase = AttackPhase.Telegraph;
             _telegraphTimer = 0f;
             _hasDealtDamage = false;
+            _attackTarget = _combatTargetEntity;
+            _attackOnEntity = _combatTargetEntity != null;
             Speed = 0f;
             ResetMoveMomentum();
 
@@ -1030,6 +1145,18 @@ namespace Soulfract
         //  d'une frame par transition, donc pas de dérive entre le geste et l'impact.
         void TickAttackPhases(float dt, HashSet<string> destroyed, Vector2 targetPos, CombatProfile p)
         {
+            //  Cible morte ou changée pendant l'armement : on annule. Avant, si _combatTargetEntity
+            // devenait null en cours d'attaque, l'impact tombait dans la branche "joueur" et un mob
+            // en train de se battre contre un autre mob pouvait blesser le joueur à distance.
+            bool targetLost = _attackOnEntity
+                ? (_attackTarget == null || !_attackTarget.IsAlive || !ReferenceEquals(_attackTarget, _combatTargetEntity))
+                : _combatTargetEntity != null;
+            if (targetLost)
+            {
+                AbortAttack();
+                return;
+            }
+
             AiTarget = targetPos;
             float distToTarget = GetDistanceToCombatTarget(targetPos);
             string anim = GetCombatAnimName();
@@ -1040,7 +1167,7 @@ namespace Soulfract
             {
                 _telegraphTimer += dt;
 
-                if (p.Tracks && distToTarget > AttackHitRange && !(IsMounted && Rider != null))
+                if (p.Tracks && !IsStrikeOnTarget(p, targetPos) && !(IsMounted && Rider != null))
                 {
                     Speed = Math.Max(BaseSpeed * 0.5f, 60f);
                     PerformMovement(dt, destroyed, AttackHitRange);
@@ -1054,6 +1181,16 @@ namespace Soulfract
                 // d'armement, la frappe doit rester tournée vers la cible elle-même.
                 if (p.LungeSpeed <= 0f && MathF.Abs(targetPos.X - WorldPos.X) > 8f)
                     Facing = targetPos.X >= WorldPos.X ? 1f : -1f;
+
+                //  Contre une entité (mob vs mob), la cible bouge pendant l'armement : on réoriente l'élan
+                // tant que la frappe n'est pas partie. Le joueur, lui, garde une direction verrouillée
+                // dès le début (esquivable, c'est voulu).
+                if (_attackOnEntity && p.LungeSpeed > 0f && _attackTarget != null)
+                {
+                    Vector2 reaim = targetPos - WorldPos;
+                    if (reaim.LengthSquared() > 0.0001f)
+                        _lockedDirection = Vector2.Normalize(reaim);
+                }
 
                 SetCombatAnim(anim);
 
@@ -1071,7 +1208,12 @@ namespace Soulfract
                 _chargeTimer += phaseDt;
                 SetCombatAnim(anim);
 
-                if (p.LungeSpeed > 0f)
+                //  L'élan s'arrête dès que le coup a touché ou que la cible est dépassée : avant, la bête
+                // continuait ses ~170 px de charge même après l'impact (ou à côté), traversait/dépassait
+                // sa cible, puis repartait en orbite -> aller-retour à chaque attaque.
+                bool lungeStillUseful = !_hasDealtDamage
+                    && Vector2.Dot(_lockedDirection, targetPos - WorldPos) > 0f;
+                if (p.LungeSpeed > 0f && lungeStillUseful)
                 {
                     // Élan en ligne droite dans la direction verrouillée au début de l'armement.
                     Vector2 chargeMove = _lockedDirection * p.LungeSpeed * phaseDt;
@@ -1093,16 +1235,13 @@ namespace Soulfract
                 // IMPACT : une seule évaluation par attaque (touche ou rate, elle est consommée).
                 if (!_hasDealtDamage)
                 {
-                    float impactDistance = p.LungeSpeed > 0f
-                        ? GetDistanceToCombatTarget(targetPos)
-                        : distToTarget;
                     bool impactNow = p.ImpactDelay >= 0f
                         ? _chargeTimer >= p.ImpactDelay
-                        : IsStrikeOnTarget(p, impactDistance, targetPos);
+                        : IsStrikeOnTarget(p, targetPos);
                     if (impactNow)
                     {
                         _hasDealtDamage = true;
-                        PerformAttackImpact(p, targetPos, impactDistance);
+                        PerformAttackImpact(p, targetPos);
                     }
                 }
 
@@ -1129,17 +1268,48 @@ namespace Soulfract
             }
         }
 
-        // Le coup ne touche que si la cible est à portée (et devant l'attaquant pour les « duellistes »).
-        private bool IsStrikeOnTarget(CombatProfile p, float distToTarget, Vector2 targetPos)
+        private void AbortAttack()
         {
-            float reach = AttackHitRange + (p.FrontOnly ? STRIKE_REACH_TOLERANCE : 0f);
-            if (distToTarget >= reach) return false;
-            if (!p.FrontOnly) return true;
-            float dx = targetPos.X - WorldPos.X;
-            return MathF.Abs(dx) < 12f || Math.Sign(dx) == Math.Sign(Facing);
+            _attackPhase = AttackPhase.None;
+            _attackTarget = null;
+            _attackOnEntity = false;
+            _hasDealtDamage = false;
+            Speed = RunSpeed;
+            _postAttackCooldown = 0.25f;
+            AnimState = IsRidingMount ? "sit" : "idle";
+            ResetCombatState(); // nouvelle cible -> nouvel engagement propre
         }
 
-        private void PerformAttackImpact(CombatProfile p, Vector2 targetPos, float distToTarget)
+        // Le coup ne touche que si la cible est à portée (et devant l'attaquant pour les « duellistes »).
+        private bool IsStrikeOnTarget(CombatProfile p, Vector2 targetPos)
+        {
+            float reach = AttackHitRange + (p.FrontOnly ? STRIKE_REACH_TOLERANCE : 0f)
+                + (_combatTargetEntity != null ? ENTITY_TARGET_REACH_BONUS : 0f);
+            Rectangle targetHitbox = _combatTargetEntity != null
+                ? World.GetEntityDamageHitbox(_combatTargetEntity, Program.TileSize)
+                : World.GetEntityDamageHitbox(targetPos, Program.PlayerMorphSpecies, Program.TileSize);
+            Vector2 origin = World.GetEntityGroundPosition(WorldPos);
+
+            float minX = targetHitbox.X;
+            float maxX = targetHitbox.X + targetHitbox.Width;
+            if (p.FrontOnly)
+            {
+                if (Facing >= 0f)
+                    minX = MathF.Max(minX, origin.X);
+                else
+                    maxX = MathF.Min(maxX, origin.X);
+
+                if (minX > maxX)
+                    return false;
+            }
+
+            float closestX = Math.Clamp(origin.X, minX, maxX);
+            float closestY = Math.Clamp(origin.Y, targetHitbox.Y, targetHitbox.Y + targetHitbox.Height);
+            Vector2 closestPoint = new(closestX, closestY);
+            return Vector2.DistanceSquared(origin, closestPoint) <= reach * reach;
+        }
+
+        private void PerformAttackImpact(CombatProfile p, Vector2 targetPos)
         {
             switch (p.Kind)
             {
@@ -1149,7 +1319,7 @@ namespace Soulfract
                     Vector2 shootDir = World.GetEntityGroundPosition(targetPos) - origin;
                     shootDir = shootDir.LengthSquared() > 0.0001f ? Vector2.Normalize(shootDir) : new Vector2(Facing, 0f);
                     Program.SpawnHostileArrow(origin, shootDir, RANGED_ARROW_SPEED, Attack,
-                        _combatTargetEntity, this, AiTargetConnectionId);
+                        _attackTarget, this, AiTargetConnectionId);
                     return;
                 }
                 case CombatImpactKind.Spores:
@@ -1160,17 +1330,18 @@ namespace Soulfract
                     return;
                 default:
                 {
-                    if (!IsStrikeOnTarget(p, distToTarget, targetPos)) return;
+                    if (!IsStrikeOnTarget(p, targetPos)) return;
                     float poisonDuration = string.Equals(Species, "scorpio", StringComparison.OrdinalIgnoreCase) ? 6f : 0f;
-                    if (_combatTargetEntity != null)
+                    if (_attackOnEntity)
                     {
-                        DamageCombatTarget(_combatTargetEntity);
+                        if (_attackTarget != null)
+                            DamageCombatTarget(_attackTarget);
                     }
                     else
                     {
-                        Program.DamagePlayerTarget(Attack, AiTargetConnectionId, GetDisplayName(),
-                            Program.InferDeathCauseFromSpecies(Species), poisonDuration);
                         Program.NotifyPlayerAttackedByEntity(this, AiTargetConnectionId);
+                        Program.DamagePlayerTarget(Attack, AiTargetConnectionId, GetDisplayName(),
+                            Program.InferDeathCauseFromSpecies(Species), poisonDuration, WorldPos);
                         Program.ApplyScreenShake(p.Shake, 0.12f);
                     }
                     return;

@@ -102,6 +102,7 @@ namespace Soulfract
         public string AnimState { get; set; } = "idle";
         public int AnimFrame { get; set; }
         public float AnimProg { get; set; }
+        public bool IsSleepingBehindFurniture { get; set; }
         public int HP { get; set; }
         public int MaxHP { get; set; }
         public float Concussion { get; set; }
@@ -172,6 +173,8 @@ namespace Soulfract
     {
         public int Amount { get; set; }
         public float PoisonDuration { get; set; }
+        public float? SourcePosX { get; set; }
+        public float? SourcePosY { get; set; }
     }
 
     //  MULTIJOUEUR : portage de créatures par un client. Le client demande, le host (seul
@@ -2347,7 +2350,14 @@ namespace Soulfract
                         // d'appliquer les dégâts, pour ne pas se fier uniquement au client.
                         if (pvpReq.Damage > 0 && samePlane && GetPvpEnabledFor(attackerConnId) && GetPvpEnabledFor(pvpReq.TargetId))
                         {
-                            Program.DamagePlayerTarget(pvpReq.Damage, pvpReq.TargetId == 0 ? -1 : pvpReq.TargetId);
+                            Vector2? attackerPos = _clients.TryGetValue(attackerConnId, out var attacker)
+                                && attacker.LastTransform != null
+                                ? new Vector2(attacker.LastTransform.PosX, attacker.LastTransform.PosY)
+                                : null;
+                            Program.DamagePlayerTarget(
+                                pvpReq.Damage,
+                                pvpReq.TargetId == 0 ? -1 : pvpReq.TargetId,
+                                sourcePos: attackerPos);
                         }
                     }
                     break;
@@ -2540,7 +2550,10 @@ namespace Soulfract
                     if (_isClient)
                     {
                         var dmg = Deserialize<PlayerDamageMsg>(msg.Envelope.J);
-                        Program.DamagePlayer(dmg.Amount);
+                        Vector2? sourcePos = dmg.SourcePosX.HasValue && dmg.SourcePosY.HasValue
+                            ? new Vector2(dmg.SourcePosX.Value, dmg.SourcePosY.Value)
+                            : null;
+                        Program.DamagePlayer(dmg.Amount, sourcePos: sourcePos);
                         if (dmg.PoisonDuration > 0f)
                             Program.ApplyPlayerPoison(dmg.PoisonDuration);
                     }
@@ -3161,12 +3174,13 @@ namespace Soulfract
                     NetId = e.NetId.ToString(),
                     Species = e.Species,
                     OwnerNpcId = e.OwnerNpcId?.ToString() ?? "",
-                    PosX = e.WorldPos.X,
-                    PosY = e.WorldPos.Y,
+                    PosX = e.VisualWorldPos.X,
+                    PosY = e.VisualWorldPos.Y,
                     Facing = e.Facing,
                     AnimState = e.AnimState,
                     AnimFrame = e.CurrentFrame,
                     AnimProg = e.AnimProgress,
+                    IsSleepingBehindFurniture = e.IsSleepingBehindFurniture,
                     HP = e.CurrentHP,
                     MaxHP = e.MaxHP,
                     Concussion = e.Concussion,
@@ -3463,10 +3477,16 @@ namespace Soulfract
         //  Envoie des dégâts (infligés par une entité du host) à un client précis, qui les
         // applique sur son propre HP local (le host reste autoritaire : c'est lui qui décide
         // du montant, mais chaque client gère l'affichage/la mort de son propre personnage).
-        public static void SendPlayerDamage(int connectionId, int amount, float poisonDuration = 0f)
+        public static void SendPlayerDamage(int connectionId, int amount, float poisonDuration = 0f, Vector2? sourcePos = null)
         {
             if (!_isHost || amount <= 0) return;
-            SendTo(connectionId, "PlayerDamage", new PlayerDamageMsg { Amount = amount, PoisonDuration = poisonDuration });
+            SendTo(connectionId, "PlayerDamage", new PlayerDamageMsg
+            {
+                Amount = amount,
+                PoisonDuration = poisonDuration,
+                SourcePosX = sourcePos?.X,
+                SourcePosY = sourcePos?.Y
+            });
         }
 
         //  MULTIJOUEUR : portage de créatures - demandes envoyées par un client au host.

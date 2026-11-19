@@ -12,6 +12,20 @@ namespace Soulfract
     {
         private static partial class DrawPhases
         {
+			// Offsets du contour noir du pseudo (même ordre qu'avant).
+			private static readonly (int, int)[] s_nameOutlineOffsets =
+				{ (-1, -1), (1, -1), (-1, 1), (1, 1), (-1, 0), (1, 0), (0, -1), (0, 1) };
+
+			// "player:{id}" construit une seule fois par Id (borné pour ne jamais grossir indéfiniment).
+			private static readonly Dictionary<int, string> s_playerPoseKeyNames = new();
+			private static string GetPlayerPoseKeyName(int id)
+			{
+				if (s_playerPoseKeyNames.TryGetValue(id, out var name)) return name;
+				name = $"player:{id}";
+				if (s_playerPoseKeyNames.Count < 256) s_playerPoseKeyNames[id] = name;
+				return name;
+			}
+
 			/// <summary>Joueurs locaux supplémentaires (visibles dans toutes les vues).</summary>
 			internal static void AddExtraPlayers(DrawWorldContext ctx)
 			{
@@ -31,6 +45,9 @@ namespace Soulfract
 					{
 						if (!extraPlayer.Connected) continue;
 						if (!ctx.IsEntityNearScreen(extraPlayer.Position)) continue;
+						//  PERF : variables capturées déclarées dans ce bloc => la fermeture n'est plus allouée
+						// pour les joueurs ignorés par les 'continue' ci-dessus.
+						{
 						Vector2 actualDrawPos = extraPlayer.Position;
 						float playerSortY = actualDrawPos.Y + Program.FeetOffsetY;
 						int hairIndex = extraPlayer.HairStyleOverride ?? Program.PlayerHairStyle;
@@ -39,7 +56,7 @@ namespace Soulfract
 						var playerHairOverlayTex = hairOverlay.Count > 0 ? hairOverlay[hairIndex] : new Texture2D();
 						var capturedExtraPlayer = extraPlayer;
 						object capturedExtraPoseBlendKey = capturedExtraPlayer.Id >= 0
-							? EntityRenderer.GetStablePoseBlendKey($"player:{capturedExtraPlayer.Id}")
+							? EntityRenderer.GetStablePoseBlendKey(GetPlayerPoseKeyName(capturedExtraPlayer.Id))
 							: capturedExtraPlayer;
 						var capturedExtraDrawPos = actualDrawPos;
 						var capturedExtraSkin = extraPlayer.SkinColorOverride ?? pSkin;
@@ -61,9 +78,11 @@ namespace Soulfract
 						//  Item tenu en main : même rendu attaché au bras (texture "_rarmbottom") que
 						// pour le joueur local, au lieu de l'icône statique flottante précédente.
 						Texture2D capturedExtraHeldItemTex = EntityRenderer.GetHeldItemTextureById(capturedExtraPlayer.HeldItemId);
+						// Le niveau des joueurs distants n'est pas transmis dans leur état réseau.
 						renderItems.Add(new RenderItem
 						{
 							Y = playerSortY,
+							SortLayer = 0,
 							DrawAction = () =>
 							{
 								EntityRenderer.DrawEntity(
@@ -132,7 +151,7 @@ namespace Soulfract
 										int nameY = (int)barY - 19;
 										// Bordure noire : le texte est redessiné en noir tout autour (4 ou 8
 										// directions) avant la passe finale en blanc, par-dessus.
-										foreach (var (ox, oy) in new (int, int)[] { (-1, -1), (1, -1), (-1, 1), (1, 1), (-1, 0), (1, 0), (0, -1), (0, 1) })
+										foreach (var (ox, oy) in s_nameOutlineOffsets)
 										{
 											FontManager.DrawText(capturedExtraPlayer.DisplayName,
 												nameX + ox, nameY + oy,
@@ -167,6 +186,7 @@ namespace Soulfract
 								}
 							}
 						});
+						}
 					}
 				}
 			}
@@ -237,6 +257,8 @@ namespace Soulfract
 					Vector2 actualDrawPos;
 					if (sittingPosition.HasValue) actualDrawPos = Program.GetSittingVisualPosition();
 					else actualDrawPos = playerPosForDraw;
+					if (World.IsPlayerIndoors)
+						actualDrawPos.Y -= World.CurrentHouseFloorOffset;
 							float tempIntensity = TemperatureSystem.CurrentIntensity;
 							if (TemperatureSystem.IsCold)
 							{
@@ -293,6 +315,7 @@ namespace Soulfract
 					renderItems.Add(new RenderItem
 					{
 						Y = playerSortY,
+						SortLayer = World.IsPlayerIndoors ? World.CurrentHouseFloor * 2 : 0,
 						DrawAction = () =>
 						{
 							bool materializing = Program.IsSoulMaterializing;

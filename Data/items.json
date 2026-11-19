@@ -2043,6 +2043,15 @@
       "equipMax": 1
     },
     {
+      "id": "shield",
+      "type": "tool",
+      "stackSize": 1,
+      "value": 100,
+      "rarity": "uncommon",
+      "equipSlot": "OffHand",
+      "equipMax": 1
+    },
+    {
       "id": "recipe_scroll",
       "type": "special",
       "stackSize": 1,

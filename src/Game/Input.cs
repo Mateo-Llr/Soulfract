@@ -167,6 +167,41 @@ namespace Soulfract
 				}
 				InvalidateLightMask();
 			}
+
+			if (_gameState == GameState.Playing
+				&& World.IsPlayerIndoors
+				&& !InventoryRenderer.IsInventoryOpen
+				&& !ChatSystem.IsOpen
+				&& !QuestDialogUI.IsOpen
+				&& !UIManager.IsAnyUIOpen()
+				&& PlayerCurrentCar == null)
+			{
+				bool magicMenuUsesJ = KeyBindings.GetBindings(GameAction.MagicMenu).Any(binding =>
+					binding.Type == InputType.Keyboard && binding.Code == (int)KeyboardKey.J);
+				Item? heldItemForMagic = InventoryRenderer.GetHotbarItem(hotbarSlot);
+				bool magicWandHeld = heldItemForMagic != null
+					&& Program.GetItemId(heldItemForMagic.Name) == GameData.GetItemId("magic_wand");
+
+				if (Raylib.IsKeyPressed(KeyboardKey.H))
+				{
+					if (World.TryChangeHouseFloor(1))
+						AddNotification(new Notification($"Étage {World.CurrentHouseFloor}", Color.White, 1.5f));
+					else
+						AddNotification(new Notification("Impossible de créer l'etage supérieur.", Color.Red, 2f));
+					return;
+				}
+
+				if (Raylib.IsKeyPressed(KeyboardKey.J)
+					&& World.CurrentHouseFloor > 0
+					&& !(magicMenuUsesJ && magicWandHeld))
+				{
+					if (World.TryChangeHouseFloor(-1))
+						AddNotification(new Notification($"Étage {World.CurrentHouseFloor}", Color.White, 1.5f));
+					else
+						AddNotification(new Notification("Impossible de descendre d'un étage.", Color.Red, 2f));
+					return;
+				}
+			}
 			
 			// Touche J : ouvrir/fermer l'interface de création de sort (si baguette en main)
 			if (KeyBindings.IsPressed(GameAction.MagicMenu) && !ChatSystem.IsOpen && PlayerCurrentCar == null)

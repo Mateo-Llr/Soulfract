@@ -219,7 +219,7 @@ namespace Soulfract
 				int[,] wallCoveringIds = _renderWallCoveringIds;
 				bool[,] isWallToHide = _renderIsWallToHide;
 				bool[,] tileLit = _renderTileLit;
-				bool drawBiomeBorders = !_isUnderground && !_isPlayerIndoors;
+				bool drawBiomeBorders = !_isUnderground && !HidesOutsideWorld;
 
 				return new DrawWorldContext
 				{

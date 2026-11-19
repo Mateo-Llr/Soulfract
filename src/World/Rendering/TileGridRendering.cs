@@ -5,6 +5,7 @@
 using Raylib_cs;
 using System.Numerics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Soulfract
 {
@@ -12,6 +13,22 @@ namespace Soulfract
     {
         private static partial class DrawPhases
         {
+			// Drapeaux du cache par rangée de chunks (voir FillTileGrid).
+			private const byte F_LOADED = 1;
+			private const byte F_GROUND = 2;
+			private const byte F_OBJECTS = 4;
+			private const byte F_OVERLAYS = 8;
+			private const byte F_ROOFS = 16;
+			private const byte F_DECOS = 32;
+
+			// Buffers réutilisés d'une frame à l'autre (zéro allocation) ; ThreadStatic par sécurité.
+			[ThreadStatic] private static ChunkData?[]? s_rowChunks;
+			[ThreadStatic] private static byte[]? s_rowFlags;
+
+			/// <summary>Division entière arrondie vers le bas (identique au calcul de chunk d'origine).</summary>
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private static int FloorDivChunk(int v) => v >= 0 ? v / CHUNK_SIZE : (v - CHUNK_SIZE + 1) / CHUNK_SIZE;
+
 			/// <summary>Remplit les grilles de rendu pour la fenêtre visible. Réutilise un seul chunk par tuile.</summary>
 			internal static void FillTileGrid(DrawWorldContext ctx)
 			{
@@ -33,26 +50,49 @@ namespace Soulfract
 
 				// Remplir les tableaux en une seule passe
 				//
-				//  PERF (dézoom) : ce bloc tournait auparavant sur un chunk (GetChunkAt) DIFFÉRENT
-				// par appel — un pour le sol, un pour l'objet, un pour l'overlay,
-				// un pour le revêtement mural, un pour la décoration — soit jusqu'à 7 lookups de
-				// Dictionary<(int,int), ChunkData> pour LA MÊME tuile, chacun recalculant en plus
-				// chunkX/chunkY. En dézoom, MAX_RENDER_TILES_X/Y (120x80) peut porter ce nombre de
-				// tuiles à ~9600/frame, donc jusqu'à ~77 000 lookups de chunk rien que pour cette
-				// boucle. On récupère maintenant le chunk UNE SEULE FOIS par tuile et on lit ses
-				// dictionnaires internes directement ; les fonctions globales (GetGroundTileIdAt,
-				// GetBuildingIdAt, GetRoofHeight) ne sont rappelées qu'en repli,
-				// pour les tuiles qui n'ont pas encore d'entrée explicite dans le chunk (génération
-				// procédurale / cache climat), ce qui reste correct au sous-sol/en extérieur du
-				// chunk chargé.
+				//  PERF (dézoom) : chunk récupéré UNE SEULE FOIS par tuile (et même une seule fois par chunk
+				// et par passe, voir le cache par rangée ci-dessous), dictionnaires internes lus directement.
+				// Les fonctions globales (GetGroundTileIdAt, GetBuildingIdAt, GetRoofHeight) ne sont rappelées
+				// qu'en repli, pour les tuiles sans entrée explicite dans le chunk (génération procédurale /
+				// cache climat).
 				int visibleObjectCount = 0;
-				//  PERF : on ne redemande le chunk que quand on change de chunk (la boucle parcourt y en interne,
-				// donc ~15 tuiles sur 16 réutilisent le chunk précédent) au lieu d'un GetChunkAt par tuile.
-				ChunkData? fillChunk = null;
-				int fillChunkX = int.MinValue, fillChunkY = int.MinValue;
+
+				//  PERF : valeurs invariantes de la passe, lues une seule fois au lieu d'une fois par tuile.
+				bool indoors = _isPlayerIndoors;
+				bool needBuildingIds = indoors || DebugOverlaySettings.BuildingZones;
+
+				//  PERF : cache de chunks par "rangée de chunks" pour la colonne de chunks courante.
+				// La boucle est x (externe) / y (interne) : l'ancien cache (un seul chunk) était invalidé
+				// à chaque nouvelle colonne x, soit ~(hauteur/16) GetChunkAt par colonne. Ici, tant que x
+				// reste dans la même colonne de chunks, chaque chunk n'est demandé qu'une seule fois.
+				// On mémorise aussi quels dictionnaires du chunk sont non vides : un dictionnaire vide
+				// (cas fréquent : overlays, décorations, toits, objets en pleine nature) évite tous ses
+				// lookups (TryGetValue sur clé tuple) pour les 256 tuiles du chunk.
+				int firstCy = FloorDivChunk(startY);
+				int rowCount = Math.Max(1, FloorDivChunk(endY) - firstCy + 1);
+				if (s_rowChunks == null || s_rowFlags == null || s_rowChunks.Length < rowCount)
+				{
+					s_rowChunks = new ChunkData?[rowCount + 4];
+					s_rowFlags = new byte[rowCount + 4];
+				}
+				ChunkData?[] rowChunks = s_rowChunks;
+				byte[] rowFlags = s_rowFlags;
+				int colCx = int.MinValue;
+
+				//  PERF : IsWallToHide(oid) est appelé pour chaque tuile en intérieur, la grande majorité
+				// ayant le même oid (0) que la précédente : on mémorise le dernier résultat.
+				int lastWallOid = int.MinValue;
+				bool lastWallRes = false;
+
 				for (int x = startX; x <= endX; x++)
 				{
 					int ix = Math.Clamp(x - startX, 0, width - 1);
+					int cx = FloorDivChunk(x);
+					if (cx != colCx)
+					{
+						colCx = cx;
+						Array.Clear(rowFlags, 0, rowCount);
+					}
 					for (int y = startY; y <= endY; y++)
 					{
 						int iy = Math.Clamp(y - startY, 0, heightTiles - 1);
@@ -70,53 +110,96 @@ namespace Soulfract
 							isWallToHide[ix, iy] = false;
 							continue;
 						}
-					
+
 						try
 						{
-							int fillCx = x / CHUNK_SIZE;
-							int fillCy = y / CHUNK_SIZE;
-							if (x < 0) fillCx = (x - CHUNK_SIZE + 1) / CHUNK_SIZE;
-							if (y < 0) fillCy = (y - CHUNK_SIZE + 1) / CHUNK_SIZE;
-							if (fillCx != fillChunkX || fillCy != fillChunkY)
+							int slot = FloorDivChunk(y) - firstCy;
+							byte fl = rowFlags[slot];
+							ChunkData? chunk;
+							if (fl == 0)
 							{
-								fillChunk = GetChunkAt(x, y);
-								fillChunkX = fillCx;
-								fillChunkY = fillCy;
+								chunk = GetChunkAt(x, y);
+								rowChunks[slot] = chunk;
+								fl = F_LOADED;
+								if (chunk != null)
+								{
+									if (chunk.GroundOverrides.Count != 0) fl |= F_GROUND;
+									if (chunk.Objects.Count != 0) fl |= F_OBJECTS;
+									if (chunk.Overlays.Count != 0) fl |= F_OVERLAYS;
+									if (chunk.RoofHeights.Count != 0) fl |= F_ROOFS;
+									if (chunk.Decorations.Count != 0) fl |= F_DECOS;
+								}
+								rowFlags[slot] = fl;
 							}
-							var chunk = fillChunk;
+							else
+							{
+								chunk = rowChunks[slot];
+							}
 
-							//  PERF : si pas d'override dans le chunk, on va DIRECT à la génération procédurale
-							// (GetGroundTileIdAt refaisait inutilement chunk + override, qui ne pouvaient que rater).
-							int gid = (chunk != null && chunk.GroundOverrides.TryGetValue((x, y), out int gv))
+							var key = (x, y);
+
+							//  PERF : si pas d'override dans le chunk, on va DIRECT à la génération procédurale.
+							int gid = ((fl & F_GROUND) != 0 && chunk!.GroundOverrides.TryGetValue(key, out int gv))
 								? gv : GetProceduralGroundTileId(x, y);
-							groundIds[ix, iy] = gid;
+							int oid = (fl & F_OBJECTS) != 0 ? chunk!.Objects.GetValueOrDefault(key, 0) : 0;
+							int ovid = (fl & F_OVERLAYS) != 0 ? chunk!.Overlays.GetValueOrDefault(key, 0) : 0;
 
-							int oid = chunk?.Objects.GetValueOrDefault((x, y), 0) ?? 0;
+							// Les buildingIds vivent dans un registre séparé (BuildingIds), pas dans ChunkData.
+							//  PERF : buildingIds n'est lu que en intérieur (filtre) ou en debug F3.
+							buildingIds[ix, iy] = needBuildingIds ? GetBuildingIdAt(x, y) : 0;
+
+							// Dans l'enceinte où se trouve le joueur, les données de l'étage actif
+							// remplacent celles du rez-de-chaussée. Le reste de l'étage reste ouvert.
+							bool onUpperFloor = indoors && CurrentHouseFloor > 0;
+							bool useFloorData = onUpperFloor
+								&& !IsCurrentFloorOpenAir
+								&& IsCurrentFloorEnclosedTile(x, y);
+							if (useFloorData
+								&& (buildingIds[ix, iy] == CurrentHouseBuildingId
+									|| TryGetCurrentHouseFloorTile(x, y, out _)))
+								buildingIds[ix, iy] = CurrentHouseBuildingId;
+							if (useFloorData)
+							{
+								gid = GetGroundTileIdAt(x, y);
+								oid = GetObjectIdAt(x, y);
+								ovid = GetOverlayAt(x, y);
+							}
+
+							// CORRECTIF : groundIds est écrit APRÈS le remplacement de gid par le sol de
+							// l'étage (avant, il gardait l'herbe procédurale).
+							groundIds[ix, iy] = gid;
 							objectIds[ix, iy] = oid;
 							if (oid != 0) visibleObjectCount++;
-
-							int ovid = chunk?.Overlays.GetValueOrDefault((x, y), 0) ?? 0;
 							overlayIds[ix, iy] = ovid;
 
-							// Les buildingIds vivent dans un registre séparé (BuildingIds), pas dans
-							// ChunkData : pas de lookup redondant à éliminer ici.
-							//  PERF : buildingIds n'est lu que en intérieur (filtre) ou en debug F3.
-							buildingIds[ix, iy] = (_isPlayerIndoors || DebugOverlaySettings.BuildingZones) ? GetBuildingIdAt(x, y) : 0;
-
 							//  PERF : roofHeights n'est lu que pour les tuiles ayant un overlay (toit).
-							// Avant : GetRoofHeight() appelé en repli pour CHAQUE tuile sans entrée explicite.
 							if (ovid != 0)
-								roofHeights[ix, iy] = (chunk != null && chunk.RoofHeights.TryGetValue((x, y), out int rhv))
+								roofHeights[ix, iy] = ((fl & F_ROOFS) != 0 && chunk!.RoofHeights.TryGetValue(key, out int rhv))
 									? rhv : GetRoofHeight(x, y);
 							else
 								roofHeights[ix, iy] = 0;
 
 							//  PERF : isWallToHide n'est lu qu'en intérieur ; wallCoveringIds qu'avec un objet.
-							isWallToHide[ix, iy] = _isPlayerIndoors && IsWallToHide(oid);
+							if (indoors)
+							{
+								if (oid != lastWallOid)
+								{
+									lastWallOid = oid;
+									lastWallRes = IsWallToHide(oid);
+								}
+								isWallToHide[ix, iy] = lastWallRes;
+							}
+							else
+							{
+								isWallToHide[ix, iy] = false;
+							}
 							wallCoveringIds[ix, iy] = oid != 0 ? (chunk?.GetWallCoveringAt(x, y) ?? 0) : 0;
+							if (useFloorData && oid != 0)
+								wallCoveringIds[ix, iy] = GetWallCoveringIdAt(x, y);
 
-							// Décoration (même chunk déjà en main, plus besoin de le redemander)
-							decorationIndex[ix, iy] = (chunk != null && chunk.Decorations.TryGetValue((x, y), out int deco))
+							// Décoration (même chunk déjà en main) ; jamais sur un sol d'étage.
+							decorationIndex[ix, iy] = (!useFloorData && (fl & F_DECOS) != 0
+								&& chunk!.Decorations.TryGetValue(key, out int deco))
 								? deco : -1;
 						}
 						catch (Exception ex)
@@ -126,6 +209,9 @@ namespace Soulfract
 						}
 					}
 				}
+
+				// Ne pas garder de références de chunks dans le buffer statique entre deux frames.
+				Array.Clear(rowChunks, 0, rowCount);
 				ctx.visibleObjectCount = visibleObjectCount;
 			}
         }

@@ -218,6 +218,9 @@ namespace Soulfract
                 case "/clear":
                     ClearInventory();
                     break;
+                case "/clearground":
+                    ClearGroundItems();
+                    break;
                 case "/heal":
                     HealPlayer();
                     break;
@@ -670,6 +673,7 @@ namespace Soulfract
             AddMessage(new ChatMessage("/weather <rain|storm|clear> - Change la météo", COLOR_MESSAGE_COMMAND, true));
             AddMessage(new ChatMessage("/seed - Affiche la seed du monde", COLOR_MESSAGE_COMMAND, true));
             AddMessage(new ChatMessage("/pos - Affiche la position", COLOR_MESSAGE_COMMAND, true));
+            AddMessage(new ChatMessage("/clearground - Vide tous les items au sol", COLOR_MESSAGE_COMMAND, true));
             AddMessage(new ChatMessage("/help - Affiche cette aide", COLOR_MESSAGE_COMMAND, true));
         }
 
@@ -680,6 +684,21 @@ namespace Soulfract
                 slot.Clear();
             }
             AddMessage(new ChatMessage("Inventaire vidé !", COLOR_MESSAGE_SUCCESS, true));
+        }
+
+        private static void ClearGroundItems()
+        {
+            if (NetworkManager.IsHost || !NetworkManager.IsOnline)
+            {
+                Program.GroundItems.Clear();
+                if (NetworkManager.IsHost)
+                    NetworkManager.BroadcastGroundItemsSnapshot();
+                AddMessage(new ChatMessage("Items au sol supprimés !", COLOR_MESSAGE_SUCCESS, true));
+            }
+            else
+            {
+                AddMessage(new ChatMessage("Commande réservée à l'hôte.", COLOR_MESSAGE_ERROR, true));
+            }
         }
 
         private static void HealPlayer()

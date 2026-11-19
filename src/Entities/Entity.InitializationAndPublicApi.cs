@@ -1000,6 +1000,9 @@ namespace Soulfract
         {
             _isSleeping = false;
             _sleepVisualPosition = Vector2.Zero;
+            _sleepApproachPosition = null;
+            _isWalkingToSleepPosition = false;
+            _sleepingBehindFurniture = false;
             _groundResting = false;
             _sleepTimer = 0f;
             _zzzTimer = 0f;
@@ -1238,10 +1241,14 @@ namespace Soulfract
 
         private bool TryStartInfirmaryCare()
         {
-            if (!IsVillager || IsTamed || !IsAlive || CurrentHP >= MaxHP)
+            if (!IsVillager || IsTamed || !IsAlive)
                 return false;
             if (_infirmaryBuildingId >= 0)
                 return true;
+            //  Seuil de PV (voir NeedsInfirmaryCare) : sans lui, OnHit envoyait le PNJ à l'infirmerie dès le
+            // moindre coup, quel que soit le seuil appliqué dans Update.
+            if (!NeedsInfirmaryCare)
+                return false;
 
             if (!World.TryReserveNearestInfirmary(this, out int buildingId, out Vector2 approachPos))
             {
@@ -1277,6 +1284,8 @@ namespace Soulfract
 
         public Vector2 FeetPos => new(WorldPos.X, WorldPos.Y + Program.FeetOffsetY);
         public bool IsSleeping => _isSleeping;
+        public bool IsSleepingBehindFurniture => _isSleeping && _sleepingBehindFurniture;
+        public Vector2 SleepTargetPosition => _sleepVisualPosition;
         public Vector2 VisualWorldPos => _isSleeping && _sleepVisualPosition != Vector2.Zero
             ? _sleepVisualPosition
             : WorldPos;
@@ -1304,6 +1313,9 @@ namespace Soulfract
 
             _isSleeping = false;
             _sleepVisualPosition = Vector2.Zero;
+            _sleepApproachPosition = null;
+            _isWalkingToSleepPosition = false;
+            _sleepingBehindFurniture = false;
             _sleepTimer = 0f;
             _tentSleepTimer = 0f;
             _zzzTimer = 0f;
@@ -1324,6 +1336,9 @@ namespace Soulfract
             _isSleeping = false;
             _groundResting = false;
             _sleepVisualPosition = Vector2.Zero;
+            _sleepApproachPosition = null;
+            _isWalkingToSleepPosition = false;
+            _sleepingBehindFurniture = false;
             _sleepTimer = 0f;
             _zzzTimer = 0f;
             ReleaseCurrentGoalLock();

@@ -179,19 +179,16 @@ namespace Soulfract
         private static int WorldYToFeetTileY(float worldY) => (int)Math.Floor((worldY + Program.FeetOffsetY) / NODE_SIZE);
         private static float FeetTileYToWorldY(int tileY) => (tileY * NODE_SIZE + NODE_SIZE / 2f) - Program.FeetOffsetY;
 
-        //  Vérification légère (une seule tuile, sans recalculer tout le hitboxBlocked de la
-        // zone) utilisée par Entity.MoveTowardTarget pour revalider le PROCHAIN nœud du chemin
-        // actuel à chaque frame, au lieu d'attendre jusqu'à PATH_RECALC_INTERVAL (0.5s) pour
-        // s'apercevoir qu'un objet a été posé/détruit entre-temps sur la case visée. Ça évite
-        // qu'un PNJ continue de foncer vers un nœud qui vient de devenir un mur.
+        //  Vérification ponctuelle du prochain nœud du chemin. Contrairement à FindPath,
+        // elle ne convertit pas toute la liste mondiale des objets détruits : elle vérifie
+        // directement les quelques cases requises par la hitbox de cette entité.
         public static bool IsWorldPositionWalkable(Vector2 worldPos, HashSet<string> destroyedObjects, string species = "")
         {
             int tileX = (int)Math.Floor(worldPos.X / NODE_SIZE);
             int tileY = WorldYToFeetTileY(worldPos.Y);
             int clearance = GetClearanceTiles(species);
             var hitboxBlocked = GetHitboxBlockedTilesCached(tileX - 1 - clearance, tileX + 1 + clearance, tileY - 1 - clearance, tileY + 1 + clearance, destroyedObjects);
-            var destroyedSet = ParseDestroyedSet(destroyedObjects);
-            return IsWalkableSlow(tileX, tileY, destroyedSet, hitboxBlocked, clearance);
+            return IsWalkableSlow(tileX, tileY, destroyedObjects, hitboxBlocked, clearance);
         }
 
         public static Vector2? FindNearestWalkablePosition(Vector2 origin, HashSet<string> destroyedObjects, string species = "", int maxRadiusTiles = 10)
@@ -579,6 +576,27 @@ namespace Soulfract
             return true;
         }
 
+        private static bool IsWalkableSlow(int tileX, int tileY, HashSet<string> destroyedObjects, HashSet<(int x, int y)> hitboxBlocked, int clearance = 0)
+        {
+            if (!IsSingleTileWalkable(tileX, tileY, destroyedObjects, hitboxBlocked))
+                return false;
+
+            if (clearance <= 0)
+                return true;
+
+            for (int dx = -clearance; dx <= clearance; dx++)
+            {
+                for (int dy = -clearance; dy <= clearance; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (!IsSingleTileWalkable(tileX + dx, tileY + dy, destroyedObjects, hitboxBlocked))
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
         private static bool IsSingleTileWalkable(int tileX, int tileY, HashSet<(int x, int y)> destroyedObjects, HashSet<(int x, int y)> hitboxBlocked)
         {
             //  Plus d'allocation de string ici : destroyedObjects est désormais un
@@ -609,6 +627,14 @@ namespace Soulfract
                 return false;
 
             return true;
+        }
+
+        private static bool IsSingleTileWalkable(int tileX, int tileY, HashSet<string> destroyedObjects, HashSet<(int x, int y)> hitboxBlocked)
+        {
+            if (destroyedObjects.Contains($"{tileX}_{tileY}"))
+                return true;
+
+            return IsSingleTileWalkable(tileX, tileY, EmptyDestroyed, hitboxBlocked);
         }
 
         private static List<Vector2> ReconstructPath(Node endNode, Vector2 start)

@@ -955,7 +955,17 @@ namespace Soulfract
 				Skin = new ColorSave { R = SkinColor.R, G = SkinColor.G, B = SkinColor.B, A = SkinColor.A },
 				Hair = new ColorSave { R = HairColor.R, G = HairColor.G, B = HairColor.B, A = HairColor.A },
 				Eye = new ColorSave { R = EyeColor.R, G = EyeColor.G, B = EyeColor.B, A = EyeColor.A },
-				Equipment = SaveSystem.CreateEquipmentSave(equipment)
+				Equipment = SaveSystem.CreateEquipmentSave(equipment),
+				//  Progression propre au personnage : sans ça, un client perdait ses
+				//  aptitudes, son essence de sang et ses sorts assignés à chaque connexion.
+				Skills = SkillSystem.ToSaveData(),
+				BloodEssence = GetBloodEssence(),
+				LeftClickSpellElement = GetLeftClickSpell().Element,
+				LeftClickSpellType = GetLeftClickSpell().Type,
+				LeftClickSpellPower = GetLeftClickSpell().Power,
+				RightClickSpellElement = GetRightClickSpell().Element,
+				RightClickSpellType = GetRightClickSpell().Type,
+				RightClickSpellPower = GetRightClickSpell().Power
 			};
 
 			foreach (var slot in InventoryRenderer.InventorySlots)
@@ -973,7 +983,7 @@ namespace Soulfract
 			World.SetSharedDungeonPlane(data.Underground, data.IsInDungeon, data.DungeonInstanceId);
 			_playerPos = new Vector2(data.PosX, data.PosY);
 			_playerFacing = data.Facing;
-			_smoothedCameraTarget = GetPlayerCameraTarget(_playerPos);
+			SetCameraTargetPrecise(GetPlayerCameraTarget(_playerPos));
 			_cameraNeedsImmediateCenter = true;
 
 			playerHP = data.HP;
@@ -1002,6 +1012,25 @@ namespace Soulfract
 				InventoryRenderer.RestoreFromSave(data.InventorySlots);
 			else
 				InventoryRenderer.Initialize(40);
+
+			//  Progression du personnage : aptitudes, essence de sang, sorts assignés.
+			//  Skills reste optionnel : une sauvegarde écrite avant l'ajout du champ n'a
+			//  pas de valeur "absente" — LoadFromSaveData(null) remettrait toutes les
+			//  aptitudes à zéro et effacerait la progression d'un personnage existant.
+			SkillSystem.LoadFromSaveData(data.Skills);
+			SetBloodEssence(data.BloodEssence);
+			SetLeftClickSpell(new SpellData
+			{
+				Element = Enum.IsDefined(data.LeftClickSpellElement) ? data.LeftClickSpellElement : SpellElement.Fire,
+				Type = Enum.IsDefined(data.LeftClickSpellType) ? data.LeftClickSpellType : SpellType.Projectile,
+				Power = Enum.IsDefined(data.LeftClickSpellPower) ? data.LeftClickSpellPower : PowerLevel.Medium
+			});
+			SetRightClickSpell(new SpellData
+			{
+				Element = Enum.IsDefined(data.RightClickSpellElement) ? data.RightClickSpellElement : SpellElement.Fire,
+				Type = Enum.IsDefined(data.RightClickSpellType) ? data.RightClickSpellType : SpellType.Projectile,
+				Power = Enum.IsDefined(data.RightClickSpellPower) ? data.RightClickSpellPower : PowerLevel.Medium
+			});
 		}
 
 		public static bool IsPortableContainer(Item item)
@@ -1347,7 +1376,9 @@ namespace Soulfract
 			return false;
 		}
 
-		public static void DamagePlayer(int amount, string? sourceName = null, DeathCause cause = DeathCause.Generic)
+		// sourcePos : position monde de l'attaquant (sert à la parade du bouclier, voir Shield.cs).
+		// blockable : false pour les dégâts "d'environnement" (faim, poison...) qu'un bouclier ne peut pas parer.
+		public static void DamagePlayer(int amount, string? sourceName = null, DeathCause cause = DeathCause.Generic, Vector2? sourcePos = null, bool blockable = true)
 		{
 			if (amount <= 0) return;
 			// CORRECTIF : on ignore les dégâts AVANT de mémoriser la source, sinon un monstre qui
@@ -1361,11 +1392,21 @@ namespace Soulfract
 				_lastDamageSourceName = sourceName;
 				_lastDamageCause = cause;
 			}
+			// Évaluer le bouclier avant le retour God Mode : les attaques appliquent aussi
+			// leur propre vibration après DamagePlayer. En God Mode, une parade valide
+			// déclenche son retour visuel sans consommer d'endurance.
+			if (blockable)
+			{
+				amount = ApplyShieldBlock(amount, sourcePos, sourceName, consumeStamina: !IsGodMode);
+			}
+
 			if (IsGodMode)
 			{
 				playerHP = GetEffectivePlayerMaxHP();
 				return;
 			}
+
+			if (amount <= 0) return; // coup entièrement paré
 
 			int effectiveDamage = equipment.GetDamageAfterArmor(amount);
 			playerHP -= effectiveDamage;
@@ -1538,7 +1579,7 @@ namespace Soulfract
 				{
 					int dmg = (int)_starvationDamageAccumulator;
 					_starvationDamageAccumulator -= dmg;
-					DamagePlayer(dmg, "la faim et la soif", DeathCause.Starvation);
+					DamagePlayer(dmg, "la faim et la soif", DeathCause.Starvation, blockable: false);
 				}
 			}
 			else
@@ -1607,7 +1648,7 @@ namespace Soulfract
                     _poisonTickAccumulator -= ticks * POISON_TICK_INTERVAL;
                     for (int i = 0; i < ticks; i++)
                     {
-                        DamagePlayer((int)GetPoisonDamagePerTick(), "le poison", DeathCause.Poison);
+                        DamagePlayer((int)GetPoisonDamagePerTick(), "le poison", DeathCause.Poison, blockable: false);
                     }
                 }
                 if (_poisonTimer <= 0f)
@@ -1976,7 +2017,7 @@ public static void SpawnAuthoritativeGroundItem(int itemId, int count, Vector2 w
 			if (chunk == null) return;
 			
 			// Appliquer le revêtement
-			chunk.SetWallCoveringAt(tileX, tileY, itemData.PlaceableId);
+			World.SetWallCoveringAt(tileX, tileY, itemData.PlaceableId);
 			
 			// Retirer l'item de l'inventaire
 			RemoveItemFromInventory(heldItem.Name, 1);

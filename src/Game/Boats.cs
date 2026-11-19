@@ -43,6 +43,8 @@ namespace Soulfract
             // tous les chunks du chargement initial sont en mémoire (donc que les toits sont
             // scannables), et avant que les PNJ ne reprennent leur mise à jour normale.
             World.RefreshAllHouses();
+			if (_loadingSaveData != null)
+				World.RestoreHouseFloor(_loadingSaveData.PlayerHouseFloor, _playerPos);
 			World.RebuildFieldWorkZonesFromTerrain();
 
             //  Le crabe compagnon (set d'armure « Crabe ») est réinvoqué ici plutôt que dans

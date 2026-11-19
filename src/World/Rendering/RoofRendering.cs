@@ -36,16 +36,33 @@ namespace Soulfract
 						int localIx = ix;   // COPIE LOCALE
 						int localIy = iy;   // COPIE LOCALE
 						int overlayId = overlayIds[localIx, localIy];
-						if (overlayId == 0 || (_isPlayerIndoors && overlayId != 123)) continue;
+						if (overlayId == 0) continue;
+
+						int roofBuildingId = overlayId == 82 ? GetBuildingIdAt(worldX, worldY) : 0;
+						bool coveredByUpperFloor = roofBuildingId != 0
+							&& TryGetHouseFloorTile(roofBuildingId, 1, worldX, worldY, out var upperFloor)
+							&& upperFloor.GroundTileId > 0;
+						if (!coveredByUpperFloor)
+							coveredByUpperFloor = HasHouseFloorGroundAt(1, worldX, worldY);
+						if (coveredByUpperFloor)
+							continue;
+
+						if (_isPlayerIndoors && overlayId != 123)
+						{
+							// Intérieur fermé : aucun toit (comme avant).
+							if (HidesOutsideWorld) continue;
+						}
+
 						var overlayTileData = WorldTileRegistry.GetTile(overlayId);
 						if (overlayTileData == null) continue;
 						float wx = worldX * ts;
-						float wy = worldY * ts;
+						float groundWy = worldY * ts;     // position au sol : sert au TRI
+						float wy = groundWy;
 						int roofHeightTiles = roofHeights[ix, iy];
 						// Décalage vertical proportionnel à la hauteur DE CETTE TUILE (plafonnée au
 						// faîtage) : c'est ce qui donne la perspective en pente au lieu d'un toit plat.
-						// Les pans horizontaux restent à hauteur pleine (comme avant, positions
-						// inchangées) ; les pans verticaux montent depuis les bords vers le milieu.
+						// Les pans horizontaux restent à hauteur pleine, avec le versant arrière
+						// assombri ; les pans verticaux montent depuis les bords vers le milieu.
 						float yOffset = -(roofHeightTiles) * ts;
 						float adjustedWy = wy + yOffset;
 						// Le tri en Y doit se baser sur la position AU SOL (non décalée), pas sur la
@@ -69,11 +86,11 @@ namespace Soulfract
 						// Les murs utilisent le même départage horizontal basé sur ix. Le toit doit
 						// rester juste au-dessus du mur de la même tuile, sinon le mur le recouvre
 						// dès que la tuile n'est plus à l'extrême gauche de la fenêtre.
-						float sortY = overlayId == 123 ? wy + ts - 0.01f : wy + ts + (ix + 1) * 0.001f;
+						float sortY = overlayId == 123 ? groundWy + ts - 0.01f : groundWy + ts + (ix + 1) * 0.001f;
 
 						bool hasSlopeInfo = TryGetRoofTileInfo(worldX, worldY, out RoofTileInfo slopeInfo);
-						// Les pans "horizontaux" (plats, à hauteur classique) sont dessinés en
-						// premier (en arrière-plan) ; les pans "verticaux" (surélevés par
+						// Les pans "horizontaux" (séparation arrière/faîtage/avant) sont dessinés
+						// en premier (en arrière-plan) ; les pans "verticaux" (surélevés par
 						// l'empilement de roof_wall) passent par-dessus. Écart minime : ça ne
 						// concerne que l'ordre ENTRE pans du même toit, jamais vis-à-vis d'un objet
 						// extérieur à cette rangée.
@@ -105,6 +122,22 @@ namespace Soulfract
 						bool capturedIsColumnAnchor = hasSlopeInfo && slopeInfo.IsColumnAnchor;
 						int capturedWallStackCount = hasSlopeInfo ? slopeInfo.WallStackCount : 0;
 						RoofTexKind capturedTexKind = hasSlopeInfo ? slopeInfo.TexKind : RoofTexKind.Default;
+						bool hasRoofAbove = overlayId == 82
+							&& Program.IsTileLit(worldX, worldY - 1)
+							&& GetOverlayAt(worldX, worldY - 1) == overlayId;
+						bool hasRoofBelow = overlayId == 82
+							&& Program.IsTileLit(worldX, worldY + 1)
+							&& GetOverlayAt(worldX, worldY + 1) == overlayId;
+						bool useFullRoofTexture = overlayId == 82
+							&& hasRoofAbove
+							&& hasRoofBelow
+							&& capturedTexKind != RoofTexKind.Up
+							&& capturedTexKind != RoofTexKind.Down
+							&& GetRoofVariantConnectionTexture(missingTex, "roof_tile", "full").Id != 0;
+						Color capturedTint = capturedTexKind == RoofTexKind.Back
+							? new Color(180, 180, 180, 255)
+							: Color.White;
+						bool capturedUseFullRoofTexture = useFullRoofTexture;
 
 						// L'empilement de roof_wall part dans SON PROPRE élément de rendu, avec une
 						// priorité de tri légèrement supérieure (voir note plus haut : l'écart reste
@@ -148,6 +181,8 @@ float stackY = baseY - (lvl - 1) * ts;
 									RoofTexKind.Down => GetRoofDownTexture(missingTex),
 									_ => GetTileTexture(capturedX, capturedY, capturedOverlayId, currentTime),
 								};
+								if (capturedUseFullRoofTexture)
+									tex = GetRoofVariantConnectionTexture(missingTex, "roof_tile", "full");
 								if (tex.Id == 0) tex = missingTex;
 								int drawW = ts, drawH = ts;
 								int drawX = (int)capturedWx, drawY = (int)capturedWy;
@@ -174,7 +209,7 @@ float stackY = baseY - (lvl - 1) * ts;
 									else
 									{
 										Raylib.DrawTexturePro(tex, new Rectangle(0,0,tex.Width,tex.Height),
-											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, Color.White);
+											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, capturedTint);
 									}
 								}
 							}
@@ -215,28 +250,218 @@ float stackY = baseY - (lvl - 1) * ts;
 									Texture2D connTex = GetConnectionTextureForKind("left");
 									if (connTex.Id != 0)
 										Raylib.DrawTexturePro(connTex, new Rectangle(0,0,connTex.Width,connTex.Height),
-											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, Color.White);
+											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, capturedTint);
 								}
 								if (Program.IsTileLit(capturedX + 1, capturedY) && GetOverlayAt(capturedX + 1, capturedY) == capturedOverlayId)
 								{
 									Texture2D connTex = GetConnectionTextureForKind("right");
 									if (connTex.Id != 0)
 										Raylib.DrawTexturePro(connTex, new Rectangle(0,0,connTex.Width,connTex.Height),
-											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, Color.White);
+											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, capturedTint);
 								}
-								if (Program.IsTileLit(capturedX, capturedY - 1) && GetOverlayAt(capturedX, capturedY - 1) == capturedOverlayId)
+								if (!capturedUseFullRoofTexture
+									&& Program.IsTileLit(capturedX, capturedY - 1)
+									&& GetOverlayAt(capturedX, capturedY - 1) == capturedOverlayId)
 								{
 									Texture2D connTex = GetConnectionTextureForKind("up");
 									if (connTex.Id != 0)
 										Raylib.DrawTexturePro(connTex, new Rectangle(0,0,connTex.Width,connTex.Height),
-											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, Color.White);
+											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, capturedTint);
 								}
-								if (Program.IsTileLit(capturedX, capturedY + 1) && GetOverlayAt(capturedX, capturedY + 1) == capturedOverlayId)
+								if (!capturedUseFullRoofTexture
+									&& Program.IsTileLit(capturedX, capturedY + 1)
+									&& GetOverlayAt(capturedX, capturedY + 1) == capturedOverlayId)
 								{
 									Texture2D connTex = GetConnectionTextureForKind("down");
 									if (connTex.Id != 0)
 										Raylib.DrawTexturePro(connTex, new Rectangle(0,0,connTex.Width,connTex.Height),
-											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, Color.White);
+											new Rectangle(drawX, drawY, drawW, drawH), Vector2.Zero, 0, capturedTint);
+								}
+							}
+						});
+
+						if (capturedTexKind == RoofTexKind.Ridge)
+						{
+							renderItems.Add(new RenderItem
+							{
+								SortLayer = capturedSortLayer,
+								Y = sortY + 0.015f,
+								DrawAction = () =>
+								{
+									Texture2D separationTex = GetRoofVariantConnectionTexture(missingTex, "roof", "separation");
+									if (separationTex.Id == 0)
+										return;
+
+									Raylib.DrawTexturePro(separationTex,
+										new Rectangle(0, 0, separationTex.Width, separationTex.Height),
+										new Rectangle(capturedWx, capturedWy - ts, ts, ts),
+										Vector2.Zero, 0, Color.White);
+								}
+							});
+						}
+					}
+				}
+
+				AddUpperHouseRoofs(ctx, missingTex);
+			}
+
+			private static void AddUpperHouseRoofs(DrawWorldContext ctx, Texture2D missingTex)
+			{
+				if (HidesOutsideWorld)
+					return;
+
+				int ts = ctx.ts;
+				float currentTime = ctx.currentTime;
+				var roofs = GetUpperHouseRoofTiles();
+				if (roofs.Count == 0)
+					return;
+
+				foreach (var (key, roofInfo) in roofs)
+				{
+					int buildingId = key.buildingId;
+					int floor = key.floor;
+					int worldX = key.x;
+					int worldY = key.y;
+					if (_isPlayerIndoors && floor > CurrentHouseFloor)
+						continue;
+					if (!Program.IsTileLit(worldX, worldY))
+						continue;
+
+					float wx = worldX * ts;
+					float floorWy = worldY * ts - floor * 3f * ts + ts;
+					float roofWy = floorWy - roofInfo.Height * ts;
+					var roofTileData = WorldTileRegistry.GetTile(82);
+					if (roofTileData == null)
+						continue;
+					int drawWidth = roofTileData.Size != null ? ts * roofTileData.Size.Width : ts;
+					int drawHeight = roofTileData.Size != null ? ts * roofTileData.Size.Height : ts;
+					float drawX = wx + (roofTileData.DrawOffset?.X ?? 0);
+					float drawY = roofWy - drawHeight + ts;
+
+					float stackTop = floorWy - (roofInfo.Height - roofInfo.WallStackCount) * ts
+						- Math.Max(0, roofInfo.WallStackCount - 1) * ts;
+					float roofTop = roofInfo.IsColumnAnchor && roofInfo.WallStackCount > 0
+						? MathF.Min(drawY, stackTop)
+						: drawY;
+					if (!ctx.IsWorldRectVisible(drawX, roofTop, drawWidth,
+						MathF.Max(drawY + drawHeight, floorWy + ts) - roofTop))
+						continue;
+
+					bool hasLeft = roofs.ContainsKey((buildingId, floor, worldX - 1, worldY));
+					bool hasRight = roofs.ContainsKey((buildingId, floor, worldX + 1, worldY));
+					bool hasAbove = roofs.ContainsKey((buildingId, floor, worldX, worldY - 1));
+					bool hasBelow = roofs.ContainsKey((buildingId, floor, worldX, worldY + 1));
+					bool useFullTexture = hasAbove && hasBelow
+						&& roofInfo.TexKind != RoofTexKind.Up
+						&& roofInfo.TexKind != RoofTexKind.Down
+						&& GetRoofVariantConnectionTexture(missingTex, "roof_tile", "full").Id != 0;
+					int sortLayer = floor * 2 + 1;
+					float sortY = floorWy + ts + (worldX & 1) * 0.001f;
+					int capturedX = worldX;
+					int capturedY = worldY;
+					float capturedDrawX = drawX;
+					float capturedDrawY = drawY;
+					int capturedDrawWidth = drawWidth;
+					int capturedDrawHeight = drawHeight;
+					bool capturedHasLeft = hasLeft;
+					bool capturedHasRight = hasRight;
+					bool capturedHasAbove = hasAbove;
+					bool capturedHasBelow = hasBelow;
+					bool capturedUseFullTexture = useFullTexture;
+					RoofTexKind capturedTexKind = roofInfo.TexKind;
+					Color tint = capturedTexKind == RoofTexKind.Back
+						? new Color(180, 180, 180, 255)
+						: Color.White;
+
+					_renderItemsPool.Add(new RenderItem
+					{
+						SortLayer = sortLayer,
+						Y = sortY,
+						DrawAction = () =>
+						{
+							Texture2D texture = capturedTexKind switch
+							{
+								RoofTexKind.Up => GetRoofUpTexture(missingTex),
+								RoofTexKind.Down => GetRoofDownTexture(missingTex),
+								_ => GetTileTexture(capturedX, capturedY, 82, currentTime),
+							};
+							if (capturedUseFullTexture)
+								texture = GetRoofVariantConnectionTexture(missingTex, "roof_tile", "full");
+							if (texture.Id == 0)
+								texture = missingTex;
+							if (texture.Id != 0)
+							{
+								Raylib.DrawTexturePro(texture,
+									new Rectangle(0, 0, texture.Width, texture.Height),
+									new Rectangle(capturedDrawX, capturedDrawY, capturedDrawWidth, capturedDrawHeight),
+									Vector2.Zero, 0, tint);
+							}
+
+							Texture2D GetConnectionTexture(string direction)
+								=> capturedTexKind switch
+								{
+									RoofTexKind.Up => GetRoofVariantConnectionTexture(missingTex, "roof_up", direction),
+									RoofTexKind.Down => GetRoofVariantConnectionTexture(missingTex, "roof_down", direction),
+									_ => WorldTileRegistry.GetConnectionTexture(82, direction),
+								};
+
+							void DrawConnection(bool connected, string direction)
+							{
+								if (!connected)
+									return;
+								var connection = GetConnectionTexture(direction);
+								if (connection.Id == 0)
+									return;
+								Raylib.DrawTexturePro(connection,
+									new Rectangle(0, 0, connection.Width, connection.Height),
+									new Rectangle(capturedDrawX, capturedDrawY, capturedDrawWidth, capturedDrawHeight),
+									Vector2.Zero, 0, tint);
+							}
+
+							DrawConnection(capturedHasLeft, "left");
+							DrawConnection(capturedHasRight, "right");
+							if (!capturedUseFullTexture)
+							{
+								DrawConnection(capturedHasAbove, "up");
+								DrawConnection(capturedHasBelow, "down");
+							}
+
+							if (capturedTexKind == RoofTexKind.Ridge)
+							{
+								Texture2D separation = GetRoofVariantConnectionTexture(missingTex, "roof", "separation");
+								if (separation.Id != 0)
+								{
+									Raylib.DrawTexturePro(separation,
+										new Rectangle(0, 0, separation.Width, separation.Height),
+										new Rectangle(capturedDrawX, capturedDrawY - ts, ts, ts),
+										Vector2.Zero, 0, Color.White);
+								}
+							}
+						}
+					});
+
+					if (roofInfo.IsColumnAnchor && roofInfo.WallStackCount > 0)
+					{
+						int baseHeightTiles = roofInfo.Height - roofInfo.WallStackCount;
+						float wallBaseY = floorWy - baseHeightTiles * ts;
+						int wallStackCount = roofInfo.WallStackCount;
+						float capturedWallX = wx;
+						_renderItemsPool.Add(new RenderItem
+						{
+							SortLayer = sortLayer,
+							Y = sortY + 0.02f,
+							DrawAction = () =>
+							{
+								Texture2D wallTexture = GetRoofWallTexture(missingTex);
+								if (wallTexture.Id == 0)
+									return;
+								for (int level = 1; level <= wallStackCount; level++)
+								{
+									float wallY = wallBaseY - (level - 1) * ts;
+									Raylib.DrawTexturePro(wallTexture,
+										new Rectangle(0, 0, wallTexture.Width, wallTexture.Height),
+										new Rectangle(capturedWallX, wallY, ts, ts),
+										Vector2.Zero, 0, Color.White);
 								}
 							}
 						});

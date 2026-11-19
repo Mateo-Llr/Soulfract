@@ -36,6 +36,7 @@ namespace Soulfract
 				// PERF : on récupère le snapshot des entités distantes une seule fois par dessin.
 				// La recherche de cible de quête est ensuite O(1), au lieu de reparcourir toutes
 				// les entités distantes pour chaque PNJ humain affiché.
+				// Les entités n'ont pas d'étage propre et restent donc au niveau du monde.
 				var remoteEntitiesSnapshot = NetworkManager.IsClient ? NetworkManager.GetRemoteEntities() : null;
 				HashSet<string>? acceptedQuestTargetNetIds = null;
 				if (remoteEntitiesSnapshot != null)
@@ -84,7 +85,10 @@ namespace Soulfract
 						}
 						renderItems.Add(new RenderItem
 						{
-							Y = capturedDtoVisualPos.Y + Program.FeetOffsetY,
+							Y = string.Equals(capturedDto.AnimState, "sleep", StringComparison.OrdinalIgnoreCase)
+								? capturedDtoVisualPos.Y + (capturedDto.IsSleepingBehindFurniture ? 0f : 80f)
+								: capturedDtoVisualPos.Y + Program.FeetOffsetY,
+							SortLayer = 0,
 							DrawAction = () =>
 							{
 								Texture2D hBase = capturedHairBase.Count > hairIdx ? capturedHairBase[hairIdx] : new Texture2D();
@@ -198,9 +202,13 @@ namespace Soulfract
 					var e = entity;
 					bool isTrader = e.IsTrader;
 					Vector2 traderIconPos = new Vector2(entityVisualPos.X, entityVisualPos.Y - e.VisualOffsetY);
+						float entitySortY = e.IsSleeping
+							? entityVisualPos.Y + (e.IsSleepingBehindFurniture ? 0f : 80f)
+							: entityVisualPos.Y + Program.FeetOffsetY;
 					renderItems.Add(new RenderItem
 					{
-						Y = entityVisualPos.Y + Program.FeetOffsetY,
+						Y = entitySortY,
+						SortLayer = 0,
 						DrawAction = () =>
 						{
 							//  BOSS VER DE TERRE : rendu segmenté dédié (trail), pas le squelette classique.

@@ -210,6 +210,43 @@ namespace Soulfract
         /// cible n'est assignée, et se rue sur PetCombatTarget dès que
         /// Program.NotifyPlayerAttackedByEntity en assigne une (le joueur vient d'être attaqué).
         /// </summary>
+        private float _petPathTimer;
+        private bool _petLosClear;
+
+        //  Retourne le point à viser : la cible elle-même si la voie est libre, sinon le prochain nœud d'un
+        // chemin A*. PERF : ligne de vue + A* au plus toutes les ~0,7 s, et 1,5 s d'attente après un échec
+        // (cible injoignable) pour ne pas relancer des recherches coûteuses qui échouent à chaque fois.
+        private Vector2 ResolvePetChaseWaypoint(float dt, HashSet<string> destroyed, Vector2 goal)
+        {
+            _petPathTimer -= dt;
+            if (_petPathTimer <= 0f)
+            {
+                _petPathTimer = 0.7f + (float)Random.Shared.NextDouble() * 0.2f;
+                _petLosClear = Vector2.DistanceSquared(WorldPos, goal) < 60f * 60f
+                    || HasClearLine(WorldPos, goal, destroyed, 400f, 32f);
+
+                if (!_petLosClear && AiPathBudget.CanSearch() && Pathfinder.TryReservePathRequest())
+                {
+                    int margin = ComputeDynamicPathMargin(WorldPos, goal);
+                    _currentPath = AiPathBudget.Find(WorldPos, goal, destroyed, margin, Species);
+                    if (_currentPath.Count == 0)
+                        _petPathTimer = 1.5f;
+                }
+            }
+
+            if (_petLosClear)
+            {
+                _currentPath.Clear();
+                return goal;
+            }
+
+            while (_currentPath.Count > 0
+                && Vector2.DistanceSquared(_currentPath[0], WorldPos) < 18f * 18f)
+                _currentPath.RemoveAt(0);
+
+            return _currentPath.Count > 0 ? _currentPath[0] : goal;
+        }
+
         private void UpdatePetCompanionAI(float dt, HashSet<string> destroyed, Vector2 playerPos)
         {
             UpdateWaterStatus();
@@ -237,7 +274,10 @@ namespace Soulfract
 
                 if (distToTarget > PET_ATTACK_RANGE)
                 {
-                    desiredTarget = target.WorldPos;
+                    //  CORRECTIF : le compagnon fonçait en ligne droite sur sa cible sans jamais contourner un
+                    // obstacle (mur, meuble) : il restait collé/zigzaguait contre lui. Si la ligne de vue est
+                    // bloquée, il suit désormais un chemin A* (recalcul rare, cf. ResolvePetChaseWaypoint).
+                    desiredTarget = ResolvePetChaseWaypoint(dt, destroyed, target.WorldPos);
                     desiredSpeed = RunSpeed > 0f ? RunSpeed : BaseSpeed * 1.6f;
                     AnimState = "walk";
                 }
@@ -511,7 +551,7 @@ namespace Soulfract
 
             float headOffsetX = (float)(Random.Shared.NextDouble() - 0.5) * 15f;
             float headOffsetY = -35f - (float)(Random.Shared.NextDouble() * 10f);
-            Vector2 visualPos = World.GetEntityGroundPosition(WorldPos);
+            Vector2 visualPos = World.GetEntityGroundPosition(VisualWorldPos);
             Vector2 zzzPos = new Vector2(visualPos.X + headOffsetX, visualPos.Y + headOffsetY);
 
             Vector2 velocity = new Vector2(
@@ -562,6 +602,10 @@ namespace Soulfract
             {
                 _isSleeping = false;
                 _groundResting = false;
+                _sleepVisualPosition = Vector2.Zero;
+                _sleepApproachPosition = null;
+                _isWalkingToSleepPosition = false;
+                _sleepingBehindFurniture = false;
                 _hasDepositedTonight = false;
                 _sleepTimer = 0f;
                 _zzzTimer = 0f;
@@ -600,6 +644,55 @@ namespace Soulfract
                 : IsInsideAssignedHouse();
             bool isHomeOrHomeless = !isRunningChestErrand
                 && (!hasHome || isInsideHome);
+
+            if (_isWalkingToSleepPosition)
+            {
+                bool canContinueSleepApproach = isNight && !IsPlayer && !IsTamed
+                    && Behavior != "hostile" && isHomeOrHomeless
+                    && _sleepApproachPosition.HasValue
+                    && _currentGoalPriority <= NpcPriority.GoHome;
+                if (!canContinueSleepApproach)
+                {
+                    _isWalkingToSleepPosition = false;
+                    _sleepApproachPosition = null;
+                    _sleepVisualPosition = Vector2.Zero;
+                    _sleepingBehindFurniture = false;
+                    _sleepTimer = 0f;
+                    if (_currentGoalPriority == NpcPriority.GoHome)
+                    {
+                        _currentGoalPriority = NpcPriority.Idle;
+                        _goalLockTimer = 0f;
+                        if (AiState == NpcAiState.WalkToTarget)
+                        {
+                            AiState = NpcAiState.Idle;
+                            AiTarget = WorldPos;
+                            _currentPath.Clear();
+                            _pathRecalcTimer = 0f;
+                            AnimState = "idle";
+                        }
+                    }
+                }
+                else if (Vector2.DistanceSquared(WorldPos, _sleepApproachPosition!.Value) <= 10f * 10f)
+                {
+                    _isWalkingToSleepPosition = false;
+                    _sleepApproachPosition = null;
+                    AiState = NpcAiState.Idle;
+                    AiTarget = WorldPos;
+                    _currentPath.Clear();
+                    _pathRecalcTimer = 0f;
+                    _sleepTimer = SLEEP_TRANSITION_DELAY;
+                }
+                else
+                {
+                    ForceGoal(NpcPriority.GoHome, 2f);
+                    AiState = NpcAiState.WalkToTarget;
+                    AiTarget = _sleepApproachPosition.Value;
+                    AnimState = "walk";
+                    Speed = BaseSpeed;
+                    _sleepTimer = 0f;
+                    return;
+                }
+            }
 
             bool canRestInTent = HomeBuildingId != TentHomeBuildingId || _tentRestCooldown <= 0f;
             if (isNight && !IsPlayer && !IsTamed && Behavior != "hostile" && isHomeOrHomeless
@@ -671,8 +764,11 @@ namespace Soulfract
                             if (_chestApproachRetryCount >= CHEST_APPROACH_MAX_RETRIES)
                             {
                                 _chestApproachRetryCount = 0;
+                                if (TryApproachBedBeforeSleeping())
+                                    return;
                                 _isSleeping = true;
-                                _sleepVisualPosition = GetSleepVisualPosition();
+                                if (_sleepVisualPosition == Vector2.Zero)
+                                    _sleepVisualPosition = GetSleepVisualPosition();
                                 ReleaseCurrentGoalLock();
                                 AnimState = _restingInChair ? "sit" : "sleep";
                                 _sleepTimer = 0f;
@@ -683,8 +779,11 @@ namespace Soulfract
                             return;
                         }
 
+                        if (TryApproachBedBeforeSleeping())
+                            return;
                         _isSleeping = true;
-                        _sleepVisualPosition = GetSleepVisualPosition();
+                        if (_sleepVisualPosition == Vector2.Zero)
+                            _sleepVisualPosition = GetSleepVisualPosition();
                         ReleaseCurrentGoalLock();
                         AnimState = _restingInChair ? "sit" : "sleep";
                         _sleepTimer = 0f;
@@ -720,6 +819,9 @@ namespace Soulfract
                     _tentSleepTimer = 0f;
                     _groundResting = false;
                     _sleepVisualPosition = Vector2.Zero;
+                    _sleepingBehindFurniture = false;
+                    _sleepApproachPosition = null;
+                    _isWalkingToSleepPosition = false;
                     _hasDepositedTonight = false;
                     _morningDeparturePending = true;
                     _sleepTimer = 0f;
@@ -749,14 +851,58 @@ namespace Soulfract
             }
         }
 
+        private bool TryApproachBedBeforeSleeping()
+        {
+            if (HomeBuildingId < 0 || HomeBuildingId == TentHomeBuildingId
+                || TentPosition != Vector2.Zero || _sleepVisualPosition != Vector2.Zero)
+                return false;
+
+            Vector2? bedPosition = World.FindNearestAvailableSleepPosition(HomeBuildingId, WorldPos, this)
+                ?? World.FindNearestSleepPosition(HomeBuildingId, WorldPos);
+            if (!bedPosition.HasValue)
+                return false;
+
+            Vector2? approachPosition = World.FindBedApproachPosition(HomeBuildingId, bedPosition.Value, this);
+            if (!approachPosition.HasValue)
+            {
+                _sleepVisualPosition = WorldPos;
+                _groundResting = true;
+                _sleepingBehindFurniture = false;
+                return false;
+            }
+
+            _sleepVisualPosition = bedPosition.Value;
+            _sleepingBehindFurniture = false;
+            if (Vector2.DistanceSquared(WorldPos, approachPosition.Value) <= 10f * 10f)
+                return false;
+
+            _sleepApproachPosition = approachPosition.Value;
+            _isWalkingToSleepPosition = true;
+            ForceGoal(NpcPriority.GoHome, 2f);
+            AiState = NpcAiState.WalkToTarget;
+            AiTarget = approachPosition.Value;
+            _currentPath.Clear();
+            _pathRecalcTimer = 0f;
+            _pathFailStreak = 0;
+            AnimState = "walk";
+            Speed = BaseSpeed;
+            _sleepTimer = 0f;
+            return true;
+        }
+
         private Vector2 GetSleepVisualPosition()
         {
             _restingInChair = false;
             _groundResting = false;
+            _sleepingBehindFurniture = false;
+
+            if (_sleepVisualPosition != Vector2.Zero)
+                return _sleepVisualPosition;
 
             if (TentPosition != Vector2.Zero && !Program.IsSleepPositionOccupied(TentPosition, this))
             {
                 Program.PrepareTentOccupation(TentPosition, this);
+                _sleepingBehindFurniture = true;
                 return TentPosition;
             }
 
@@ -778,7 +924,11 @@ namespace Soulfract
 
             if (sleepPosition.HasValue)
             {
-                Program.PrepareTentOccupation(sleepPosition.Value, this);
+                if (HomeBuildingId == TentHomeBuildingId)
+                {
+                    Program.PrepareTentOccupation(sleepPosition.Value, this);
+                    _sleepingBehindFurniture = true;
+                }
                 return sleepPosition.Value;
             }
 

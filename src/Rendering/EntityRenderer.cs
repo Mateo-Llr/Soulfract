@@ -42,6 +42,17 @@ namespace Soulfract
         private static bool _waterImmersionActive;
         private const float WaterSinkBodyHeightFactor = 2f;
 
+        private static (Vector2 Offset, float Rotation) GetShieldTremble(ShieldPose pose, float scale)
+        {
+            if (pose.Recoil <= 0f) return (Vector2.Zero, 0f);
+
+            float time = (float)Raylib.GetTime();
+            Vector2 offset = new(
+                MathF.Sin(time * 91f) * 2.5f,
+                MathF.Sin(time * 117f) * 1.5f);
+            return (offset * (pose.Recoil * scale), MathF.Sin(time * 103f) * 7f * pose.Recoil);
+        }
+
         private const string WaterImmersionFragmentShader = @"#version 330
 in vec2 fragTexCoord;
 in vec4 fragColor;
@@ -211,12 +222,7 @@ void main()
             Raylib.EndShaderMode();
         }
 
-        //  PERF (dézoom) : niveau de zoom de la caméra courante, poussé une fois par frame par
-        // World.DrawWorld via SetCurrentZoomLevel. Sert de base au LOD de DrawEntity ci-dessous
-        // (voir "lowDetail") : à faible zoom, les détails fins (bijoux, traits aléatoires,
-        // couches de teinture secondaires) sont invisibles à l'écran mais coûtaient quand même
-        // un plein lot d'appels de dessin par PNJ — multiplié par beaucoup plus de PNJ visibles
-        // simultanément puisque l'écran couvre une zone du monde bien plus grande en dézoomant.
+        // Niveau de zoom de la caméra courante, utilisé pour adapter certains effets visuels.
         private static float _currentZoomLevel = 1f;
         private static readonly Dictionary<uint, List<Vector2>> _bloodOpaquePixelCache = new();
         private static Shader _ghostShader;
@@ -1478,15 +1484,6 @@ void main()
             // (après le culling écran fait par l'appelant), pour le panneau de perf. Voir PerfStats.cs.
             PerfStats.NotifyEntityDrawn();
 
-            //  PERF (dézoom) : à faible zoom, l'écran couvre une zone du monde bien plus grande,
-            // donc beaucoup plus d'entités passent le culling écran (IsEntityNearScreen) et
-            // reçoivent chacune un rendu détaillé complet (squelette + plusieurs couches de
-            // teinture par pièce d'équipement + bijoux/accessoires). C'était la cause principale
-            // des 35ms de rendu constatés en dézoomant : aucune réduction de détail ne
-            // dépendait du zoom. En dessous de LOD_ZOOM_THRESHOLD, ces détails fins sont de
-            // certains détails d'équipement deviennent minuscules : on les réduit à un seul
-            // calque de teinture par pièce et on masque les bijoux. Les traits propres à
-            // l'espèce restent dessinés pour préserver sa silhouette reconnaissable.
             const float LOD_ZOOM_THRESHOLD = 0.75f;
             bool lowDetail = _currentZoomLevel > 0f && _currentZoomLevel < LOD_ZOOM_THRESHOLD;
 
@@ -1503,6 +1500,11 @@ void main()
                     heldItemTexture = GetHeldItemTextureInfo(heldItemInstance).Texture;
                 isBow |= GameData.IsRangedWeapon(heldItemInstance.Name);
             }
+            //  BOUCLIER : si le joueur local garde son bouclier levé, le bras concerné est replié
+            // vers la direction parée (voir ComputePart) et la tête suit même sans arme en main.
+            ShieldPose shieldPose = default;
+            bool shieldActive = isHumanoid && Program.TryGetShieldPose(equipment, out shieldPose);
+            if (shieldActive && headAngle == 0f) headAngle = shieldPose.HeadAngle;
             if (!skeletons.ContainsKey(speciesKey))
             {
                 DrawFallbackEntity(pos, facing, Color.White);
@@ -1608,7 +1610,8 @@ void main()
                     | (aimingPoseFlag && heldItemTexture.Id != 0 ? 2 : 0)
                     | (isHumanoid && attackSwingProgress > 0f && attackSwingProgress < 1f ? 4 : 0)
                     | (isHumanoid && isCarryingCreature ? 8 : 0)
-                    | (isHumanoid && isCarrying ? 16 : 0);
+                    | (isHumanoid && isCarrying ? 16 : 0)
+                    | (shieldActive ? 32 : 0);
                 poseBlender = _poseBlenders.GetValue(blendIdentity, static _ => new AnimPoseBlender());
                 poseBlender.Begin(speciesKey, partCount, animName, poseFlags, Raylib.GetTime(),
                     AnimPoseBlender.GetDuration(animName));
@@ -1700,6 +1703,19 @@ void main()
                             new Vector2(frames[ni].X, frames[ni].Y), t) * speciesScale;
                         animRot = Raymath.Lerp(frames[safeFrame].Z, frames[ni].Z, t);
                     }
+                }
+
+                //  BOUCLIER : le bras qui tient le bouclier fond vers la pose de garde (coude toujours
+                // fléchi, orienté selon la direction parée). L'autre bras garde son animation normale.
+                if (shieldActive && isArmPart
+                    && part.Name.StartsWith(shieldPose.RightArm ? "rarm" : "larm", StringComparison.Ordinal))
+                {
+                    bool isTop = part.Name.EndsWith("top", StringComparison.Ordinal);
+                    float eased = shieldPose.EasedRaise;
+                    float targetRot = (isTop ? shieldPose.TopArmRotation : shieldPose.ForearmRotation) - part.BaseRot;
+                    Vector2 targetOffset = isTop ? new Vector2(facing * 4f, -1f) : Vector2.Zero;
+                    animRot = Raymath.Lerp(animRot, targetRot, eased);
+                    animOffset = Vector2.Lerp(animOffset, targetOffset, eased);
                 }
 
                 // Lisse l'écart éventuel avec la pose affichée à la frame précédente (no-op hors transition).
@@ -2367,7 +2383,6 @@ void main()
                     // ===== 3. ACCESSOIRES DE TÊTE (PAR-DESSUS TOUT) =====
                     if (equipment != null)
                     {
-                        // Les petites boucles d'oreilles peuvent être omises au dézoom pour le LOD.
                         if (!lowDetail)
                             DrawAccessoryInSlot(equipment, BodyZone.Ears, "head", globalPos, globalRot, facing, speciesScale, earringLayers, flashWhite);
                     }
@@ -2709,7 +2724,6 @@ void main()
                 }
 
                 // ===== ACCESSOIRES DU CORPS (Collier, Ceinture, Bracelets, Bagues, etc.) =====
-                //  PERF LOD : sautés à faible zoom (voir lowDetail).
                 if (!lowDetail && equipment != null && part.Name == "body" && isHumanoid)
                 {
                     // Collier / Écharpe
@@ -2727,7 +2741,6 @@ void main()
                 // d'équipement (unifié par zones du corps) ; aucun item de la base ne les utilise.
 
                 // Chaussettes / chaussures (dessiner symétriquement sur les deux jambes)
-                //  PERF LOD : sautées à faible zoom (voir lowDetail).
                 if (!lowDetail && equipment != null && isHumanoid && socksItem != null)
                 {
                     {
@@ -2770,7 +2783,11 @@ void main()
                     float tw = heldItemTexture.Width;
                     float th = heldItemTexture.Height;
                     Rectangle src = new(facing < 0 ? tw : 0, 0, tw * facing, th);
-                    Vector2 basePos = globalPos;
+                    bool heldShield = shieldActive && shieldPose.RightArm && Program.IsShieldItem(heldItemInstance);
+                    var shieldTremble = heldShield
+                        ? GetShieldTremble(shieldPose, speciesScale)
+                        : (Vector2.Zero, 0f);
+                    Vector2 basePos = globalPos + shieldTremble.Item1;
                     Vector2 finalPos = basePos;
                     if (keepItemHorizontal)
                     {
@@ -2783,7 +2800,7 @@ void main()
                         dest.Height *= 0.5f;
                     }
                     Vector2 origin = new(dest.Width / 2f, dest.Height / 2f);
-                    float finalRotation = keepItemHorizontal ? 0f : globalRot;
+                    float finalRotation = (keepItemHorizontal ? 0f : globalRot) + shieldTremble.Item2;
                     bool isTaggedPotion = heldItemInstance != null && ItemRenderer.IsPotionMetadata(heldItemInstance.Metadata);
                     isTaggedPotion = isTaggedPotion && heldItemInstance != null && !Program.IsLiquidContainer(heldItemInstance);
                     if (isTaggedPotion && heldItemInstance != null && GameData.TryGetItemByName(heldItemInstance.Name, out var heldItemData))
@@ -2842,9 +2859,14 @@ void main()
                         float tw = offHandTex.Width;
                         float th = offHandTex.Height;
                         Rectangle src = new(facing < 0 ? tw : 0, 0, tw * facing, th);
-                        Rectangle dest = new(globalPos.X, globalPos.Y, tw * speciesScale, th * speciesScale);
+                        bool heldShield = shieldActive && !shieldPose.RightArm && Program.IsShieldItem(equipment.OffHand);
+                        var shieldTremble = heldShield
+                            ? GetShieldTremble(shieldPose, speciesScale)
+                            : (Vector2.Zero, 0f);
+                        Vector2 itemPos = globalPos + shieldTremble.Item1;
+                        Rectangle dest = new(itemPos.X, itemPos.Y, tw * speciesScale, th * speciesScale);
                         Vector2 origin = new(dest.Width / 2f, dest.Height / 2f);
-                        DrawTextureProWithFlash(offHandTex, src, dest, origin, globalRot, Color.White, flashWhite);
+                        DrawTextureProWithFlash(offHandTex, src, dest, origin, globalRot + shieldTremble.Item2, Color.White, flashWhite);
                     }
                 }
             }

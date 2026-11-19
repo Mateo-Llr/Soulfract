@@ -232,6 +232,8 @@ namespace Soulfract
             _buildingIdsDungeon.Clear();
             Houses.Clear();
             _currentIndoorGroupIds.Clear();
+            _activeHouseBuildingId = 0;
+            _currentHouseFloor = 0;
             _exploredTiles.Clear();
             _boats.Clear();
             SteamEngines.Clear();
@@ -562,7 +564,11 @@ namespace Soulfract
 			var chunksDict = GetChunksDict();
 			if (chunksDict.TryGetValue((chunkX, chunkY), out var chunk))
 			{
-				chunk.Objects[(x, y)] = itemId;
+				bool isHouseFloor = TryGetCurrentHouseFloorTile(x, y, out var houseFloorTile);
+				if (isHouseFloor)
+					houseFloorTile.ObjectId = itemId;
+				else
+					chunk.Objects[(x, y)] = itemId;
 				
 				// Gestion de la variation persistante
 				var tileDef = WorldTileRegistry.GetTile(itemId);
@@ -628,7 +634,7 @@ namespace Soulfract
 				// Un mur/porte vient d'être posé : recalculer les toits, la maison peut
 				// venir de se fermer complètement (ou une autre maison adjacente peut
 				// avoir changé de forme).
-				if (IsWall(itemId))
+				if (!isHouseFloor && IsWall(itemId))
 				{
 					UpdateRoofsAt(x, y);
 				}
@@ -653,6 +659,14 @@ namespace Soulfract
 			var chunksDict = GetChunksDict();
 			if (chunksDict.TryGetValue((chunkX, chunkY), out var chunk))
 			{
+				if (TryGetCurrentHouseFloorTile(x, y, out var houseFloorTile))
+				{
+					houseFloorTile.ObjectId = 0;
+					houseFloorTile.WallCoveringId = 0;
+					Program.InvalidateLightGrid();
+					return;
+				}
+
 				// Récupérer l'ID avant suppression
 				int oldItemId = 0;
 				if (chunk.Objects.TryGetValue((x, y), out int id))

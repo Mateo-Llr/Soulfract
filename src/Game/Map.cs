@@ -259,7 +259,7 @@ namespace Soulfract
 						targetTileX * ts + ts / 2f,
 						targetTileY * ts + ts / 2f);
 					SetPlayerPosition(targetWorld);
-					_smoothedCameraTarget = targetWorld;
+					SetCameraTargetPrecise(targetWorld);
 					_isDraggingMap = false;
 					_gameState = GameState.Playing;
 				}

@@ -48,6 +48,8 @@ namespace Soulfract
 				int[,] buildingIds = ctx.buildingIds;
 				int[,] wallCoveringIds = ctx.wallCoveringIds;
 				var renderItems = _renderItemsPool;
+				bool indoors = _isPlayerIndoors; //  PERF : lu une fois pour la passe
+				bool hideOutside = HidesOutsideWorld; // faux sur une terrasse (étage sans mur)
 
 				for (int ix = 0; ix < width; ix++)
 				{
@@ -96,7 +98,15 @@ namespace Soulfract
 						var tileData = WorldTileRegistry.GetTile(objectId);
 						if (tileData == null) continue;
 
-						float wx = worldX * ts, wy = worldY * ts;
+						float floorOffset = !IsCurrentFloorOpenAir && buildingIds[ix, iy] == CurrentHouseBuildingId
+							? CurrentHouseFloorGroundOffset
+							: 0f;
+						int floorSortLayer = indoors
+							&& !IsCurrentFloorOpenAir
+							&& buildingIds[ix, iy] == CurrentHouseBuildingId
+								? CurrentHouseFloor * 2
+								: 0;
+						float wx = worldX * ts, wy = worldY * ts - floorOffset;
 
 						int objectDrawWidth = tileData.Size != null ? ts * tileData.Size.Width : ts;
 						int objectDrawHeight = tileData.Size != null ? ts * tileData.Size.Height : ts;
@@ -114,16 +124,23 @@ namespace Soulfract
 							objectDrawWidth, MathF.Max(objectDrawY + objectDrawHeight, wy + 8f) - MathF.Min(objectDrawY, hpBarTop)))
 							continue;
 
-						string key = GetTileKeyString(worldX, worldY);
-						if (destroyed.Contains(key)) continue;
-
-						if (_isPlayerIndoors)
+						//  PERF : filtre d'intérieur d'abord (sans effet de bord, même résultat qu'avant) : les tuiles
+						// écartées ici n'allouent plus la clé string.
+						if (hideOutside)
 						{
 							int tileBld = buildingIds[ix, iy];
-							if (!_currentIndoorGroupIds.Contains(tileBld)) continue;
+							if (!IsCurrentIndoorRenderTile(worldX, worldY, tileBld)) continue;
 						}
 
-						objectHP.TryGetValue(key, out var hp);
+						//  PERF : la clé string (allocation) n'est nécessaire que si au moins un des deux registres
+						// n'est pas vide ; sinon Contains() == false et TryGetValue() == false de toute façon.
+						WorldObjectHP? hp = null;
+						if (destroyed.Count != 0 || objectHP.Count != 0)
+						{
+							string key = GetTileKeyString(worldX, worldY);
+							if (destroyed.Contains(key)) continue;
+							objectHP.TryGetValue(key, out hp);
+						}
 
 						//  On utilise l'index LOCAL "ix" (petit, borné à la largeur de la fenêtre visible)
 						// plutôt que "worldX" (coordonnée monde potentiellement grande) pour ce micro-décalage
@@ -133,6 +150,11 @@ namespace Soulfract
 						// final et déterministe reste de toute façon assuré par SortIndex au moment du tri.
 						float sortY = wy + ts + ix * 0.001f;
 
+						//  PERF : tout ce qui est capturé par la lambda est déclaré dans CE bloc. Le compilateur C# alloue
+						// l'objet de fermeture à l'entrée de la portée où vivent les variables capturées : avant, c'était
+						// le corps de la boucle, donc une allocation par TUILE (y compris les ~90 % de tuiles vides, filtrées
+						// par les 'continue' plus haut). Maintenant : une seule par objet réellement ajouté.
+						{
 						//  CRITIQUE : Créer des COPIES LOCALES pour la lambda 
 						int capturedX = worldX;
 						int capturedY = worldY;
@@ -165,7 +187,7 @@ namespace Soulfract
 						renderItems.Add(new RenderItem
 						{
 							Y = sortY,
-							SortLayer = capturedTileData.OnFloor ? -1 : 0,
+							SortLayer = capturedTileData.OnFloor ? floorSortLayer - 1 : floorSortLayer,
 							DrawAction = () =>
 							{
 								if (capturedObjectId == 123)
@@ -361,7 +383,7 @@ namespace Soulfract
 															bool hasVisibleInteriorTile = HasVisibleInteriorTile(capturedX, capturedY);
 										int originalDrawH = drawH;
 										int originalDrawY = drawY;
-										if (isWall && _isPlayerIndoors && capturedTileData.Size != null)
+										if (isWall && HidesOutsideWorld && capturedTileData.Size != null)
 										{
 											int tileAboveY = capturedY - 1;
 											if (tileAboveY >= startY && tileAboveY <= endY)
@@ -585,7 +607,7 @@ namespace Soulfract
 																		{
 																			if (!IsConnectableSameType(nx, ny, capturedObjectId)) return false;
 																		if (!Program.IsTileLit(nx, ny)) return false;
-																			if (_isPlayerIndoors)
+																			if (HidesOutsideWorld)
 																			{
 																				if (!HasVisibleInteriorTile(nx, ny)) return false;
 													// Vérifier le toit seulement pour les connexions verticales
@@ -687,6 +709,7 @@ namespace Soulfract
 												}
 											}
 										}
+
 										// Aquarium (ID 99)
 										else if (capturedObjectId == 99 && capturedTileData.IsContainer == true)
 										{
@@ -758,6 +781,117 @@ namespace Soulfract
 										Raylib.DrawRectangleRoundedLines(barRect, 0.45f, 8, 1, new Color(255, 220, 220, 150));
 									}
 								}
+							}
+						});
+						}
+					}
+				}
+				AddUpperHouseFloors(ctx);
+			}
+
+			private static void AddUpperHouseFloors(DrawWorldContext ctx)
+			{
+				int ts = ctx.ts;
+				float currentTime = ctx.currentTime;
+				var renderItems = _renderItemsPool;
+				bool hideOutside = HidesOutsideWorld;
+
+				foreach (var chunk in GetChunksDict().Values)
+				{
+					foreach (var floorTile in chunk.HouseFloorTiles.Values)
+					{
+						if (hideOutside && !IsCurrentIndoorRenderTile(
+							floorTile.X, floorTile.Y, floorTile.BuildingId))
+							continue;
+						if (_isPlayerIndoors && floorTile.Floor > CurrentHouseFloor)
+							continue;
+						if (_isPlayerIndoors
+							&& !IsCurrentFloorOpenAir
+							&& floorTile.BuildingId == CurrentHouseBuildingId
+							&& floorTile.Floor == CurrentHouseFloor)
+							continue;
+
+						float tileX = floorTile.X * ts;
+						float tileY = floorTile.Y * ts - floorTile.Floor * 3f * ts + ts;
+						int groundId = floorTile.GroundTileId;
+						int objectId = floorTile.ObjectId;
+						int worldX = floorTile.X;
+						int worldY = floorTile.Y;
+						int buildingId = floorTile.BuildingId;
+						int floor = floorTile.Floor;
+						int floorSortLayer = floorTile.Floor * 2;
+						if (!Program.IsTileLit(worldX, worldY))
+							continue;
+
+						if (groundId > 0 && ctx.IsWorldRectVisible(tileX, tileY, ts, ts))
+						{
+							renderItems.Add(new RenderItem
+							{
+								Y = tileY + ts - 0.01f,
+								SortLayer = floorSortLayer - 1,
+								DrawAction = () =>
+								{
+									Texture2D texture = GetTileTexture(worldX, worldY, groundId, currentTime);
+									if (texture.Id == 0) return;
+									Raylib.DrawTexturePro(texture,
+										new Rectangle(0, 0, texture.Width, texture.Height),
+										new Rectangle(tileX, tileY, ts, ts),
+										Vector2.Zero, 0, Color.White);
+								}
+							});
+						}
+
+						if (objectId == 0
+							|| (!_isPlayerIndoors && !IsWall(objectId) && objectId != 84))
+							continue;
+
+						var tileData = WorldTileRegistry.GetTile(objectId);
+						if (tileData == null)
+							continue;
+						int drawWidth = tileData.Size != null ? ts * tileData.Size.Width : ts;
+						int drawHeight = tileData.Size != null ? ts * tileData.Size.Height : ts;
+						float drawX = tileX + (tileData.DrawOffset?.X ?? 0);
+						float drawY = tileY - drawHeight + ts;
+						if (!ctx.IsWorldRectVisible(drawX, drawY, drawWidth, drawHeight))
+							continue;
+
+						renderItems.Add(new RenderItem
+						{
+							Y = tileY + ts,
+							SortLayer = tileData.OnFloor ? floorSortLayer - 1 : floorSortLayer,
+							DrawAction = () =>
+							{
+								Texture2D texture = GetTileTexture(worldX, worldY, objectId, currentTime);
+								if (texture.Id == 0) return;
+								Raylib.DrawTexturePro(texture,
+									new Rectangle(0, 0, texture.Width, texture.Height),
+									new Rectangle(drawX, drawY, drawWidth, drawHeight),
+									Vector2.Zero, 0, Color.White);
+
+								if (!WorldTileRegistry.IsConnectable(objectId))
+									return;
+
+								void DrawConnection(int neighborX, int neighborY, string direction)
+								{
+									if (!TryGetHouseFloorTile(buildingId, floor, neighborX, neighborY, out var neighbor)
+										|| neighbor.ObjectId != objectId
+										|| !Program.IsTileLit(neighborX, neighborY))
+										return;
+
+									Texture2D connection = WorldTileRegistry.GetConnectionTexture(objectId, direction);
+									if (connection.Id == 0)
+										return;
+
+									Raylib.DrawTexturePro(connection,
+										new Rectangle(0, 0, connection.Width, connection.Height),
+										new Rectangle(drawX, drawY, drawWidth, drawHeight),
+										Vector2.Zero, 0, Color.White);
+								}
+
+								DrawConnection(worldX - 1, worldY, "left");
+								DrawConnection(worldX + 1, worldY, "right");
+								DrawConnection(worldX, worldY - 1, "up");
+								DrawConnection(worldX, worldY + 1, "down");
 							}
 						});
 					}

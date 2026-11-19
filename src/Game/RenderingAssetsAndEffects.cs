@@ -185,6 +185,8 @@ namespace Soulfract
 		public static Vector2 GetPlayerAimOrigin(Vector2 playerPos)
 		{
 			Vector2 visualPos = GetPlayerVisualPosition(playerPos);
+			if (World.IsPlayerIndoors)
+				visualPos.Y -= World.CurrentHouseFloorOffset;
 			string speciesName = string.IsNullOrWhiteSpace(PlayerMorphSpecies) ? "human" : PlayerMorphSpecies;
 			string speciesKey = speciesName.ToLowerInvariant();
 			if (SpeciesData.Skeletons.TryGetValue(speciesKey, out var skeleton) && skeleton.Any(part => part.Name == "head"))

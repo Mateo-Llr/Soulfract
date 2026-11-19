@@ -85,6 +85,12 @@ namespace Soulfract
 
 		public static void AddOverlay(int x, int y, int itemId)
 		{
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+			{
+				floorTile.OverlayId = itemId;
+				return;
+			}
+
 			int chunkX = x / CHUNK_SIZE;
 			int chunkY = y / CHUNK_SIZE;
 			if (x < 0) chunkX = (x - CHUNK_SIZE + 1) / CHUNK_SIZE;
@@ -113,6 +119,12 @@ namespace Soulfract
 
 		public static void RemoveOverlay(int x, int y)
 		{
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+			{
+				floorTile.OverlayId = 0;
+				return;
+			}
+
 			int chunkX = x / CHUNK_SIZE;
 			int chunkY = y / CHUNK_SIZE;
 			if (x < 0) chunkX = (x - CHUNK_SIZE + 1) / CHUNK_SIZE;
@@ -143,6 +155,11 @@ namespace Soulfract
 			if (x == int.MinValue || x == int.MaxValue || y == int.MinValue || y == int.MaxValue)
 				return 0;
 
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+				return floorTile.OverlayId;
+			if (IsUnbuiltCurrentHouseFloorTile(x, y))
+				return 0;
+
 			var chunksDict = GetChunksDict();
 			int chunkX = x / CHUNK_SIZE;
 			int chunkY = y / CHUNK_SIZE;
@@ -155,6 +172,13 @@ namespace Soulfract
 
 		public static void SetGroundTile_Apply(int x, int y, int groundTileId)
 		{
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+			{
+				floorTile.GroundTileId = groundTileId;
+				InvalidateTerrainChunkRenderCache(x, y);
+				return;
+			}
+
 			int chunkX = x / CHUNK_SIZE;
 			int chunkY = y / CHUNK_SIZE;
 			if (x < 0) chunkX = (x - CHUNK_SIZE + 1) / CHUNK_SIZE;
@@ -169,6 +193,13 @@ namespace Soulfract
 
 		public static void RemoveGroundOverride(int x, int y)
 		{
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+			{
+				floorTile.GroundTileId = 0;
+				InvalidateTerrainChunkRenderCache(x, y);
+				return;
+			}
+
 			int chunkX = x / CHUNK_SIZE;
 			int chunkY = y / CHUNK_SIZE;
 			if (x < 0) chunkX = (x - CHUNK_SIZE + 1) / CHUNK_SIZE;
@@ -865,6 +896,11 @@ namespace Soulfract
 		{
 			// Sécurité : coordonnées extrêmes
 			if (x == int.MinValue || x == int.MaxValue || y == int.MinValue || y == int.MaxValue)
+				return 0;
+
+			if (TryGetCurrentHouseFloorTile(x, y, out var floorTile))
+				return floorTile.ObjectId;
+			if (IsUnbuiltCurrentHouseFloorTile(x, y))
 				return 0;
 
 			var chunksDict = GetChunksDict();

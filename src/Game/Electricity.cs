@@ -436,6 +436,8 @@ namespace Soulfract
 			var occupied = new HashSet<(int x, int y)>();
 			foreach (var p in GetLocalPlayers())
 				occupied.Add(((int)(p.Position.X / ts), (int)(p.Position.Y / ts)));
+			foreach (var p in NetworkManager.GetRemotePlayersAsLocalPlayers())
+				occupied.Add(((int)(p.Position.X / ts), (int)(p.Position.Y / ts)));
 			foreach (var e in entities)
 			{
 				if (!e.IsAlive) continue;
